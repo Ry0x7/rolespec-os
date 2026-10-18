@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>RoleSpec Job Clipper</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body class="sidepanel">
+    <header class="header">
+      <h1>Clip to RoleSpec</h1>
+      <a id="open-options" class="link" href="#">Options</a>
+    </header>
+
+    <div id="setup" class="notice notice-warn" hidden>
+      <p id="setup-text" class="setup-text">Connect this clipper to RoleSpec before saving jobs.</p>
+      <button id="setup-sign-in" class="button" type="button">Sign in to RoleSpec</button>
+      <p class="hint">
+        Different App URL, or pasting a token by hand?
+        <a id="setup-link" class="link" href="#">Open options</a>
+      </p>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Panel mode">
+      <button
+        id="tab-clip"
+        class="tab is-active"
+        type="button"
+        role="tab"
+        aria-selected="true"
+        aria-controls="view-clip"
+      >
+        Clip job
+      </button>
+      <button
+        id="tab-email"
+        class="tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="view-email"
+      >
+        Cold email
+      </button>
+      <button
+        id="tab-reply"
+        class="tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="view-reply"
+      >
+        Reply
+      </button>
+      <button
+        id="tab-search"
+        class="tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="view-search"
+      >
+        Search
+      </button>
+    </div>
+
+    <section id="view-clip" role="tabpanel" aria-labelledby="tab-clip">
+      <p id="extract-note" class="hint" hidden></p>
+      <button id="grant-access" class="button button-quiet button-note" type="button" hidden>
+        Allow RoleSpec to read this site
+      </button>
+      <button id="replace-page" class="button button-quiet" type="button" hidden>
+        Replace with this page
+      </button>
+      <button id="enable-badges" class="button button-quiet button-note" type="button" hidden>
+        Show fit badges on this site
+      </button>
+      <p id="badge-note" class="hint" role="status" hidden></p>
+
+      <form id="form" class="form">
+        <label class="field">
+          <span>Company <span class="required">*</span></span>
+          <input id="companyName" name="companyName" type="text" maxlength="200" required />
+        </label>
+
+        <label class="field">
+          <span>Job title <span class="required">*</span></span>
+          <input id="jobTitle" name="jobTitle" type="text" maxlength="200" required />
+        </label>
+
+        <label class="field">
+          <span>Link</span>
+          <input id="jobLink" name="jobLink" type="url" />
+        </label>
+
+        <div class="row">
+          <label class="field">
+            <span>Location</span>
+            <input id="location" name="location" type="text" maxlength="200" />
+          </label>
+          <label class="field">
+            <span>Salary</span>
+            <input id="salary" name="salary" type="number" min="1" step="1" inputmode="numeric" />
+            <small id="salary-range-hint" class="hint" hidden></small>
+          </label>
+        </div>
+
+        <div class="row">
+          <label class="field">
+            <span>Currency</span>
+            <select id="salaryCurrency" name="salaryCurrency">
+              <option value="USD" selected>USD</option>
+              <option value="PHP">PHP</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Pay period</span>
+            <select id="salaryPeriod" name="salaryPeriod">
+              <option value="">Not specified</option>
+              <option value="HOURLY">Hourly</option>
+              <option value="MONTHLY">Monthly</option>
+              <option value="YEARLY">Yearly</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="row">
+          <label class="field">
+            <span>Job type</span>
+            <select id="jobType" name="jobType">
+              <option value="">Not specified</option>
+              <option value="FULL_TIME">Full-time</option>
+              <option value="PART_TIME">Part-time</option>
+              <option value="CONTRACT">Contract</option>
+              <option value="INTERNSHIP">Internship</option>
+              <option value="FREELANCE">Freelance</option>
+              <option value="TEMPORARY">Temporary</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Work type</span>
+            <select id="workType" name="workType">
+              <option value="">Not specified</option>
+              <option value="REMOTE">Remote (WFH)</option>
+              <option value="HYBRID">Hybrid</option>
+              <option value="ONSITE">On-site</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span class="field-head">
+            Description
+            <small id="description-count" class="counter">0 / 20000</small>
+          </span>
+          <textarea id="jobDescription" name="jobDescription" rows="6" maxlength="20000"></textarea>
+        </label>
+
+        <!-- Read from the posting, never typed: kept in the form so Save sends
+             exactly what the extractor read, and nothing it did not. -->
+        <input id="postedAt" name="postedAt" type="hidden" />
+        <input id="deadline" name="deadline" type="hidden" />
+
+        <p id="status" class="notice" hidden></p>
+        <p id="clip-risk" class="notice notice-warn" role="alert" hidden></p>
+        <p id="clip-verdict" class="notice" role="status" hidden></p>
+        <p id="clip-context" class="chips" hidden>
+          <span id="clip-market" class="chip" hidden></span>
+          <span id="clip-confidence" class="chip" hidden></span>
+        </p>
+        <p id="clip-match" class="hint" hidden></p>
+        <p id="clip-requirements" class="hint" hidden></p>
+
+        <button id="save" class="button" type="submit">Save to RoleSpec</button>
+        <button id="clip-another" class="button button-quiet" type="button" hidden>
+          Clip another job
+        </button>
+      </form>
+    </section>
+
+    <section id="view-email" role="tabpanel" aria-labelledby="tab-email" hidden>
+      <p class="hint">
+        Draft an outreach email to someone from their LinkedIn profile, using your
+        RoleSpec resume.
+      </p>
+
+      <p id="email-note" class="hint" hidden></p>
+
+      <form id="email-form" class="form">
+        <button id="read-profile" class="button button-quiet" type="button">
+          Read profile from page
+        </button>
+
+        <label class="field">
+          <span>Name <span class="required">*</span></span>
+          <input id="personName" name="personName" type="text" maxlength="200" required />
+        </label>
+
+        <label class="field">
+          <span>Headline</span>
+          <input id="personHeadline" name="personHeadline" type="text" maxlength="300" />
+        </label>
+
+        <label class="field">
+          <span>Company</span>
+          <input id="personCompany" name="personCompany" type="text" maxlength="200" />
+        </label>
+
+        <label class="field">
+          <span>Profile URL</span>
+          <input id="personProfileUrl" name="personProfileUrl" type="url" maxlength="500" />
+        </label>
+
+        <label class="field">
+          <span class="field-head">
+            About
+            <small id="about-count" class="counter">0 / 5000</small>
+          </span>
+          <textarea id="personAbout" name="personAbout" rows="5" maxlength="5000"></textarea>
+        </label>
+
+        <label class="field">
+          <span>Instructions (optional)</span>
+          <textarea
+            id="emailInstructions"
+            name="emailInstructions"
+            rows="2"
+            maxlength="1000"
+            placeholder="e.g. mention we both worked in fintech"
+          ></textarea>
+        </label>
+
+        <div class="row">
+          <label class="field">
+            <span>Message type</span>
+            <select id="messageType" name="messageType">
+              <option value="cold_email">Cold email</option>
+              <option value="connection_note">Connection note (≤200 chars)</option>
+              <option value="linkedin_dm">LinkedIn DM</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Tone</span>
+            <select id="emailTone" name="emailTone">
+              <option value="professional">Professional</option>
+              <option value="warm">Warm</option>
+              <option value="direct">Direct</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Resume</span>
+          <select id="emailResume" name="emailResume">
+            <option value="">Latest resume</option>
+          </select>
+        </label>
+
+        <p id="email-status" class="notice" hidden></p>
+
+        <button id="generate-email" class="button" type="submit">
+          Generate cold email
+        </button>
+      </form>
+
+      <div id="email-result" class="form result" hidden>
+        <div id="email-subject-row" class="field">
+          <span class="field-head">
+            <label for="email-subject">Subject</label>
+            <button id="copy-subject" class="button button-quiet button-mini" type="button">
+              Copy
+            </button>
+          </span>
+          <input id="email-subject" type="text" readonly />
+        </div>
+
+        <div class="field">
+          <span class="field-head">
+            <label for="email-body">Email</label>
+            <span class="field-head-actions">
+              <small id="email-body-count" class="counter" hidden></small>
+              <button id="copy-body" class="button button-quiet button-mini" type="button">
+                Copy
+              </button>
+            </span>
+          </span>
+          <textarea id="email-body" rows="10" readonly></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-reply" role="tabpanel" aria-labelledby="tab-reply" hidden>
+      <p class="hint">
+        Draft a reply to an email you received, using your RoleSpec resume.
+      </p>
+
+      <form id="reply-form" class="form">
+        <label class="field">
+          <span class="field-head">
+            <span>Paste the email you received <span class="required">*</span></span>
+            <small id="received-count" class="counter">0 / 8000</small>
+          </span>
+          <textarea
+            id="receivedEmail"
+            name="receivedEmail"
+            rows="8"
+            maxlength="8000"
+            required
+          ></textarea>
+        </label>
+
+        <div class="row">
+          <label class="field">
+            <span>Company</span>
+            <input id="replyCompany" name="replyCompany" type="text" maxlength="200" />
+          </label>
+          <label class="field">
+            <span>Job title</span>
+            <input id="replyJobTitle" name="replyJobTitle" type="text" maxlength="200" />
+          </label>
+        </div>
+
+        <div class="row">
+          <label class="field">
+            <span>Tone</span>
+            <select id="replyTone" name="replyTone">
+              <option value="professional">Professional</option>
+              <option value="warm">Warm</option>
+              <option value="direct">Direct</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Length</span>
+            <select id="replyLength" name="replyLength">
+              <option value="brief">Brief</option>
+              <option value="standard" selected>Standard</option>
+              <option value="detailed">Detailed</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Resume</span>
+          <select id="replyResume" name="replyResume">
+            <option value="">Latest resume</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-head">
+            <span>Earlier messages in this thread (optional)</span>
+            <small id="prior-thread-count" class="counter">0 / 6000</small>
+          </span>
+          <textarea
+            id="replyPriorThread"
+            name="replyPriorThread"
+            rows="4"
+            maxlength="6000"
+            placeholder="Paste the earlier back-and-forth so the reply keeps the context"
+          ></textarea>
+        </label>
+
+        <label class="field">
+          <span>Job description (optional)</span>
+          <textarea
+            id="replyJobDescription"
+            name="replyJobDescription"
+            rows="3"
+            maxlength="5000"
+            placeholder="Paste the posting so the reply can pick up its wording"
+          ></textarea>
+        </label>
+
+        <label class="field">
+          <span>Instructions (optional)</span>
+          <textarea
+            id="replyInstructions"
+            name="replyInstructions"
+            rows="2"
+            maxlength="1000"
+            placeholder="e.g. accept the interview, ask for a Friday slot"
+          ></textarea>
+        </label>
+
+        <p id="reply-status" class="notice" hidden></p>
+
+        <button id="generate-reply" class="button" type="submit">Generate reply</button>
+      </form>
+
+      <div id="reply-result" class="form result" hidden>
+        <div class="field">
+          <span class="field-head">
+            <label for="reply-subject">Subject</label>
+            <button id="copy-reply-subject" class="button button-quiet button-mini" type="button">
+              Copy
+            </button>
+          </span>
+          <input id="reply-subject" type="text" readonly />
+        </div>
+
+        <div class="field">
+          <span class="field-head">
+            <label for="reply-body">Reply</label>
+            <button id="copy-reply-body" class="button button-quiet button-mini" type="button">
+              Copy
+            </button>
+          </span>
+          <textarea id="reply-body" rows="10" readonly></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-search" role="tabpanel" aria-labelledby="tab-search" hidden>
+      <div class="field-head">
+        <p class="hint">Job-board searches built from your Career Profile target roles.</p>
+        <button id="refresh-search" class="button button-quiet button-mini" type="button">
+          Refresh
+        </button>
+      </div>
+
+      <p id="search-status" class="notice" role="status" hidden></p>
+
+      <div id="search-results" class="search-results"></div>
+    </section>
+
+    <script type="module" src="./src/sidepanel.ts"></script>
+  </body>
+</html>

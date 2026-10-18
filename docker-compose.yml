@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rolespec
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rolespec"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # One-off migration runner. Built from the Dockerfile's builder stage because
+  # that is the only layer with prisma/, prisma.config.ts and the prisma CLI
+  # (a dependency, not a devDependency) on disk.
+  migrate:
+    build:
+      context: .
+      target: builder
+    command: npx prisma migrate deploy
+    environment:
+      # Local postgres has no TLS; sslmode=disable keeps node-postgres happy.
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/rolespec?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      args:
+        # Inlined into the client bundle at build time — change this and rebuild
+        # if the app is served from another origin.
+        NEXT_PUBLIC_APP_URL: http://localhost:3000
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      # Pinned: claude-code / ollama / lmstudio providers are local-only and
+      # cannot work inside the container.
+      AI_PROVIDER: openai
+      # Exports fall back to local disk when BLOB_READ_WRITE_TOKEN is unset in
+      # .env.docker; this directory is backed by the export-data volume below.
+      EXPORT_STORAGE_DIR: /app/data/exports
+    volumes:
+      - export-data:/app/data/exports
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  db-data:
+  export-data:

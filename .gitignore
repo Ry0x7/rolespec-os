@@ -1,0 +1,66 @@
+# dependencies
+node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+
+# local env files
+.env
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# prisma
+/src/generated/prisma
+
+# local screenshots
+/scripts/screenshots/
+/scripts/ux-audit/
+/scripts/pdf-preview/
+
+#claude
+.claude
+.playwright-mcp
+.superpowers
+docs/superpowers/
+
+.env*
+!.env.example
+!.env.docker.example
+.serena
+*.pdf
+
+# Local export storage fallback (no BLOB_READ_WRITE_TOKEN)
+/.exports/
+.impeccable/
+.codex/
+.agents/skills/
+
+# chrome extension (standalone build)
+/extension/node_modules/
+/extension/dist/
+
+# local extension verification harness
+/scripts/verify-extension/
+/.tmp-verify-extension/

@@ -1,0 +1,75 @@
+name: CI
+
+# Every push and PR. The repo had no CI at all, which is how a build-breaking
+# gap (an ungenerated Prisma client) reached main undetected.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # A new push to the same ref cancels the previous run — dependabot opens
+  # several PRs at once and there is no reason to finish superseded runs.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # `npm run build` runs `prisma generate` first, and the generated client is
+  # gitignored, so every job that touches TypeScript needs it. No database is
+  # reachable here: generate only reads schema.prisma, it does not connect.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+  # Set so `next build` does not have to guess an origin. Never a real secret.
+  AUTH_SECRET: ci-build-only-secret-not-used-to-sign-anything
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  # playwright is a devDependency used only by scripts/screenshot.ts; without
+  # this every install pulls ~500 MB of browsers.
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+jobs:
+  verify:
+    name: ${{ matrix.task.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      # Report every failure in one run rather than stopping at the first.
+      fail-fast: false
+      matrix:
+        task:
+          - name: types
+            run: npx tsc --noEmit
+          - name: lint
+            run: npm run lint
+          - name: test
+            run: npm test
+          - name: build
+            run: npm run build
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # engines.node is >=22 and the lockfile requires it.
+          node-version: 22
+          cache: npm
+
+      # `npm ci` runs the postinstall, which is `prisma generate`.
+      - run: npm ci
+
+      - run: ${{ matrix.task.run }}
+
+  audit:
+    name: audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Production deps gate at high/critical. Dev-only deps are reported but do
+      # not fail: a dev-only transitive advisory with no upstream fix (currently
+      # braces GHSA-vfj7-8cjw-p6xm via eslint-config-next) must not block unrelated
+      # PRs. Remove the dev exception when a fixed braces ships.
+      - run: npm audit --audit-level=high --omit=dev
+      - run: npm audit --audit-level=high
+        continue-on-error: true

@@ -1,0 +1,927 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id                  String     @id @default(cuid())
+  name                String?
+  email               String     @unique
+  /// Required by the Auth.js Prisma adapter, which reads and writes it on every
+  /// OAuth link. Nothing in the app reads it — there is no email-verification flow.
+  emailVerified       DateTime?
+  image               String?
+  password            String?
+  /// Set whenever the password changes. Sessions minted before this instant are
+  /// treated as stale and invalidated on the next JWT refresh.
+  passwordChangedAt   DateTime?
+  /// Bumped to revoke every existing session for this user (see
+  /// `revokeUserSessions`). A token carrying an older value is invalidated on its
+  /// next JWT refresh.
+  sessionVersion      Int        @default(0)
+  role                UserRole   @default(USER)
+  status              UserStatus @default(ACTIVE)
+  suspendedAt         DateTime?
+  /// per-user daily AI request cap override; null = app default.
+  aiDailyRequestLimit Int?
+  preferences         Json?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  accounts            Account[]
+  sessions            Session[]
+  profile             PlayerProfile?
+  resumes             Resume[]
+  atsAnalyses         ATSAnalysis[]
+  resumeExports       ResumeExport[]
+  jobs                Job[]
+  jobApplications     JobApplication[]
+  coverLetters        CoverLetter[]
+  todos               Todo[]
+  notes               Note[]
+  profileRatings      ProfileRating[]
+  linkedinSuggestions LinkedinSuggestion[]
+  aiSettingsUpdates   AiSettings[]
+  apiTokens           ApiToken[]
+  aiSettings          UserAiSettings?
+  careerProfile       CareerProfile?
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+/// Long-lived personal access tokens, issued from /settings so the browser
+/// extension can call the API without a session cookie. Only the SHA-256 of the
+/// token is stored — the raw value is shown to the user exactly once.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  /// SHA-256 hex of the raw `rspec_…` token. Unique so lookup is a single
+  /// indexed read rather than a scan-and-compare.
+  tokenHash  String    @unique
+  /// User-supplied label, so a token can be recognised before revoking it.
+  name       String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  /// Optional expiry, chosen at creation time. Null means the token lives until
+  /// it is revoked, which is the default and the pre-existing behaviour.
+  expiresAt  DateTime?
+  /// Set instead of deleting the row, so a revoked token can never be reissued
+  /// by chance and the user keeps a record of what existed.
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("api_tokens")
+}
+
+// ─────────────────────────────────────────────
+// RESUME
+// ─────────────────────────────────────────────
+
+model Resume {
+  id               String        @id @default(cuid())
+  userId           String
+  careerProfileId  String?
+  roleFamilyId     String?
+  jobApplicationId String?
+  sourceResumeId   String?
+  title            String
+  targetRole       String?
+  targetCompany    String?
+  template         Template      @default(MINIMAL)
+  status           ResumeStatus  @default(DRAFT)
+  variant          ResumeVariant @default(MASTER)
+  atsScore         Int?
+  version          Int           @default(1)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  careerProfile  CareerProfile?    @relation(fields: [careerProfileId, userId], references: [id, userId], onDelete: Cascade)
+  roleFamily     CareerRoleFamily? @relation(fields: [roleFamilyId, careerProfileId], references: [id, careerProfileId], onDelete: SetNull)
+  jobApplication JobApplication?   @relation("TailoredResumeSource", fields: [jobApplicationId, userId], references: [id, userId], onDelete: SetNull)
+  sections       ResumeSection[]
+  analyses       ATSAnalysis[]
+  exports        ResumeExport[]
+  coverLetters   CoverLetter[]
+  /// Applications that picked this resume as the one they submit.
+  submittedFor   JobApplication[]  @relation("SubmittedResume")
+  /// Resume this one was derived from (Role Family or Job-Tailored). Null for
+  /// masters and for rows created before lineage was recorded.
+  sourceResume   Resume?           @relation("ResumeLineage", fields: [sourceResumeId], references: [id], onDelete: SetNull)
+  derivedResumes Resume[]          @relation("ResumeLineage")
+
+  // Target of the applications composite FK: the resume an application submits
+  // must belong to the same user that owns the application row.
+  @@unique([id, userId])
+  @@index([userId, status])
+  @@index([careerProfileId, userId])
+  @@index([roleFamilyId, careerProfileId])
+  @@index([jobApplicationId, userId])
+  @@index([sourceResumeId])
+  @@map("resumes")
+}
+
+model ResumeSection {
+  id       String      @id @default(cuid())
+  resumeId String
+  type     SectionType
+  title    String
+  order    Int
+  visible  Boolean     @default(true)
+
+  resume Resume              @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  items  ResumeSectionItem[]
+
+  @@index([resumeId, order])
+  @@map("resume_sections")
+}
+
+model ResumeSectionItem {
+  id        String @id @default(cuid())
+  sectionId String
+  content   Json
+  metadata  Json?
+  order     Int
+
+  section ResumeSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId, order])
+  @@map("resume_section_items")
+}
+
+// ─────────────────────────────────────────────
+// ATS
+// ─────────────────────────────────────────────
+
+model ATSAnalysis {
+  id             String          @id @default(cuid())
+  resumeId       String
+  userId         String
+  overallScore   Int
+  scores         Json
+  issues         Json
+  suggestions    Json
+  jobDescription String?         @db.Text
+  mode           ATSAnalysisMode
+  createdAt      DateTime        @default(now())
+
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([resumeId])
+  @@index([userId, createdAt])
+  @@map("ats_analyses")
+}
+
+// ─────────────────────────────────────────────
+// PROFILE
+// ─────────────────────────────────────────────
+
+model PlayerProfile {
+  id                    String           @id @default(cuid())
+  userId                String           @unique
+  currentRole           String?
+  targetRole            String?
+  applicationGoalTarget Int              @default(10)
+  applicationGoalPeriod GoalPeriod       @default(WEEKLY)
+  experienceLevel       ExperienceLevel?
+  onboardedAt           DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("player_profiles")
+}
+
+model ResumeExport {
+  id           String   @id @default(cuid())
+  resumeId     String
+  userId       String
+  templateUrls Json?
+  version      Int      @default(1)
+  createdAt    DateTime @default(now())
+
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([resumeId])
+  @@index([userId])
+  @@map("resume_exports")
+}
+
+// ─── JOBS ─────────────────────────────────────────────
+
+model JobApplication {
+  id               String            @id @default(cuid())
+  userId           String
+  /// The posting this application is about. Required: an application always
+  /// describes exactly one `Job`, which owns every posting field.
+  jobId            String
+  status           ApplicationStatus @default(INTERESTED)
+  dateApplied      DateTime?         @db.Date
+  contact          String?
+  interviewDate    DateTime?
+  /// When to chase this application. Null means no follow-up is scheduled.
+  followUpAt       DateTime?
+  /// When the user last marked a follow-up done. Kept after `followUpAt` is
+  /// cleared so the application remembers that the chase happened.
+  lastFollowedUpAt DateTime?
+  /// The calendar day (UTC midnight) this application reached a terminal status
+  /// — OFFER, REJECTED or WITHDRAWN. Stamped once, on the first such transition,
+  /// and kept if the user later re-opens the application.
+  outcomeAt        DateTime?
+  /// The user's own note about how it ended. Always optional: recording an
+  /// outcome must never block moving the status.
+  outcomeNote      String?           @db.Text
+  /// The resume chosen/submitted for this application, as opposed to the
+  /// tailored resumes generated from it (`tailoredResumes`).
+  resumeId         String?
+  notes            String?           @db.Text
+  matchScore       Int?
+  /// Last resume↔job match result ({ summary, matchedKeywords, missingKeywords, suggestions }); never contains resume text.
+  matchResult      Json?
+  matchResumeId    String?
+  matchCheckedAt   DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job                Job                 @relation(fields: [jobId, userId], references: [id, userId], onDelete: Restrict)
+  coverLetters       CoverLetter[]
+  todos              Todo[]
+  interviewQuestions InterviewQuestion[]
+  tailoredResumes    Resume[]            @relation("TailoredResumeSource")
+  submittedResume    Resume?             @relation("SubmittedResume", fields: [resumeId, userId], references: [id, userId], onDelete: SetNull)
+
+  // Target of the resumes composite FK: a tailored resume's application must
+  // belong to the same user that owns the resume row.
+  @@unique([id, userId])
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([jobId, userId])
+  @@index([resumeId, userId])
+  @@map("job_applications")
+}
+
+/// A job posting as a thing in the world, separate from the user's decision to
+/// pursue it (`JobApplication`). Field names follow the discovery pipeline's
+/// vocabulary (`NormalizedPosting`), not `JobApplication`'s `job*` prefixes.
+///
+/// Scoped per user like every other resource here: two users who discover the
+/// same posting get one row each. Dedupe therefore stays per-user, exactly as
+/// it behaves today.
+model Job {
+  id               String         @id @default(cuid())
+  userId           String
+  companyName      String
+  title            String
+  url              String?
+  location         String?
+  jobType          JobType?
+  workType         WorkType?
+  salary           Int?
+  salaryPeriod     SalaryPeriod?
+  salaryCurrency   SalaryCurrency @default(USD)
+  description      String?        @db.Text
+  deadline         DateTime?      @db.Date
+  riskLevel        JobRiskLevel?
+  /// string[] of human-readable reasons behind `riskLevel`.
+  riskReasons      Json?
+  riskSource       JobRiskSource?
+  riskCheckedAt    DateTime?
+  /// string[] of requirement flag keys (e.g. "US_ONLY", "NO_SPONSORSHIP") detected in the posting.
+  requirementFlags Json?
+  /// The deterministic Career-Profile qualification as it read when this posting was saved
+  /// ({ verdict, nextAction, checkedAt, worthIt, eligible, match, risk }). Never AI output, and
+  /// never re-derived on read: it is the answer the user actually saw when they decided to save.
+  qualification    Json?
+  /// How this posting entered RoleSpec: manual entry, the browser extension, or job discovery.
+  source           JobSource      @default(MANUAL)
+  /// Discovery/extension source adapter id (e.g. "remotive"). Null for manual entries.
+  sourceProvider   String?
+  /// The provider's own posting id, used with `sourceProvider` as a dedupe fallback.
+  externalId       String?
+  /// Normalized posting URL (lowercased host, no fragment, no utm_* params) used for dedupe.
+  canonicalUrl     String?
+  discoveredAt     DateTime?
+  postedAt         DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications JobApplication[]
+
+  // Target of the applications composite FK: an application's job must belong
+  // to the same user that owns the application row.
+  @@unique([id, userId])
+  // The dedupe key. Postgres treats NULLs as distinct, so any number of
+  // postings without a resolvable URL (manual entries, imports) coexist.
+  @@unique([userId, canonicalUrl])
+  @@index([userId, createdAt])
+  @@map("jobs")
+}
+
+model CoverLetter {
+  id               String   @id @default(cuid())
+  userId           String
+  resumeId         String
+  jobApplicationId String?
+  jobDescription   String   @db.Text
+  content          String   @db.Text
+  suggestions      Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume         Resume          @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  jobApplication JobApplication? @relation(fields: [jobApplicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([resumeId])
+  @@index([jobApplicationId])
+  @@map("cover_letters")
+}
+
+/// Questions attached to a tracked application: either lifted verbatim from the
+/// scraped job description, or generated on demand. Display-only for now; kept
+/// separate from the application row so a future practice mode can build on it.
+model InterviewQuestion {
+  id               String                  @id @default(cuid())
+  jobApplicationId String
+  question         String                  @db.Text
+  source           InterviewQuestionSource
+  createdAt        DateTime                @default(now())
+
+  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([jobApplicationId])
+  @@map("interview_questions")
+}
+
+// ─── PLANNER ─────────────────────────────────────────
+
+model Todo {
+  id               String    @id @default(cuid())
+  userId           String
+  title            String
+  done             Boolean   @default(false)
+  dueDate          DateTime?
+  jobApplicationId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobApplication JobApplication? @relation(fields: [jobApplicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, done])
+  @@index([jobApplicationId])
+  @@map("todos")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notes")
+}
+
+// ─── ADMIN ───────────────────────────────────
+
+/// Single-row (`id = "singleton"`) app-level AI routing config. Null columns fall
+/// back to the env defaults in `src/shared/lib/ai-provider.ts`. Base URLs stay
+/// env-only. The `*ApiKeyEnc` columns hold admin-entered LLM API keys encrypted
+/// with AES-256-GCM (`src/shared/lib/secret-box.ts`, key derived from
+/// `AUTH_SECRET`); a stored key wins over the matching env var. Plaintext keys
+/// are never stored and never sent to the client.
+model AiSettings {
+  id                 String  @id @default("singleton")
+  provider           String?
+  model              String?
+  temperature        Float?
+  maxOutputTokens    Int?
+  openaiApiKeyEnc    String? @db.Text
+  anthropicApiKeyEnc String? @db.Text
+
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("ai_settings")
+}
+
+/// Per-user override of the deployment-wide `AiSettings`. `apiKeyEnc` holds the
+/// user's own LLM API key encrypted with AES-256-GCM
+/// (`src/shared/lib/secret-box.ts`); plaintext is never stored or returned.
+model UserAiSettings {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  provider  String?
+  model     String?
+  /// secret-box envelope; plaintext never stored or returned.
+  apiKeyEnc String?  @db.Text
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_ai_settings")
+}
+
+/// Append-only record of one AI generation call: which feature asked for it, what
+/// it cost in tokens, and whether it succeeded. Deliberately has no relation to
+/// `User` — `userId` is a snapshot so usage history survives account deletion.
+/// Every token column is nullable because local providers frequently report no
+/// usage at all. Writes are best-effort and must never fail the AI call.
+model AiUsageEvent {
+  id                String   @id @default(cuid())
+  userId            String?
+  feature           String
+  surface           String
+  provider          String
+  model             String
+  inputTokens       Int?
+  outputTokens      Int?
+  totalTokens       Int?
+  cachedInputTokens Int?
+  reasoningTokens   Int?
+  durationMs        Int?
+  ok                Boolean
+  createdAt         DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([feature, createdAt])
+  @@index([userId, createdAt])
+  @@map("ai_usage_events")
+}
+
+/// Append-only log of rate-limited attempts, shared by every feature that needs a
+/// sliding window but has no artifact table of its own (sign-in, sign-up, free AI
+/// actions). `bucket` namespaces the limit and `identifier` is whatever the caller
+/// keys on — a lowercased email, a userId, or an IP. Rows are only ever counted
+/// inside a window, so old ones can be pruned freely.
+model RateLimitAttempt {
+  id         String   @id @default(cuid())
+  bucket     String
+  identifier String
+  createdAt  DateTime @default(now())
+
+  @@index([bucket, identifier, createdAt])
+  @@map("rate_limit_attempts")
+}
+
+// ─────────────────────────────────────────────
+// PROFILE RATING
+// ─────────────────────────────────────────────
+
+model ProfileRating {
+  id           String            @id @default(cuid())
+  userId       String
+  kind         ProfileRatingKind
+  sourceUrl    String?
+  overallScore Int
+  scores       Json
+  issues       Json
+  suggestions  Json
+  benchmark    Json?
+  createdAt    DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
+  @@map("profile_ratings")
+}
+
+// ─────────────────────────────────────────────
+// LINKEDIN ASSIST
+// ─────────────────────────────────────────────
+
+model LinkedinSuggestion {
+  id          String   @id @default(cuid())
+  userId      String
+  suggestions Json
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("linkedin_suggestions")
+}
+
+// ─────────────────────────────────────────────
+// CAREER PROFILE
+// ─────────────────────────────────────────────
+
+/// Private, per-user canonical source of career truth. Deliberately holds only
+/// *preferences and direction*; durable facts live in `CareerEvidence` and
+/// capabilities in `CareerCapability`, so there is exactly one place per kind of
+/// truth. `PlayerProfile` is untouched and still owns onboarding/workspace
+/// goals — this model does not replace it in this slice.
+///
+/// Nothing in this domain may be populated from job-description text: a posting
+/// is never evidence that the user has a capability.
+model CareerProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  /// Contact details as they should appear on a resume header. Kept here rather
+  /// than read from the account (`User.name`/`User.email`): the address someone
+  /// signs in with is often not the one they want an employer to reply to.
+  /// Every field is optional — resume assembly falls back to the account for
+  /// name and email, and leaves anything else blank rather than inventing it.
+  contactFullName String?
+  contactEmail    String?
+  contactPhone    String?
+  contactLocation String?
+  linkedinUrl     String?
+  githubUrl       String?
+  websiteUrl      String?
+
+  /// Self-declared seniority. Reuses the existing `ExperienceLevel` enum rather
+  /// than introducing a parallel one.
+  experienceLevel     ExperienceLevel?
+  /// Preferred locations, free text (city/region/country), user-ordered.
+  /// `@default([])` is explicit so the column is never SQL NULL: a NULL array
+  /// reads back as `[]` but is skipped by list filters such as `isEmpty`.
+  locations           String[]         @default([])
+  openToRelocation    Boolean          @default(false)
+  /// Preferred work modes. Reuses the existing `WorkType` enum.
+  workModes           WorkType[]       @default([])
+  /// Free text, e.g. "PH citizen; needs H-1B sponsorship for US roles".
+  workAuthorization   String?          @db.Text
+  /// Tri-state on purpose: null means the user has not answered.
+  requiresSponsorship Boolean?
+  salaryMin           Int?
+  salaryMax           Int?
+  salaryPeriod        SalaryPeriod?
+  salaryCurrency      SalaryCurrency   @default(USD)
+  careerGoals         String?          @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleFamilies CareerRoleFamily[]
+  targetRoles  CareerTargetRole[]
+  evidence     CareerEvidence[]
+  capabilities CareerCapability[]
+  resumes      Resume[]
+
+  @@unique([id, userId])
+  @@map("career_profiles")
+}
+
+/// Reusable grouping of similar target roles ("Frontend Engineering"), so a
+/// role-family resume variant can later be derived without re-deriving the
+/// grouping from free text.
+model CareerRoleFamily {
+  id              String   @id @default(cuid())
+  careerProfileId String
+  name            String
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  careerProfile CareerProfile      @relation(fields: [careerProfileId], references: [id], onDelete: Cascade)
+  targetRoles   CareerTargetRole[]
+  resumes       Resume[]
+
+  @@unique([careerProfileId, name])
+  @@unique([id, careerProfileId])
+  @@map("career_role_families")
+}
+
+model CareerTargetRole {
+  id              String  @id @default(cuid())
+  careerProfileId String
+  title           String
+  roleFamilyId    String?
+  /// Lower sorts first. Ties fall back to `createdAt`.
+  priority        Int     @default(0)
+  /// Kept rather than deleted so a paused direction can be resumed.
+  active          Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  careerProfile CareerProfile     @relation(fields: [careerProfileId], references: [id], onDelete: Cascade)
+  roleFamily    CareerRoleFamily? @relation(fields: [roleFamilyId], references: [id], onDelete: SetNull)
+
+  @@unique([careerProfileId, title])
+  @@index([careerProfileId, active, priority])
+  @@map("career_target_roles")
+}
+
+/// One durable career fact. A single typed row rather than five near-identical
+/// tables: the categories differ in labelling, not in shape, and `kind` keeps
+/// every required category explicit.
+///
+/// `source` + `status` are the whole provenance record. A row that came from a
+/// resume is written as RESUME_IMPORT_CANDIDATE/CANDIDATE and stays a candidate
+/// until the user explicitly confirms it — the database default is CANDIDATE so
+/// no code path can accidentally create pre-confirmed evidence.
+///
+/// There is deliberately no foreign key back to the originating `Resume`. The
+/// database cannot express "this resume must belong to the same user as this
+/// profile", so such a column would be an ownership hole waiting for the first
+/// import path to widen it. Provenance is carried by `source`/`status` alone.
+model CareerEvidence {
+  id              String               @id @default(cuid())
+  careerProfileId String
+  kind            CareerEvidenceKind
+  source          CareerEvidenceSource @default(USER_ENTERED)
+  status          CareerEvidenceStatus @default(CANDIDATE)
+  title           String
+  organization    String?
+  details         String?              @db.Text
+  /// Measurable result, kept apart from `details` because capability strength
+  /// reads outcomes specifically.
+  outcome         String?              @db.Text
+  startDate       DateTime?            @db.Date
+  /// Null while ongoing.
+  endDate         DateTime?            @db.Date
+  metadata        Json?
+  /// Set only by an explicit user confirmation action.
+  confirmedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  careerProfile   CareerProfile              @relation(fields: [careerProfileId], references: [id], onDelete: Cascade)
+  capabilityLinks CareerEvidenceCapability[]
+
+  @@index([careerProfileId, kind])
+  @@index([careerProfileId, status])
+  @@map("career_evidence")
+}
+
+/// A skill the user claims. Strength is deliberately *not* stored as a score:
+/// the inputs (explicit confirmation, optional self-assessment, and the linked
+/// evidence with its per-link depth, outcome and recency) are stored so any
+/// consumer can explain a ranking instead of asserting one.
+model CareerCapability {
+  id              String                      @id @default(cuid())
+  careerProfileId String
+  name            String
+  /// Free-text grouping ("Language", "Cloud"), user-defined.
+  category        String?
+  /// Explicit user confirmation that they possess this capability.
+  confirmed       Boolean                     @default(false)
+  confirmedAt     DateTime?
+  /// Optional and never a substitute for evidence.
+  selfAssessment  CareerCapabilitySelfRating?
+  /// Profile-level recency override; per-link recency lives on the join row.
+  lastUsedAt      DateTime?                   @db.Date
+  notes           String?                     @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  careerProfile CareerProfile              @relation(fields: [careerProfileId], references: [id], onDelete: Cascade)
+  evidenceLinks CareerEvidenceCapability[]
+
+  @@unique([careerProfileId, name])
+  @@index([careerProfileId, confirmed])
+  @@map("career_capabilities")
+}
+
+/// Evidence↔capability link. The row count is the repetition signal; `depth`,
+/// `hasMeasuredOutcome` and `lastUsedAt` are the depth/outcome/recency signals.
+model CareerEvidenceCapability {
+  id                 String                @id @default(cuid())
+  evidenceId         String
+  capabilityId       String
+  depth              CareerCapabilityDepth @default(WORKING)
+  /// True when the linked evidence carries a measurable result for this
+  /// capability specifically.
+  hasMeasuredOutcome Boolean               @default(false)
+  outcomeNote        String?               @db.Text
+  /// When the capability was last exercised in this piece of evidence.
+  lastUsedAt         DateTime?             @db.Date
+  createdAt          DateTime              @default(now())
+
+  evidence   CareerEvidence   @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  capability CareerCapability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  @@unique([evidenceId, capabilityId])
+  @@index([capabilityId])
+  @@map("career_evidence_capabilities")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum Template {
+  MINIMAL
+  MODERN
+  HARVARD
+  CORPORATE
+}
+
+enum ResumeStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ResumeVariant {
+  MASTER
+  ROLE_FAMILY
+  JOB_TAILORED
+}
+
+enum SectionType {
+  CONTACT
+  SUMMARY
+  EXPERIENCE
+  EDUCATION
+  SKILLS
+  PROJECTS
+  CERTIFICATIONS
+  CUSTOM
+}
+
+enum ExperienceLevel {
+  JUNIOR
+  MID
+  SENIOR
+  LEAD
+  EXECUTIVE
+}
+
+enum ApplicationStatus {
+  INTERESTED
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  REJECTED
+  WITHDRAWN
+}
+
+enum JobSource {
+  MANUAL
+  EXTENSION
+  DISCOVERY
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  FREELANCE
+  TEMPORARY
+}
+
+enum WorkType {
+  REMOTE
+  HYBRID
+  ONSITE
+}
+
+enum InterviewQuestionSource {
+  SCRAPED
+  AI_GENERATED
+}
+
+enum JobRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum JobRiskSource {
+  HEURISTIC
+  AI
+}
+
+enum SalaryPeriod {
+  HOURLY
+  MONTHLY
+  YEARLY
+}
+
+enum SalaryCurrency {
+  USD
+  PHP
+}
+
+enum GoalPeriod {
+  DAILY
+  WEEKLY
+}
+
+enum ProfileRatingKind {
+  LINKEDIN
+  PORTFOLIO
+}
+
+enum CareerEvidenceKind {
+  EXPERIENCE
+  ACHIEVEMENT
+  PROJECT
+  EDUCATION
+  CERTIFICATION
+}
+
+enum CareerEvidenceSource {
+  USER_ENTERED
+  RESUME_IMPORT_CANDIDATE
+  LINKEDIN_IMPORT_CANDIDATE
+}
+
+enum CareerEvidenceStatus {
+  CANDIDATE
+  CONFIRMED
+  ARCHIVED
+}
+
+enum CareerCapabilityDepth {
+  EXPOSURE
+  WORKING
+  DEEP
+}
+
+enum CareerCapabilitySelfRating {
+  LEARNING
+  COMPETENT
+  STRONG
+  EXPERT
+}
+
+enum ATSAnalysisMode {
+  QUALITY
+  JOB_MATCH
+}

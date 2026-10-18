@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "RoleSpec Job Clipper",
+  "version": "0.1.0",
+  "description": "Clip a job posting from the current tab into your RoleSpec job tracker.",
+  "minimum_chrome_version": "114",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "identity",
+    "scripting",
+    "storage",
+    "sidePanel",
+    "tabs"
+  ],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "action": {
+    "default_title": "Clip this job to RoleSpec"
+  },
+  "background": {
+    "service_worker": "assets/background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}

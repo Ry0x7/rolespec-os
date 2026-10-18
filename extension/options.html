@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>RoleSpec Job Clipper — Options</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body class="options">
+    <main class="panel">
+      <h1>RoleSpec Job Clipper</h1>
+      <p class="hint">
+        The clipper posts jobs to your RoleSpec instance. Sign in below and the token is
+        created and stored for you.
+      </p>
+
+      <form id="form" class="form">
+        <label class="field">
+          <span>App URL</span>
+          <input id="appUrl" name="appUrl" type="url" placeholder="http://localhost:3000" required />
+          <small class="hint">Trailing slashes are removed automatically.</small>
+        </label>
+
+        <button id="sign-in" class="button" type="button">Sign in to RoleSpec</button>
+        <p class="hint">Opens RoleSpec in a Chrome sign-in window and saves the token here.</p>
+
+        <p id="status" class="notice" hidden></p>
+
+        <h2 class="subhead">Advanced &mdash; manual token</h2>
+        <label class="field">
+          <span>API token</span>
+          <span class="row row-tight">
+            <input id="apiToken" name="apiToken" type="password" placeholder="rspec_..." autocomplete="off" spellcheck="false" />
+            <button id="toggle-token" class="button button-quiet" type="button" aria-pressed="false">Show</button>
+          </span>
+          <small class="hint">
+            Only needed if sign-in cannot run: create a token in RoleSpec under
+            <strong>Settings &rarr; API access</strong> and paste it here.
+          </small>
+        </label>
+
+        <button class="button button-quiet" type="submit">Save settings</button>
+      </form>
+    </main>
+
+    <script type="module" src="./src/options.ts"></script>
+  </body>
+</html>

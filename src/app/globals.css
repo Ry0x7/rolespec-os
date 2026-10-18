@@ -1,0 +1,637 @@
+@import "tailwindcss";
+
+/* Tailwind v4's default `dark:` variant is media-query based. The app drives
+   the mode from a `dark` / `light` class on <html> (see shared/lib/theme.ts), so
+   bind the variant to that class instead of the visitor's OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Neutral ramp. Deliberately NOT Tailwind's zinc: every surface carries a
+     slight cool (blue-violet) cast and the three chrome levels are spread far
+     enough apart to read as separate planes — canvas < sidebar < card. */
+  --color-background: #09090C;
+  --color-foreground: #FAFAFA;
+
+  /* App chrome (desktop rail + mobile drawer). Sits BETWEEN the canvas and the
+     cards so the navigation never merges into the content it frames. */
+  --color-sidebar: #0C0C10;
+
+  --color-card: #131319;
+  --color-card-foreground: #FAFAFA;
+
+  --color-muted: #1C1C23;
+  /* Raised a step off zinc-400 (#A1A1AA): helper text is frequently rendered at
+     11-12px, where the old value was the AA floor with no headroom. */
+  --color-muted-foreground: #A9A9B6;
+
+  --color-accent: #7C3AED;
+  --color-accent-foreground: #FAFAFA;
+
+  --color-border: #26262E;
+  --color-input: #33333D;
+  --color-ring: #7C3AED;
+
+  --color-brand-50: #FAF5FF;
+  --color-brand-100: #F3E8FF;
+  --color-brand-200: #E9D5FF;
+  --color-brand-300: #D8B4FE;
+  --color-brand-400: #C084FC;
+  --color-brand-500: #A855F7;
+  --color-brand-600: #9333EA;
+  --color-brand-700: #7C3AED;
+  --color-brand-800: #6B21A8;
+  --color-brand-900: #581C87;
+  --color-brand-950: #3B0764;
+
+  --color-success: #22C55E;
+  --color-warning: #EAB308;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+
+  /* next/font injects these on <html>; fall back to the named family, then system. */
+  --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Headings only (h1/h2 base rule + CardTitle). Space Grotesk's wider counters
+     and squarer terminals give titles a voice of their own against Inter body
+     copy, which is what stops the UI reading as an untouched shadcn preset. */
+  --font-display: var(--font-space-grotesk), "Space Grotesk", var(--font-inter),
+    ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace,
+    monospace;
+  /* Resume templates render `font-serif` (HARVARD, and the serif customization).
+     The PDF export uses Times, so the preview must too — without this the
+     browser fell back to Georgia and the two render trees diverged. */
+  --font-serif: "Times New Roman", Times, serif;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Elevation: dark-UI shadows (black, not neutral) for lifted surfaces. */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 6px -1px rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px -6px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
+
+  --shadow-glow: 0 0 20px var(--glow-soft);
+  --shadow-glow-sm: 0 0 10px var(--glow-weak);
+  --shadow-glow-lg: 0 0 40px var(--glow-medium);
+
+  /* Stacking order. Not a Tailwind namespace — use as z-[var(--z-overlay)]. */
+  --z-sticky: 30;
+  --z-sidebar: 40;
+  --z-overlay: 50;
+  --z-dropdown: 60;
+  --z-toast: 70;
+
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-glow-pulse: glow-pulse 2s ease-in-out infinite;
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 20px var(--glow-soft); }
+    50% { box-shadow: 0 0 30px var(--glow-bright); }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Accent theming
+   ---------------------------------------------------------------------------
+   The @theme brand ramp above is the DEFAULT accent (violet). Every other
+   accent is a plain (unlayered) rule on <html> that overrides the same custom
+   properties, so `bg-brand-700`, `text-brand-400`, `ring-ring` etc. re-theme
+   without any component changes. These blocks must stay OUTSIDE @theme so they
+   are unlayered and always beat Tailwind's `@layer theme` output.
+
+   Ramp values are Tailwind v4's own palettes (node_modules/tailwindcss/
+   theme.css, converted from oklch to sRGB hex). Step numbers map 1:1, which
+   keeps brand-700 (primary buttons, ring) at the same perceptual lightness as
+   today's #7C3AED so white-on-brand contrast stays >= 5:1 in every theme.
+
+   Derived accent vars (below) are what the decorative glow/gradient rules read,
+   so they follow the active ramp automatically. */
+:root {
+  --glow: var(--color-brand-700);
+  --glow-weak: color-mix(in srgb, var(--glow) 20%, transparent);
+  --glow-soft: color-mix(in srgb, var(--glow) 30%, transparent);
+  --glow-medium: color-mix(in srgb, var(--glow) 40%, transparent);
+  --glow-strong: color-mix(in srgb, var(--glow) 55%, transparent);
+  --glow-bright: color-mix(in srgb, var(--glow) 50%, transparent);
+  --glow-ring: color-mix(in srgb, var(--color-brand-400) 35%, transparent);
+
+  /* Warm partner stop for the hero wordmark gradient. */
+  --accent-warm: #EC4899;
+
+  /* Chevron for `shared/ui/select.tsx`. A native <select> cannot host a
+     pseudo-element, so the arrow is a background image; a data URI cannot read
+     `currentColor`, so the stroke is baked in and the token is re-declared per
+     colour mode below. The value tracks `--color-muted-foreground`. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23A9A9B6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+
+  /* Frosted surface (`.glass`) and scrollbar, as tokens so `html.light` and
+     `.force-dark` can retint them without re-authoring the utilities. */
+  --glass-bg: rgba(19, 19, 25, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --scrollbar-thumb: #33333D;
+  --scrollbar-thumb-hover: #474753;
+
+  /* Immutable copies of the three brand steps that `html.light` re-points at
+     darker literals (see the light block below). `.force-dark` reads these to
+     restore the dark ramp for the permanently-dark marketing/auth subtrees. */
+  --brand-300-dark: #D8B4FE;
+  --brand-400-dark: #C084FC;
+  --brand-500-dark: #A855F7;
+}
+
+html.theme-blue {
+  --color-brand-50: #EFF6FF;
+  --color-brand-100: #DBEAFE;
+  --color-brand-200: #BEDBFF;
+  --color-brand-300: #8EC5FF;
+  --color-brand-400: #51A2FF;
+  --color-brand-500: #2B7FFF;
+  --color-brand-600: #155DFC;
+  --color-brand-700: #1447E6;
+  --color-brand-800: #193CB8;
+  --color-brand-900: #1C398E;
+  --color-brand-950: #162456;
+  --color-accent: #1447E6;
+  --color-ring: #1447E6;
+  --accent-warm: #00D3F2;
+  --brand-300-dark: #8EC5FF;
+  --brand-400-dark: #51A2FF;
+  --brand-500-dark: #2B7FFF;
+}
+
+html.theme-emerald {
+  --color-brand-50: #ECFDF5;
+  --color-brand-100: #D0FAE5;
+  --color-brand-200: #A4F4CF;
+  --color-brand-300: #5EE9B5;
+  --color-brand-400: #00D492;
+  --color-brand-500: #00BC7D;
+  --color-brand-600: #009966;
+  --color-brand-700: #007A55;
+  --color-brand-800: #006045;
+  --color-brand-900: #004F3B;
+  --color-brand-950: #002C22;
+  --color-accent: #007A55;
+  --color-ring: #007A55;
+  --accent-warm: #9AE600;
+  --brand-300-dark: #5EE9B5;
+  --brand-400-dark: #00D492;
+  --brand-500-dark: #00BC7D;
+}
+
+html.theme-amber {
+  --color-brand-50: #FFFBEB;
+  --color-brand-100: #FEF3C6;
+  --color-brand-200: #FEE685;
+  --color-brand-300: #FFD230;
+  --color-brand-400: #FFB900;
+  --color-brand-500: #FE9A00;
+  --color-brand-600: #E17100;
+  --color-brand-700: #BB4D00;
+  --color-brand-800: #973C00;
+  --color-brand-900: #7B3306;
+  --color-brand-950: #461901;
+  --color-accent: #BB4D00;
+  --color-ring: #BB4D00;
+  --accent-warm: #FF8904;
+  --brand-300-dark: #FFD230;
+  --brand-400-dark: #FFB900;
+  --brand-500-dark: #FE9A00;
+}
+
+html.theme-rose {
+  --color-brand-50: #FFF1F2;
+  --color-brand-100: #FFE4E6;
+  --color-brand-200: #FFCCD3;
+  --color-brand-300: #FFA1AD;
+  --color-brand-400: #FF637E;
+  --color-brand-500: #FF2056;
+  --color-brand-600: #EC003F;
+  --color-brand-700: #C70036;
+  --color-brand-800: #A50036;
+  --color-brand-900: #8B0836;
+  --color-brand-950: #4D0218;
+  --color-accent: #C70036;
+  --color-ring: #C70036;
+  --accent-warm: #ED6AFF;
+  --brand-300-dark: #FFA1AD;
+  --brand-400-dark: #FF637E;
+  --brand-500-dark: #FF2056;
+}
+
+html.theme-cyan {
+  --color-brand-50: #ECFEFF;
+  --color-brand-100: #CEFAFE;
+  --color-brand-200: #A2F4FD;
+  --color-brand-300: #53EAFD;
+  --color-brand-400: #00D3F2;
+  --color-brand-500: #00B8DB;
+  --color-brand-600: #0092B8;
+  --color-brand-700: #007595;
+  --color-brand-800: #005F78;
+  --color-brand-900: #104E64;
+  --color-brand-950: #053345;
+  --color-accent: #007595;
+  --color-ring: #007595;
+  --accent-warm: #74D4FF;
+  --brand-300-dark: #53EAFD;
+  --brand-400-dark: #00D3F2;
+  --brand-500-dark: #00B8DB;
+}
+
+/* ---------------------------------------------------------------------------
+   Light mode
+   ---------------------------------------------------------------------------
+   Layered on top of the accent system: `html.light` (added by theme.ts /
+   the blocking init script) only re-declares the SEMANTIC tokens, status
+   colours, shadows and surface tints. `--color-accent` / `--color-ring` and the
+   brand ramp's 50-200 / 600-950 steps deliberately stay on the accent value, so
+   every accent keeps its identity in light mode.
+
+   Brand text steps: components use `text-brand-300/400` and `bg-brand-500/10`
+   directly, which were picked to be bright-on-black and are illegible on white.
+   `var(--color-brand-400: var(--color-brand-700))` would be a self-referential
+   cycle across the theme blocks, so instead each step is re-pointed at a LITERAL
+   from the same hue's darker end (300 -> that hue's 800, 400/500 -> its 700).
+   Every accent therefore needs its own `html.light.theme-*` block; the bare
+   `html.light` block below carries the default (violet) values. Specificity
+   note: `html.light` (0,1,1) ties with `html.theme-*` and wins on source order,
+   which is why the per-accent blocks must be (0,2,1). */
+html.light {
+  /* The canvas sits well below the cards (a half step past zinc-100, cards stay
+     white) so every card, panel and sidebar reads as a raised surface instead of
+     dissolving into the page. Everything below is re-seated a zinc step darker
+     to keep the hierarchy canvas < muted < border < input intact. */
+  --color-background: #EDEDF2;
+  --color-foreground: #09090C;
+
+  /* Mirrors the dark ramp's canvas < sidebar < card ordering, inverted: the rail
+     is lifted off the canvas but still sits below the white cards. */
+  --color-sidebar: #F7F7FA;
+
+  --color-card: #FFFFFF;
+  --color-card-foreground: #09090C;
+
+  /* `bg-muted` is the fill for inputs/selects and the hover state of ghost
+     buttons: zinc-200 keeps fields visible on white cards and distinct from
+     the canvas. */
+  --color-muted: #E3E3E9;
+  --color-muted-foreground: #55555F;
+
+  /* `border-input` is the hover/focus border above `border-border`, and
+     `bg-input` a slightly heavier field fill, so it has to stay darker than
+     the border without turning fields muddy: between zinc-300 and zinc-400. */
+  --color-border: #D3D3DB;
+  --color-input: #C9C9D3;
+
+  /* Status colours at the weight that clears 4.5:1 as small text on white:
+     green/amber need 700, red/blue already pass at 600. */
+  --color-success: #15803D;
+  --color-warning: #B45309;
+  --color-error: #DC2626;
+  --color-info: #2563EB;
+
+  /* Neutral (a black shadow reads as a smudge on white) but layered: each step
+     pairs a soft drop with a tight contact shadow so elevation is legible on a
+     light canvas. */
+  --shadow-sm: 0 1px 2px 0 rgba(9, 9, 11, 0.1), 0 0 0 1px rgba(9, 9, 11, 0.04);
+  --shadow-md: 0 2px 8px -1px rgba(9, 9, 11, 0.12), 0 1px 2px -1px rgba(9, 9, 11, 0.08);
+  --shadow-lg: 0 8px 24px -4px rgba(9, 9, 11, 0.16), 0 2px 6px -2px rgba(9, 9, 11, 0.08);
+
+  /* Near-opaque: a 70% white fill washes out over light page content, which
+     made dialogs read as a tint rather than a panel. */
+  --glass-bg: rgba(255, 255, 255, 0.94);
+  /* Matches this mode's #55555F muted-foreground. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2355555F' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+
+  --glass-border: rgba(9, 9, 12, 0.12);
+  --scrollbar-thumb: #D3D3DB;
+  --scrollbar-thumb-hover: #A9A9B6;
+
+  --color-brand-300: #6B21A8;
+  --color-brand-400: #7C3AED;
+  --color-brand-500: #7C3AED;
+}
+
+html.light.theme-blue {
+  --color-brand-300: #193CB8;
+  --color-brand-400: #1447E6;
+  --color-brand-500: #1447E6;
+}
+
+html.light.theme-emerald {
+  --color-brand-300: #006045;
+  --color-brand-400: #007A55;
+  --color-brand-500: #007A55;
+}
+
+html.light.theme-amber {
+  --color-brand-300: #973C00;
+  --color-brand-400: #BB4D00;
+  --color-brand-500: #BB4D00;
+}
+
+html.light.theme-rose {
+  --color-brand-300: #A50036;
+  --color-brand-400: #C70036;
+  --color-brand-500: #C70036;
+}
+
+html.light.theme-cyan {
+  --color-brand-300: #005F78;
+  --color-brand-400: #007595;
+  --color-brand-500: #007595;
+}
+
+/* Marketing and auth are dark by design: their utilities (hero blobs, grid,
+   hairline cards, gradient wordmark) are authored for a black page. The mode
+   class lives on <html> and cannot vary per route, so those subtrees carry
+   `force-dark dark` on their outermost wrapper: custom properties resolve
+   per-element, so re-declaring everything `html.light` touches re-darkens the
+   whole subtree, and the extra `dark` class keeps `dark:` utilities live. */
+.force-dark {
+  --color-background: #09090C;
+  --color-foreground: #FAFAFA;
+
+  --color-sidebar: #0C0C10;
+
+  --color-card: #131319;
+  --color-card-foreground: #FAFAFA;
+
+  --color-muted: #1C1C23;
+  --color-muted-foreground: #A9A9B6;
+
+  --color-border: #26262E;
+  --color-input: #33333D;
+
+  --color-success: #22C55E;
+  --color-warning: #EAB308;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 6px -1px rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px -6px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
+
+  --glass-bg: rgba(19, 19, 25, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.06);
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23A9A9B6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+
+  --color-brand-300: var(--brand-300-dark);
+  --color-brand-400: var(--brand-400-dark);
+  --color-brand-500: var(--brand-500-dark);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Titles get the display face app-wide. `h3` is deliberately excluded: it is
+     the generic in-panel heading level and CardTitle opts in explicitly. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+  }
+
+  /* The resume preview must render in the same family as the PDF export, so the
+     document surface opts every heading back out of the display face. */
+  .resume-surface h1,
+  .resume-surface h2 {
+    font-family: inherit;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+
+  .text-gradient {
+    background: linear-gradient(
+      135deg,
+      var(--color-brand-500),
+      var(--color-brand-300)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Brighter hero variant: stays legible on #09090B (lightest stop 7.5:1,
+     darkest 4.3:1 — above the 3:1 floor for large bold text). */
+  .text-gradient-hero {
+    background: linear-gradient(
+      100deg,
+      var(--color-brand-400) 0%,
+      var(--color-brand-500) 45%,
+      var(--accent-warm) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Ambient hero glow blobs. Translate-only animation (no layout/size churn).
+     Phones get a cheaper static version: no drift, a much smaller blur radius
+     and no promoted layer, since a 72px blur on a 416px square is expensive to
+     composite on mobile GPUs. Drift + full blur come back at `sm` (640px). */
+  .hero-blob {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(28px);
+    pointer-events: none;
+  }
+
+  @media (min-width: 40rem) {
+    .hero-blob {
+      filter: blur(72px);
+      will-change: transform;
+    }
+  }
+
+  .hero-blob-brand {
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--color-brand-700) 60%, transparent),
+      transparent 72%
+    );
+    opacity: 0.55;
+  }
+
+  .hero-blob-indigo {
+    background: radial-gradient(
+      circle,
+      color-mix(
+        in srgb,
+        color-mix(in srgb, var(--color-brand-500) 60%, var(--accent-warm)) 42%,
+        transparent
+      ),
+      transparent 70%
+    );
+    opacity: 0.45;
+  }
+
+  .hero-blob-pink {
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--accent-warm) 32%, transparent),
+      transparent 70%
+    );
+    opacity: 0.35;
+  }
+
+  /* Drift is desktop/tablet only — see the `.hero-blob` note above. */
+  @media (min-width: 40rem) {
+    .hero-blob-brand {
+      animation: hero-drift-a 18s ease-in-out infinite;
+    }
+
+    .hero-blob-indigo {
+      animation: hero-drift-b 22s ease-in-out infinite;
+    }
+
+    .hero-blob-pink {
+      animation: hero-drift-c 26s ease-in-out infinite;
+    }
+  }
+
+  /* Fine grid texture, masked so it fades out toward the edges. */
+  .hero-grid {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+    -webkit-mask-image: radial-gradient(
+      ellipse 72% 62% at 50% 28%,
+      #000 0%,
+      transparent 78%
+    );
+    mask-image: radial-gradient(
+      ellipse 72% 62% at 50% 28%,
+      #000 0%,
+      transparent 78%
+    );
+  }
+
+  /* Glass surface whose 1px border is a gradient hairline (brand → white →
+     pink), matching the hero's p-px wrappers without an extra element.
+     Hover brightening is done with a transitionable inset ring by the caller. */
+  .card-hairline {
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    background-image:
+      linear-gradient(rgba(19, 19, 25, 0.72), rgba(19, 19, 25, 0.72)),
+      linear-gradient(
+        140deg,
+        color-mix(in srgb, var(--color-brand-700) 45%, transparent),
+        rgba(255, 255, 255, 0.08) 52%,
+        color-mix(in srgb, var(--accent-warm) 30%, transparent)
+      );
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    backdrop-filter: blur(12px);
+  }
+
+  /* Single soft radial for sections that want a glow without the full
+     hero blob stack. */
+  .section-glow {
+    background: radial-gradient(
+      ellipse 70% 60% at 50% 40%,
+      color-mix(in srgb, var(--color-brand-700) 22%, transparent),
+      transparent 72%
+    );
+  }
+
+  /* Connector rail for the how-it-works step sequence. */
+  .step-rail {
+    background-image: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in srgb, var(--color-brand-700) 55%, transparent) 18%,
+      color-mix(in srgb, var(--accent-warm) 45%, transparent) 82%,
+      transparent
+    );
+  }
+}
+
+@keyframes hero-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(4%, 5%, 0); }
+}
+
+@keyframes hero-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-5%, 4%, 0); }
+}
+
+@keyframes hero-drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(3%, -4%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-blob-brand,
+  .hero-blob-indigo,
+  .hero-blob-pink {
+    animation: none;
+  }
+
+  /* Beats Framer's server-rendered initial inline style so reduced-motion
+     users never see hidden hero content, even before hydration. */
+  .hero-reveal-item {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Same guarantee for scroll-triggered section reveals. */
+  .scroll-reveal-item {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Belt-and-braces alongside the <noscript> block in the root layout: browsers
+   that support this query reveal the content without waiting for hydration. */
+@media (scripting: none) {
+  .hero-reveal-item,
+  .scroll-reveal-item {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
