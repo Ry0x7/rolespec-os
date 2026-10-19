@@ -228,6 +228,18 @@ npx @tauri-apps/cli@^2 build --bundles nsis
 The result is `desktop/src-tauri/target/release/bundle/nsis/RoleSpec_<version>_x64-setup.exe`.
 It is **unsigned**, so Windows SmartScreen will warn; signing is a release prerequisite.
 
+**If desktop startup fails**
+
+- The error dialog names the failing step and the log file. Logs are in
+  `%LOCALAPPDATA%\RoleSpecData\logs` (`desktop.log` covers the shell and server,
+  `postgres.log` covers the database).
+- Port 3100 in use is not fatal: the shell falls back to a free loopback port. Absolute links
+  generated with the built `NEXT_PUBLIC_APP_URL` may still point at 3100 in that case.
+- `DATABASE_URL` in the environment switches to an external database and requires `AUTH_SECRET`.
+  Unset it (or set `ROLESPEC_MANAGED_DB=1`) to use the managed local cluster.
+- To start over, close RoleSpec and move `%LOCALAPPDATA%\RoleSpecData` aside. That discards the
+  database, exports and the encryption keys for any stored AI credentials; there is no undo.
+
 ---
 
 ## 📸 Feature Tour

@@ -3,8 +3,9 @@
 ## Current task
 
 Milestones 2 (Tauri shell) and 3 (local PostgreSQL lifecycle) are implemented and verified on this
-Windows machine, and an unsigned NSIS installer now builds locally. The plan is
-`docs/DESKTOP_ONBOARDING_PROPOSAL.md`. The remaining M4/M5 work is running the workflow on CI and a
+Windows machine. Milestone 4 is now demonstrated: pushing tag `v1.0.0` ran the Windows workflow,
+produced the NSIS installer and created a **draft** release with the installer and checksum. The
+plan is `docs/DESKTOP_ONBOARDING_PROPOSAL.md`. The remaining work is signing, publishing and a
 clean-VM install/upgrade/uninstall test.
 
 ## Verified facts
@@ -81,20 +82,28 @@ clean-VM install/upgrade/uninstall test.
   confirms `resources/app/server.js`, `resources/node/node.exe`,
   `resources/postgres/bin/postgres.exe`, `@prisma/dev` and `@prisma/studio-core` are inside, and the
   embedded exe timestamp matches the final release build.
+- CI run 39300819266 on tag `v1.0.0` succeeded: tests, staging and installer build passed. It
+  uploaded the artifact and created draft release `v1.0.0` with `RoleSpec_1.0.0_x64-setup.exe`
+  (109,950,705 bytes) and `SHA256SUMS.txt`. The downloaded asset passed `sha256sum -c`
+  (`30f54815…`) and contains 14,876 entries / 648 MB unpacked with the same runtime pieces.
+  The release is a draft on purpose: the build is unsigned and SmartScreen blocks unsigned
+  installers, so publishing is a manual step after signing.
 - The staged bundle (`resources/app`) runs `.next-desktop` (its `server.js` config and BUILD_ID match
   the desktop build), which is why the app boots rather than 404-ing every chunk.
 
 ## Known gaps
 
-- The installer workflow has not run on GitHub Actions. The installer has not been installed,
-  upgraded or uninstalled on a clean machine, so uninstall data preservation is unverified.
-- No updater, version/downgrade guard or code signing exists yet.
+- The `v1.0.0` release is a draft and the installer is unsigned; SmartScreen will block it.
+- The installer has not been installed, upgraded or uninstalled on a clean machine, so uninstall
+  data preservation is unverified. Data/install separation is verified only by path layout and the
+  packaged-layout run.
+- No updater or version/downgrade guard exists yet.
 
 ## Next action
 
-Milestone 4/5: run `.github/workflows/desktop.yml`, then install vN over vN-1 on a clean Windows VM
-and prove `data/pg` and `config\secrets.json` survive with no orphaned processes. Signing is required
-for a public release and may remain blocked without a certificate.
+Milestone 5: sign the installer, install v1.0.0 (then a rebuilt v1.0.0) on a clean Windows VM, and
+prove `%LOCALAPPDATA%\RoleSpecData` survives uninstall/upgrade with no orphaned processes. Publish
+or supersede the draft release after that. Signing may remain blocked without a certificate.
 
 ## Do not repeat
 

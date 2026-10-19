@@ -188,9 +188,9 @@ Items:
   logs and clean shutdown; no product code is forked.
 - **E3** Local database lifecycle. `initdb`, start, migrate, restart and shutdown are implemented and
   verified from the desktop runtime with no user-installed Postgres. Upgrade is verified with E4.
-- **E4** Installer pipeline. Workflow exists; not yet run on CI, and install/uninstall are not yet
-  verified. Done when: a tagged build produces an x64 NSIS installer in CI and the uninstall path
-  preserves user data by default.
+- **E4** Installer pipeline. CI builds the installer and creates a draft release on a version tag;
+  install/uninstall are not verified yet. Done when: a tagged build produces an x64 NSIS installer
+  in CI and the uninstall path preserves user data by default.
 - **E5** Clean-machine verification. Done when: the success criteria in the proposal are observed on
   a fresh Windows VM and recorded in `handoff.md`.
 
