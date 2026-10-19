@@ -1,4 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
+import os from "node:os"
+import path from "node:path"
+
+// Keep model resolution deterministic: without this, a developer's real
+// ~/.codex/config.toml would decide the expected default in these tests.
+const TEST_CODEX_HOME = path.join(os.tmpdir(), "rolespec-test-codex-home-missing")
 
 const mockOpenAIModel = vi.fn((modelId: string) => ({ modelId }))
 const mockCreateOpenAI = vi.fn(() => mockOpenAIModel)
@@ -62,7 +68,12 @@ describe("getAIModel", () => {
     mockCodexModel.mockClear()
     mockCreateGoogle.mockClear()
     mockGoogleModel.mockClear()
-    process.env = { ...originalEnv, AUTH_SECRET: "test-auth-secret-value" }
+    process.env = {
+      ...originalEnv,
+      AUTH_SECRET: "test-auth-secret-value",
+      CODEX_HOME: TEST_CODEX_HOME,
+    }
+    delete process.env.CODEX_CLI_MODEL
   })
 
   afterEach(() => {
@@ -216,14 +227,15 @@ describe("getAIModel", () => {
     expect(mockCodexModel).toHaveBeenCalledWith("gpt-5.2-codex")
   })
 
-  it("defaults the codex-cli model id to gpt-5.5", async () => {
+  it("falls back to the current codex-cli model when no CLI config exists", async () => {
     process.env.AI_PROVIDER = "codex-cli"
+    process.env.CODEX_HOME = TEST_CODEX_HOME
     delete process.env.CODEX_CLI_MODEL
     const { getAIModel } = await import("../ai-provider")
 
     await getAIModel()
 
-    expect(mockCodexModel).toHaveBeenCalledWith("gpt-5.5")
+    expect(mockCodexModel).toHaveBeenCalledWith("gpt-6.1-sol")
   })
 
   it("prefers the AiSettings API key over the env var for openai", async () => {
@@ -465,7 +477,11 @@ describe("getEffectiveAiConfigForUser", () => {
     mockFindUnique.mockResolvedValue(null)
     mockUserFindUnique.mockReset()
     mockUserFindUnique.mockResolvedValue(null)
-    process.env = { ...originalEnv, AUTH_SECRET: "test-auth-secret-value" }
+    process.env = {
+      ...originalEnv,
+      AUTH_SECRET: "test-auth-secret-value",
+      CODEX_HOME: TEST_CODEX_HOME,
+    }
     delete process.env.AI_PROVIDER
     delete process.env.OPENAI_MODEL
   })

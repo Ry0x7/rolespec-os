@@ -163,6 +163,38 @@ Done when for each: defined at promotion.
 
 Not in this phase: anything in Out of scope.
 
+### Phase E — Distribution and first-run setup
+
+Purpose: let a non-developer install and use RoleSpec without Docker, Node.js, a terminal or an
+`.env` file, while keeping the web/Docker path and the shared domain/AI layers intact.
+Full design and risk analysis: `docs/DESKTOP_ONBOARDING_PROPOSAL.md`.
+
+Exit criteria:
+
+- [x] First-run onboarding covers the AI requirement, a real connection test, profile, resume and a
+      ready summary.
+- [ ] A Tauri 2 shell launches the existing standalone server with a pinned Node runtime on Windows.
+- [ ] First launch initializes a private PostgreSQL 17 cluster, applies migrations and survives
+      restart/update with data intact.
+- [ ] CI produces a Windows installer; install, logs and uninstall are documented and tested.
+- [ ] A clean Windows VM walkthrough from download to a tracked application is recorded.
+
+Items:
+
+- **E1** (done) In-app onboarding + provider detection/test. Done when: a new user can choose
+  ChatGPT/Claude/local/API in plain language, run a real test, see a specific failure, and skip with
+  an explicit warning.
+- **E2** Desktop shell. Done when: the shared standalone server runs under Tauri with file logs and
+  clean shutdown; no product code is forked.
+- **E3** Local database lifecycle. Done when: `initdb`, start, migrate, shutdown and upgrade all work
+  from the desktop runtime with no user-installed Postgres.
+- **E4** Installer pipeline. Done when: a tagged build produces an x64 NSIS installer in CI and the
+  uninstall path preserves user data by default.
+- **E5** Clean-machine verification. Done when: the success criteria in the proposal are observed on
+  a fresh Windows VM and recorded in `handoff.md`.
+
+Not in this phase: managed AI, auto-apply, SQLite or a desktop-only schema, new product features.
+
 ## Iteration queue
 
 1. **it. 54** (A1) Make Enhance suggestions and their originals survive a page reload. Done when: run Enhance, apply one, reload; the list and Revert for the applied row are still there, browser-verified.

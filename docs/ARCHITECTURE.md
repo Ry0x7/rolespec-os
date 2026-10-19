@@ -186,6 +186,25 @@ Do not turn it into a document-design suite or modal maze.
 
 The self-hosted OS operates as a private, single-user system by default (auto-resolving to the local owner account). There are no administrative elevation gates, multi-tenant moderation barriers, or licensing callouts. All personal data and credentials remain strictly local.
 
+## AI setup and connection testing
+
+First-run onboarding and Settings share one setup layer: `src/features/onboarding/constants/ai-setup.ts`
+for the plain-language choices, `src/features/onboarding/lib/provider-diagnostics.ts` for advisory
+detection, and `src/features/onboarding/lib/ai-connection-test.ts` for the authoritative live test.
+
+- Credentials still go through `UserAiSettings` and `src/shared/lib/secret-box.ts`. There is no
+  second key store.
+- Detection never reads or copies vendor auth files or tokens. CLI login state comes from the
+  vendor's own status command; local servers come from their read-only model endpoints.
+- The connection test runs through `testAiConnection()` in `ai-generate.ts`, so it uses the same
+  resolver, quota reservation and usage accounting as feature calls. Detection is not a substitute
+  for the test.
+- `codex-cli` must use the user's installed Codex CLI, not the provider's older bundled binary, and
+  must follow the CLI's configured model. ChatGPT-account model ids retire faster than releases.
+- Desktop distribution will add platform bootstrapping only: Tauri shell, bundled Node, bundled
+  PostgreSQL 17, installer and updater. Domain logic, UI, AI providers and the Prisma schema stay
+  shared with Docker/web. No desktop-only schema or AI path.
+
 ## AI and tools
 
 All AI generation goes through `src/shared/lib/ai-generate.ts`.

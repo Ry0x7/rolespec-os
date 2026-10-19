@@ -10,6 +10,7 @@ import {
   type AiProvider,
   type UserAiProvider,
 } from "./ai-providers/constants"
+import { resolveCodexModelId } from "./ai-providers/codex-paths"
 import { prisma } from "./prisma"
 import { tryDecryptSecret } from "./secret-box"
 import { logger } from "@/shared/lib/logger"
@@ -122,9 +123,20 @@ async function storedApiKey(provider: AiProvider): Promise<string | undefined> {
   return tryDecryptSecret(ciphertext) ?? undefined
 }
 
+/**
+ * The model to use when nothing pins one. Codex follows the CLI's own config so
+ * RoleSpec never sends `-m` with a model that account retired; every other
+ * provider uses its metadata default.
+ */
+function defaultModelFor(provider: AiProvider): string {
+  return provider === "codex-cli"
+    ? resolveCodexModelId()
+    : AI_PROVIDER_META[provider].defaultModel
+}
+
 function envModel(provider: AiProvider): string {
   const meta = AI_PROVIDER_META[provider]
-  return process.env[meta.modelEnvVar] ?? meta.defaultModel
+  return process.env[meta.modelEnvVar] ?? defaultModelFor(provider)
 }
 
 export interface EffectiveAiConfig {
@@ -276,7 +288,7 @@ function personalConfig(ctx: UserAiContext): {
   const model = ctx.model?.trim() ? ctx.model.trim() : null
   return {
     provider,
-    model: model ?? AI_PROVIDER_META[provider].defaultModel,
+    model: model ?? defaultModelFor(provider),
     apiKey,
     modelPinned: model !== null,
   }

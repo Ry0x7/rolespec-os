@@ -116,10 +116,13 @@ export const AI_PROVIDER_META: Record<AiProvider, AiProviderMeta> = {
   },
   // Auth is the ChatGPT OAuth session that `codex login` writes to
   // ~/.codex/auth.json, so there is no credential env var to check.
+  // `defaultModel` is only a last resort: runtime resolution prefers
+  // CODEX_CLI_MODEL, then the CLI's own `~/.codex/config.toml` model, because
+  // ChatGPT-account model ids retire faster than RoleSpec releases.
   "codex-cli": {
     label: "ChatGPT (Codex CLI)",
     modelEnvVar: "CODEX_CLI_MODEL",
-    defaultModel: "gpt-5.5",
+    defaultModel: "gpt-6.1-sol",
     credentialEnvVar: null,
     localOnly: true,
   },

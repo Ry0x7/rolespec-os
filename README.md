@@ -32,9 +32,15 @@ Job hunting shouldn't require paying $30/month across separate resume builders, 
 
 ---
 
-## ⚡ Zero API Keys: Connect Your Existing Subscriptions
+## ⚡ AI setup: use what you already have
 
-> **No API credits? No problem.** RoleSpec is built from the ground up to support native subscription CLI providers, local offline AI, and traditional cloud keys.
+RoleSpec uses AI for resume tailoring, ATS analysis, job matching, cover letters and outreach.
+First-run setup asks how AI should work and tests the connection before you start. You can use a
+subscription you already pay for, a local model, or a provider API key.
+
+> **RoleSpec is not an AI-free app.** Resume editing and application tracking work without AI, but
+the AI-powered features need a working provider. You choose one during setup; nothing is hidden
+behind a managed AI service.
 
 | Provider | What it uses | Cost / Setup |
 | :--- | :--- | :--- |
@@ -71,11 +77,41 @@ Job hunting shouldn't require paying $30/month across separate resume builders, 
 
 ---
 
-## 🚀 Quickstart for Non-Programmers
+## 🚀 Get started
 
-### Method 1: Run with Docker (Recommended — 2 Minutes)
+### For job seekers (no terminal)
 
-You don't need Node.js or development tools installed. You only need [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+The intended path is a normal Windows install:
+
+1. Download RoleSpec.
+2. Install and open it — no terminal, no Docker, no Node.js, no `.env` file.
+3. Complete first-run setup.
+4. Choose how AI should work and test the connection.
+5. Import a resume and start your job search.
+
+**Status:** the Windows desktop installer is being built in this repository. It bundles the
+application runtime and a private local PostgreSQL database, and preserves your data between
+updates. It is not published yet, so there is no download link to give you today. The self-hosted
+path below remains available for developers and early users in the meantime.
+
+What first-run setup will ask for — and what it will **not** ask for:
+
+- **It asks:** how AI should work (ChatGPT, Claude, local AI, or an API key), and whether to test it.
+- **It does not ask** for `DATABASE_URL`, `AI_PROVIDER`, `OPENAI_API_KEY`, or any other environment variable.
+
+See [`docs/DESKTOP_ONBOARDING_PROPOSAL.md`](docs/DESKTOP_ONBOARDING_PROPOSAL.md) for the desktop
+architecture, database strategy and milestone plan.
+
+---
+
+### For developers / self-hosters
+
+These are the supported self-hosted paths. They keep working exactly as before; the desktop build
+is an additional distribution target, not a replacement.
+
+#### Method 1: Docker (2 minutes)
+
+You only need [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 1. Clone or download this repository:
    ```bash
@@ -93,17 +129,18 @@ You don't need Node.js or development tools installed. You only need [Docker Des
    docker compose up -d --build
    ```
 
-4. Open your browser at **[http://localhost:3000](http://localhost:3000)** — RoleSpec automatically logs you in to your private workspace!
+4. Open your browser at **[http://localhost:3000](http://localhost:3000)** — RoleSpec automatically logs you in to your private workspace.
 
----
+> The container can only use cloud API providers (`openai`, `anthropic`, `deepseek`, `google`).
+> CLI subscriptions and local models need a host process, so they are not available inside Docker.
 
-### Method 2: Run with Node.js
+#### Method 2: Node.js
 
-#### Prerequisites
+**Prerequisites**
 - **Node.js 22+** ([nodejs.org](https://nodejs.org/))
 - **PostgreSQL** database (a free [Neon.tech](https://neon.tech) cloud database works in 30 seconds)
 
-#### Step-by-Step
+**Step-by-step**
 
 1. Clone the repository and install dependencies:
    ```bash
@@ -119,7 +156,8 @@ You don't need Node.js or development tools installed. You only need [Docker Des
    Open `.env` and fill in:
    - `DATABASE_URL` (your Postgres connection string)
    - `AUTH_SECRET` (generate with `openssl rand -base64 32` or any random 32-character string)
-   - `AI_PROVIDER` (choose `claude-code`, `codex-cli`, `ollama`, or paste an API key)
+   - optionally `ENCRYPTION_KEY` (recommended for stored API keys)
+   - optionally `AI_PROVIDER` (`claude-code`, `codex-cli`, `ollama`, `lmstudio`, or a cloud provider)
 
 3. Initialize your database:
    ```bash
@@ -131,7 +169,8 @@ You don't need Node.js or development tools installed. You only need [Docker Des
    ```bash
    npm run dev
    ```
-   Open **[http://localhost:3100](http://localhost:3100)** in your browser!
+   Open **[http://localhost:3100](http://localhost:3100)**. First-run setup now opens in the app
+   instead of sending you to the settings page.
 
 ---
 

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/features/auth/config"
-import { getEffectiveAiConfig } from "@/shared/lib/ai-provider"
+import { getEffectiveAiConfigForUser } from "@/shared/lib/ai-provider"
 import { AI_PROVIDER_META } from "@/shared/lib/ai-providers/constants"
 import { UserAiKeyForm } from "@/features/settings/components/user-ai-key-form"
 import { getUserAiKeyStatus } from "@/features/settings/services/user-ai-settings.service"
@@ -19,9 +19,12 @@ export default async function SettingsAiPage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/sign-in")
 
+  // Per-user resolution, not the deployment singleton: after onboarding this is
+  // what every AI call will actually use, and a header naming a different
+  // provider than the form beside it is worse than no header at all.
   const [keyStatus, effective] = await Promise.all([
     getUserAiKeyStatus(session.user.id),
-    getEffectiveAiConfig(),
+    getEffectiveAiConfigForUser(session.user.id),
   ])
 
   const meta = AI_PROVIDER_META[effective.provider]

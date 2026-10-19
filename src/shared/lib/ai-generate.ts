@@ -56,6 +56,8 @@ export const AI_USAGE_FEATURES = {
   CAREER_IMPORT: "career.import",
   /** Tightening one piece of text the user already wrote in their profile. */
   PROFILE_ENHANCE: "career.profile_enhance",
+  /** First-run / settings health check for the selected provider. */
+  AI_CONNECTION_TEST: "settings.ai_connection_test",
 } as const
 
 export type AiUsageFeature =
@@ -348,6 +350,49 @@ export async function generateObjectTracked<T>(
       reservationId,
     })
     throw error
+  }
+}
+
+/**
+ * One minimal generation against the caller's resolved provider, used by
+ * first-run onboarding and the settings page to prove the configuration works.
+ *
+ * It deliberately goes through `generateTextTracked` rather than calling the
+ * SDK directly: provider resolution, quota reservation, usage accounting and
+ * the runnable-provider guard must behave exactly as they do for real feature
+ * calls. The prompt is intentionally trivial so a "test" costs almost nothing
+ * and a slow/expensive model is still usable.
+ *
+ * Throws whatever the provider throws. Callers classify the error into
+ * user-facing setup guidance (`src/features/onboarding/lib/ai-connection-test.ts`).
+ */
+export async function testAiConnection(
+  userId: string,
+  abortSignal?: AbortSignal
+): Promise<{ provider: string; model: string; latencyMs: number; text: string }> {
+  const startedAt = Date.now()
+  const { text } = await generateTextTracked({
+    tracking: {
+      feature: AI_USAGE_FEATURES.AI_CONNECTION_TEST,
+      surface: "app",
+      userId,
+    },
+    system: "You are a connection health check. Reply with exactly: OK",
+    prompt: "Reply with exactly: OK",
+    temperature: 0,
+    maxOutputTokens: 8,
+    ...(abortSignal ? { abortSignal } : {}),
+  })
+
+  // Re-read rather than threading config out of `generateTextTracked`: the
+  // resolver is cached (60s), and the call has already proven that this exact
+  // provider/model can answer.
+  const config = await getEffectiveAiConfigForUser(userId)
+  return {
+    provider: config.provider,
+    model: config.model,
+    latencyMs: Date.now() - startedAt,
+    text,
   }
 }
 

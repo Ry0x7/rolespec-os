@@ -7,6 +7,7 @@ import {
   type UserAiProvider,
 } from "@/shared/lib/ai-providers/constants"
 import { clearUserAiSettingsCache } from "@/shared/lib/ai-provider"
+import { resolveCodexModelId } from "@/shared/lib/ai-providers/codex-paths"
 
 export { USER_AI_PROVIDERS }
 export type { UserAiProvider }
@@ -47,7 +48,11 @@ export async function getUserAiKeyStatus(userId: string): Promise<UserAiKeyStatu
     configured: plaintext !== null,
     envConfigured,
     ...(plaintext !== null ? { last4: secretLast4(plaintext) } : {}),
-    defaultModel: provider ? AI_PROVIDER_META[provider].defaultModel : null,
+    defaultModel: provider
+      ? provider === "codex-cli"
+        ? resolveCodexModelId()
+        : AI_PROVIDER_META[provider].defaultModel
+      : null,
   }
 }
 
