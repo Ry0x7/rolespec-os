@@ -176,7 +176,8 @@ Exit criteria:
 - [x] A Tauri 2 shell launches the existing standalone server with a pinned Node runtime on Windows.
 - [ ] First launch initializes a private PostgreSQL 17 cluster, applies migrations and survives
       restart/update with data intact. Restart is verified; update needs the installer (E4).
-- [ ] CI produces a Windows installer; install, logs and uninstall are documented and tested.
+- [x] CI produces a Windows installer; install, logs and uninstall are documented and tested on
+      Windows (clean-VM verification is E5).
 - [ ] A clean Windows VM walkthrough from download to a tracked application is recorded.
 
 Items:
@@ -188,9 +189,8 @@ Items:
   logs and clean shutdown; no product code is forked.
 - **E3** Local database lifecycle. `initdb`, start, migrate, restart and shutdown are implemented and
   verified from the desktop runtime with no user-installed Postgres. Upgrade is verified with E4.
-- **E4** Installer pipeline. CI builds the installer and creates a draft release on a version tag;
-  install/uninstall are not verified yet. Done when: a tagged build produces an x64 NSIS installer
-  in CI and the uninstall path preserves user data by default.
+- **E4** (done) Installer pipeline. A tagged build produces an x64 NSIS installer in CI, creates a
+  draft release, and uninstall preserves `%LOCALAPPDATA%\RoleSpecData` by default.
 - **E5** Clean-machine verification. Done when: the success criteria in the proposal are observed on
   a fresh Windows VM and recorded in `handoff.md`.
 

@@ -2,11 +2,11 @@
 
 ## Current task
 
-Milestones 2 (Tauri shell) and 3 (local PostgreSQL lifecycle) are implemented and verified on this
-Windows machine. Milestone 4 is now demonstrated: pushing tag `v1.0.0` ran the Windows workflow,
-produced the NSIS installer and created a **draft** release with the installer and checksum. The
-plan is `docs/DESKTOP_ONBOARDING_PROPOSAL.md`. The remaining work is signing, publishing and a
-clean-VM install/upgrade/uninstall test.
+Milestones 2 (Tauri shell), 3 (local PostgreSQL lifecycle) and 4 (installer pipeline) are verified on
+this Windows machine. Pushing tag `v1.0.0` ran the Windows workflow, produced the NSIS installer and
+created a **draft** release; that installer was then silently installed, launched, uninstalled and
+reinstalled with its data preserved. The plan is `docs/DESKTOP_ONBOARDING_PROPOSAL.md`. Remaining:
+signing, publishing, a clean-VM test and an updater.
 
 ## Verified facts
 
@@ -88,22 +88,26 @@ clean-VM install/upgrade/uninstall test.
   (`30f54815…`) and contains 14,876 entries / 648 MB unpacked with the same runtime pieces.
   The release is a draft on purpose: the build is unsigned and SmartScreen blocks unsigned
   installers, so publishing is a manual step after signing.
+- Installer lifecycle on this machine (silent `/S`, isolated install directory): install exit 0;
+  the installed app opened, created `%LOCALAPPDATA%\RoleSpecData`, served health 200 and shut down
+  cleanly; uninstall exit 0 removed the install directory while keeping the PostgreSQL cluster
+  (`PG_VERSION` 17) and `secrets.json`; reinstalling and launching reused that data with no second
+  `initdb` and the same `owner@rolespec.local` row.
 - The staged bundle (`resources/app`) runs `.next-desktop` (its `server.js` config and BUILD_ID match
   the desktop build), which is why the app boots rather than 404-ing every chunk.
 
 ## Known gaps
 
 - The `v1.0.0` release is a draft and the installer is unsigned; SmartScreen will block it.
-- The installer has not been installed, upgraded or uninstalled on a clean machine, so uninstall
-  data preservation is unverified. Data/install separation is verified only by path layout and the
-  packaged-layout run.
+- Nothing has been tested on a clean Windows VM, and a version-to-version upgrade (rather than the
+  same build reinstalled) has not been exercised.
 - No updater or version/downgrade guard exists yet.
 
 ## Next action
 
-Milestone 5: sign the installer, install v1.0.0 (then a rebuilt v1.0.0) on a clean Windows VM, and
-prove `%LOCALAPPDATA%\RoleSpecData` survives uninstall/upgrade with no orphaned processes. Publish
-or supersede the draft release after that. Signing may remain blocked without a certificate.
+Milestone 5: sign the installer and repeat the install → onboard → reopen → upgrade → uninstall
+sequence on a clean Windows VM, recording anything the dev machine hides. Publish the draft release
+after signing; signing may remain blocked without a certificate.
 
 ## Do not repeat
 
