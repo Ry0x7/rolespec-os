@@ -1,0 +1,103 @@
+name: Desktop (Windows)
+
+# The desktop runtime is Windows-only: the staging script pins Windows x64
+# PostgreSQL binaries and the shell targets NSIS. Linux/macOS jobs would need
+# their own pinned runtimes, so they are out of scope until requested.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # `npm ci` runs `prisma generate` (no connection) and `next build` needs the
+  # same non-secret placeholders the main CI uses. Nothing here reaches a real
+  # database or signs a real session.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+  AUTH_SECRET: ci-build-only-secret-not-used-to-sign-anything
+  # Baked into the client bundle. The shell opens http://127.0.0.1:3100, so
+  # absolute links must use that origin rather than localhost:3000.
+  NEXT_PUBLIC_APP_URL: http://127.0.0.1:3100
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+jobs:
+  installer:
+    name: Windows x64 installer (unsigned)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    permissions:
+      # Needed only by the draft-release step for tag builds.
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Fetches the SHA-256-pinned PostgreSQL 17 archive and extracts only the
+      # runtime directories. ~250 MB; cached by the runner is not guaranteed.
+      - name: Fetch bundled PostgreSQL
+        run: npm run desktop:postgres
+
+      - name: Shell tests
+        run: npm run desktop:test
+
+      # Builds the standalone server with DESKTOP_BUILD=1 (distDir
+      # .next-desktop) and stages the Node runtime, Prisma CLI and migrations.
+      - name: Stage desktop runtime
+        run: npm run desktop:build
+
+      # The npm CLI avoids compiling tauri-cli from source. It reads
+      # desktop/src-tauri/tauri.conf.json, whose bundle.resources includes the
+      # staged runtime.
+      - name: Build NSIS installer
+        working-directory: desktop/src-tauri
+        run: npx --yes @tauri-apps/cli@^2 build --bundles nsis
+
+      - name: Checksum the installer
+        shell: bash
+        run: |
+          cd desktop/src-tauri/target/release/bundle/nsis
+          sha256sum ./*.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: rolespec-windows-x64-unsigned
+          path: |
+            desktop/src-tauri/target/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      # Draft on purpose: an unsigned NSIS build is blocked by SmartScreen, so
+      # publishing stays a manual decision after signing. Pushing a version tag
+      # produces the draft with the installer and checksum attached.
+      - name: Create draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            desktop/src-tauri/target/release/bundle/nsis/*.exe \
+            desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS.txt \
+            --draft --generate-notes --title "RoleSpec $GITHUB_REF_NAME"
