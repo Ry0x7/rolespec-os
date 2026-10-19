@@ -8,6 +8,7 @@ node_modules
 
 # next.js
 /.next/
+/.next-desktop/
 /out/
 
 # production
@@ -39,6 +40,16 @@ next-env.d.ts
 /scripts/ux-audit/
 /scripts/pdf-preview/
 
+# desktop runtime build output (npm run desktop:stage)
+/desktop/src-tauri/resources/app/
+/desktop/src-tauri/resources/node/
+/desktop/src-tauri/resources/prisma/
+/desktop/src-tauri/resources/postgres/
+/desktop/src-tauri/resources/manifest.json
+/desktop/vendor/
+/desktop/src-tauri/target/
+/desktop/src-tauri/gen/
+
 #claude
 .claude
 .playwright-mcp
@@ -64,3 +75,4 @@ docs/superpowers/
 # local extension verification harness
 /scripts/verify-extension/
 /.tmp-verify-extension/
+.freebuff

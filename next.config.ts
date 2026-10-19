@@ -76,6 +76,10 @@ function securityHeaders() {
 }
 
 const nextConfig: NextConfig = {
+  // Desktop builds use their own output tree. A `next dev` server in the same
+  // checkout owns `.next`, and mixing the two produced a standalone bundle whose
+  // manifests referenced dev chunks that the production server could not serve.
+  distDir: process.env.DESKTOP_BUILD === "1" ? ".next-desktop" : ".next",
   // Self-hosted/Docker deploys run `node .next/standalone/server.js` with only
   // the traced dependency subset copied into the image. Gated on an explicit
   // build flag (set in the Dockerfile) because Vercel never consumes

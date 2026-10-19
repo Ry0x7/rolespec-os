@@ -10,6 +10,12 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "desktop:postgres": "node scripts/desktop/fetch-postgres.mjs",
+    "desktop:stage": "node scripts/desktop/stage-runtime.mjs",
+    "desktop:build": "node scripts/desktop/stage-runtime.mjs --build",
+    "desktop:run": "cargo run --manifest-path desktop/src-tauri/Cargo.toml",
+    "desktop:check": "cargo check --manifest-path desktop/src-tauri/Cargo.toml",
+    "desktop:test": "cargo test --manifest-path desktop/src-tauri/Cargo.toml",
     "postinstall": "prisma generate"
   },
   "engines": {

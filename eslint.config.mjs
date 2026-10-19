@@ -9,9 +9,16 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".next-desktop/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated desktop runtime: staged standalone bundle, Rust build tree and
+    // vendored PostgreSQL. Linting build output is slow and meaningless.
+    "desktop/src-tauri/resources/**",
+    "desktop/src-tauri/target/**",
+    "desktop/src-tauri/gen/**",
+    "desktop/vendor/**",
     // Standalone Chrome extension: own tsconfig, eslint-free.
     "extension/**",
     // local gitignored verification harness

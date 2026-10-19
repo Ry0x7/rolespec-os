@@ -1,6 +1,7 @@
 # Dependencies and build output are produced inside the image, never copied in.
 node_modules
 .next
+.next-desktop
 out
 build
 coverage
@@ -38,6 +39,9 @@ scripts/ux-audit
 scripts/pdf-preview
 *.pdf
 resumes-archived-section.png
+
+# Desktop build output and Rust target tree (not used by the container)
+desktop
 
 # Docker files themselves
 Dockerfile

@@ -1,0 +1,39 @@
+[package]
+name = "rolespec-desktop"
+version = "1.0.0"
+description = "RoleSpec desktop shell"
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[target.'cfg(windows)'.dependencies]
+# Kill-on-close job object: the server and PostgreSQL must not outlive a shell
+# crash. Only the subset of Win32 used by job.rs is enabled.
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+] }
+# Tauri resource paths are verbatim (`\\?\C:\...`); PostgreSQL's initdb
+# rejects them, so they are simplified before use.
+dunce = "1"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+time = { version = "0.3", features = ["formatting"] }
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Native error dialogs for startup failures that happen before the app can
+# render a page (missing runtime, server never became healthy).
+rfd = "0.17"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
