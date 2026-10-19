@@ -116,7 +116,7 @@ RoleSpec.exe (Tauri shell)
 ├── resources/node/node.exe          (pinned Node 22 LTS, not user-installed)
 ├── resources/app/server.js          (.next/standalone + static + public + prisma assets)
 ├── resources/postgres/bin/*         (PostgreSQL 17 binaries, initdb/pg_ctl/postgres)
-└── %LOCALAPPDATA%\RoleSpec\
+└── %LOCALAPPDATA%\RoleSpecData\
     ├── data\pg\                     (cluster; preserved across updates)
     ├── data\exports\                (EXPORT_STORAGE_DIR)
     ├── config\secrets.json          (AUTH_SECRET / ENCRYPTION_KEY, ACL-restricted)

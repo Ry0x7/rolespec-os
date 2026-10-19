@@ -201,9 +201,14 @@ detection, and `src/features/onboarding/lib/ai-connection-test.ts` for the autho
   for the test.
 - `codex-cli` must use the user's installed Codex CLI, not the provider's older bundled binary, and
   must follow the CLI's configured model. ChatGPT-account model ids retire faster than releases.
-- Desktop distribution will add platform bootstrapping only: Tauri shell, bundled Node, bundled
-  PostgreSQL 17, installer and updater. Domain logic, UI, AI providers and the Prisma schema stay
-  shared with Docker/web. No desktop-only schema or AI path.
+- Desktop distribution adds platform bootstrapping only: `desktop/` holds the Tauri 2 shell (bundled
+  Node, bundled PostgreSQL 17) and `scripts/desktop/` fetches and stages those pinned runtimes. The
+  shell runs the same `.next/standalone` bundle and `prisma/migrations`; domain logic, UI, AI
+  providers and the Prisma schema stay shared with Docker/web. No desktop-only schema or AI path.
+- Desktop data lives outside the install directory (`%LOCALAPPDATA%\RoleSpecData`): the PostgreSQL
+  cluster, exports, logs and the stable `AUTH_SECRET`/`ENCRYPTION_KEY` pair. Losing that pair would
+  make every stored AI key unreadable, so it is created once and never regenerated per launch.
+  It is not `%LOCALAPPDATA%\RoleSpec`: that is where Tauri's per-user NSIS install places the app.
 
 ## AI and tools
 

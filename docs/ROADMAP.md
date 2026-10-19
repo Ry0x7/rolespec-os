@@ -173,9 +173,9 @@ Exit criteria:
 
 - [x] First-run onboarding covers the AI requirement, a real connection test, profile, resume and a
       ready summary.
-- [ ] A Tauri 2 shell launches the existing standalone server with a pinned Node runtime on Windows.
+- [x] A Tauri 2 shell launches the existing standalone server with a pinned Node runtime on Windows.
 - [ ] First launch initializes a private PostgreSQL 17 cluster, applies migrations and survives
-      restart/update with data intact.
+      restart/update with data intact. Restart is verified; update needs the installer (E4).
 - [ ] CI produces a Windows installer; install, logs and uninstall are documented and tested.
 - [ ] A clean Windows VM walkthrough from download to a tracked application is recorded.
 
@@ -184,12 +184,13 @@ Items:
 - **E1** (done) In-app onboarding + provider detection/test. Done when: a new user can choose
   ChatGPT/Claude/local/API in plain language, run a real test, see a specific failure, and skip with
   an explicit warning.
-- **E2** Desktop shell. Done when: the shared standalone server runs under Tauri with file logs and
-  clean shutdown; no product code is forked.
-- **E3** Local database lifecycle. Done when: `initdb`, start, migrate, shutdown and upgrade all work
-  from the desktop runtime with no user-installed Postgres.
-- **E4** Installer pipeline. Done when: a tagged build produces an x64 NSIS installer in CI and the
-  uninstall path preserves user data by default.
+- **E2** (done) Desktop shell. Done when: the shared standalone server runs under Tauri with file
+  logs and clean shutdown; no product code is forked.
+- **E3** Local database lifecycle. `initdb`, start, migrate, restart and shutdown are implemented and
+  verified from the desktop runtime with no user-installed Postgres. Upgrade is verified with E4.
+- **E4** Installer pipeline. Workflow exists; not yet run on CI, and install/uninstall are not yet
+  verified. Done when: a tagged build produces an x64 NSIS installer in CI and the uninstall path
+  preserves user data by default.
 - **E5** Clean-machine verification. Done when: the success criteria in the proposal are observed on
   a fresh Windows VM and recorded in `handoff.md`.
 

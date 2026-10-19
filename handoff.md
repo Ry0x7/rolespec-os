@@ -1,67 +1,112 @@
-# Desktop Distribution & First-Run Onboarding (2026-10-19)
+# Desktop Shell & Local Database (2026-10-20)
 
 ## Current task
 
-Make RoleSpec usable by non-developers without forking the architecture. The full proposal is in
-`docs/DESKTOP_ONBOARDING_PROPOSAL.md`. Milestone 1 (in-app onboarding + AI detection/test) is done.
-Milestones 2–6 (Tauri shell, local PostgreSQL lifecycle, Windows installer, clean-machine test,
-docs polish) are not implemented.
+Milestones 2 (Tauri shell) and 3 (local PostgreSQL lifecycle) are implemented and verified on this
+Windows machine, and an unsigned NSIS installer now builds locally. The plan is
+`docs/DESKTOP_ONBOARDING_PROPOSAL.md`. The remaining M4/M5 work is running the workflow on CI and a
+clean-VM install/upgrade/uninstall test.
 
 ## Verified facts
 
-- The app is a Next.js server with Prisma/PostgreSQL. A desktop build must run the server; the
-  existing `.next/standalone` output (Docker) is the intended artifact.
-- SQLite is not viable without schema divergence: the schema uses PostgreSQL enums, `Json`,
-  `@db.Text`, and `pg_advisory_xact_lock` for AI quota. Desktop will bundle PostgreSQL 17 instead.
-- `ai-sdk-provider-codex-cli` bundles an old `@openai/codex` (0.144.6) and preferred it over the
-  user's installed CLI (0.163.0). The bundled build rejected current ChatGPT-account models.
-  Fixed: the provider now uses the installed CLI (`resolveInstalledCodexPath`) and follows
-  `CODEX_CLI_MODEL` → `~/.codex/config.toml` top-level `model` → fallback `gpt-6.1-sol`.
-- `/settings/ai` previously showed deployment config as "Active"; it now uses the per-user resolver.
-- Onboarding now has 7 steps: welcome, capabilities/AI requirement/privacy, AI choice, real test,
-  profile, resume, ready. AI setup reuses `UserAiSettings` + AES-256-GCM; no second credential path.
-- Resume import is not embedded in the wizard. The step opens `/resumes` in a new tab and offers
-  "Check again"; upload still runs through the existing `/api/resume/parse` AI path.
+- The shell runs the shared `.next/standalone` server. There is no desktop fork: one Prisma schema,
+  one migration history, one AI layer.
+- Desktop builds use `distDir: .next-desktop` (`DESKTOP_BUILD=1`, set by `scripts/desktop/stage-runtime.mjs`)
+  so a running `next dev` in the same checkout cannot corrupt the bundle. `DOCKER_BUILD=1` still
+  produces `.next/standalone` for Docker.
+- The shell starts a private PostgreSQL 17 cluster (`initdb -A trust` on `127.0.0.1` only), applies
+  `prisma migrate deploy` through the staged Prisma CLI, then starts `server.js` on port 3100
+  (falls back to a free loopback port when occupied) and opens `/onboarding`.
+- Shell-owned data lives in `%LOCALAPPDATA%\RoleSpecData`: `data/pg`, `data/exports`,
+  `config\secrets.json`, `logs\{desktop,postgres}.log`. Secrets are generated once and reused; the
+  cluster is preserved across restarts. It must not be `%LOCALAPPDATA%\RoleSpec`: that is the
+  per-user NSIS install directory, so uninstall would delete the database and secrets.
+- `DATABASE_URL` present in the environment switches to external-database mode (requires
+  `AUTH_SECRET`). `ROLESPEC_MANAGED_DB=0/1` forces the mode; `ROLESPEC_PG_DIR`, `ROLESPEC_APP_DIR`,
+  `ROLESPEC_NODE`, `ROLESPEC_PRISMA_DIR`, `ROLESPEC_PORT` are developer overrides.
+- Windows shutdown is graceful: window close → `taskkill /T` for the Node child → `pg_ctl -m fast
+  stop`, with a force-kill fallback after 3s.
+- A Win32 kill-on-close job object (`desktop/src-tauri/src/job.rs`) owns the Node server and the
+  PostgreSQL postmaster. If the shell crashes, the OS terminates both instead of leaving them on
+  ports 3100/54329. Job creation or assignment failure is logged as a warning, never fatal.
+- `npm run desktop:postgres` pins PostgreSQL 17.11-1 Windows x64 by SHA-256. `desktop:build` stages
+  the standalone app (whitelisted entries only), Node, the full Prisma CLI dependency tree and
+  migrations.
+- Packaged layout: Tauri installs resources under `<install>\resources\...` while `resource_dir()`
+  returns `<install>` **as a verbatim `\\?\` path**. Both matter: `bundled_root()` keeps the
+  `resources` segment and `native_path()` strips the verbatim prefix (PostgreSQL's `initdb` fails on
+  `//?/C:/...`). Verified against a copied release layout, not just the dev path.
+- Prisma 7.9.1 eagerly requires `@prisma/studio-core` and `@prisma/dev` for `migrate deploy`; the
+  staged CLI is ~234 MB. `@prisma/studio-core` also hides `package.json` behind `exports`, so the
+  stager falls back to the hoisted package directory.
 
 ## Changed files
 
-- `docs/DESKTOP_ONBOARDING_PROPOSAL.md` (new)
-- `src/features/onboarding/constants/ai-setup.ts` (new)
-- `src/features/onboarding/lib/provider-diagnostics.ts` (new)
-- `src/features/onboarding/lib/ai-connection-test.ts` (new)
-- `src/features/onboarding/services/ai-setup.service.ts` (new)
-- `src/features/onboarding/actions/ai-setup.actions.ts` (new)
-- `src/features/onboarding/components/ai-setup-panel.tsx`, `connection-result.tsx`,
-  `onboarding-wizard.tsx`
-- `src/app/onboarding/page.tsx`, `src/app/(app)/settings/ai/page.tsx`
-- `src/shared/lib/ai-generate.ts`, `src/shared/lib/ai-provider.ts`,
-  `src/shared/lib/ai-providers/{constants,codex-cli,codex-paths}.ts`,
-  `src/features/settings/services/user-ai-settings.service.ts`
-- Tests: `src/features/onboarding/**/__tests__`, `src/shared/lib/ai-providers/__tests__`,
-  updated `src/shared/lib/__tests__/ai-provider.test.ts`
-- `README.md` (two paths + honest AI requirement), `handoff.md`
+- `desktop/src-tauri/` — `src/main.rs`, `supervisor.rs`, `postgres.rs`, `job.rs`, `logging.rs`,
+  `tauri.conf.json`, `capabilities/default.json`, `icons/icon.ico`, `build.rs`, `Cargo.toml`,
+  `Cargo.lock`, `resources/README.md`
+- `desktop/ui/index.html` — fallback page only; the window loads the local server
+- `scripts/desktop/` — `stage-runtime.mjs`, `fetch-postgres.mjs`, `generate-icon.mjs`
+- `.github/workflows/desktop.yml` — Windows x64 NSIS build on tags/manual dispatch
+- `next.config.ts` (`distDir`), `package.json` (desktop scripts), `tsconfig.json`, `.gitignore`,
+  `.dockerignore`, `eslint.config.mjs` (ignore generated desktop output)
+- `README.md` (desktop developer path), `docs/ARCHITECTURE.md`, `docs/DESKTOP_ONBOARDING_PROPOSAL.md`
+  (data root), `docs/ROADMAP.md` (E2 done, E3 restart-verified), this file
 
 ## Verification (ran, not assumed)
 
-- `npx tsc --noEmit`: pass.
-- `npm run lint`: pass, 0 warnings.
-- `npm test`: 273 files / 4,668 tests pass.
-- `npm run build`: pass (all routes).
-- Browser walkthrough against a scratch PostgreSQL 17 container: completed all 7 steps, finished at
-  `/dashboard`, `/onboarding` now redirects to `/dashboard`, target role and AI choice persisted.
-- Live AI test: Codex CLI path passed in 7.6s with `gpt-6.1-sol`; the earlier failure was captured
-  as a specific model error, then fixed. `ai_usage_events` recorded both attempts.
-- Fake-key/401, missing CLI, stopped local server, and missing model paths are unit-tested; they were
-  not exercised against real accounts.
+- `cargo test`: 14 passed (health parsing, port choice/fallback, path errors, loopback DB URL,
+  secret generation, job create/assign, a child that must die when the job closes, resource prefix
+  resolution, verbatim/UNC path normalization, and the data root name).
+- First launch against an isolated `%LOCALAPPDATA%` scratch root: created secrets, `initdb`, started
+  PostgreSQL on 54329, created the `rolespec` database, applied 57 migrations, server ready on 3100,
+  `/api/health` and `/onboarding` returned 200, window titled `RoleSpec` existed and responded.
+- Closed the window: server stopped, PostgreSQL logged a fast shutdown, no `rolespec-desktop` or
+  `postgres` process remained.
+- Second launch on the same root: no `initdb`, cluster reused, migrations idempotent, same
+  `owner@rolespec.local` user row (`createdAt` unchanged), secrets file mtime unchanged, health 200.
+- Crash containment: after a healthy launch, `taskkill /F` on the shell only (no graceful path)
+  terminated the Node server and the PostgreSQL postmaster; both listeners were gone within 5s. The
+  next launch recovered the cluster (`redo starts` in the PostgreSQL log) and served health 200.
+  Scratch roots were removed afterwards.
+- `npx tsc --noEmit`: exit 0. `npm run lint`: exit 0, 0 warnings. `npm test`: 273 files / 4,668
+  tests passed.
+- Packaged-layout run (release exe + copied `resources/`, isolated `%LOCALAPPDATA%`): first launch
+  created secrets, `initdb`, PostgreSQL on 54329, applied 57 migrations, server ready on 3100, health
+  200, window titled `RoleSpec`; a restart reused the cluster with `initdb` appearing once; graceful
+  close stopped both processes. Data was created only under `RoleSpecData`, not in the app directory,
+  which is the property uninstall relies on.
+- NSIS installer built locally with `npx @tauri-apps/cli@^2 build --bundles nsis`: 102.97 MiB
+  (`RoleSpec_1.0.0_x64-setup.exe`, sha256 `e0da86b5…`), 14,867 entries / 646 MB unpacked. `7z l`
+  confirms `resources/app/server.js`, `resources/node/node.exe`,
+  `resources/postgres/bin/postgres.exe`, `@prisma/dev` and `@prisma/studio-core` are inside, and the
+  embedded exe timestamp matches the final release build.
+- The staged bundle (`resources/app`) runs `.next-desktop` (its `server.js` config and BUILD_ID match
+  the desktop build), which is why the app boots rather than 404-ing every chunk.
+
+## Known gaps
+
+- The installer workflow has not run on GitHub Actions. The installer has not been installed,
+  upgraded or uninstalled on a clean machine, so uninstall data preservation is unverified.
+- No updater, version/downgrade guard or code signing exists yet.
 
 ## Next action
 
-Milestone 2: Tauri 2 shell that launches `.next/standalone` with a pinned Node runtime on Windows.
-Do not build the installer before the local database lifecycle (M3) is designed and tested.
+Milestone 4/5: run `.github/workflows/desktop.yml`, then install vN over vN-1 on a clean Windows VM
+and prove `data/pg` and `config\secrets.json` survive with no orphaned processes. Signing is required
+for a public release and may remain blocked without a certificate.
 
 ## Do not repeat
 
 - Do not add SQLite or a second schema/migration history.
 - Do not introduce a second AI credential store or read vendor auth files/tokens.
 - Do not claim a downloadable desktop installer exists; none is published.
-- Do not commit `.freebuff/` or the verification screenshots unless intentionally publishing docs.
+- Do not run a desktop build into `.next`; `DESKTOP_BUILD=1` selects `.next-desktop` for a reason.
+- On Windows, read `pg_ctl status`/`start` through `.status()` with discarded handles: the
+  postmaster inherits stdio and `output()` would block until shutdown.
+- Do not pass raw Tauri `resource_dir()` paths to PostgreSQL, and do not add the `resources` segment
+  twice: package layout is `<install>/resources/<name>`, and the returned path starts with `\\?\`.
+- Do not prune Prisma CLI dependencies that look unused (`@prisma/dev`, `@prisma/studio-core`); the
+  7.9.1 CLI requires them at startup even for `migrate deploy`.
+- Do not commit `.freebuff/`, staged `desktop/src-tauri/resources/*`, `desktop/vendor/` or
+  `desktop/src-tauri/target/` — all are gitignored build output.

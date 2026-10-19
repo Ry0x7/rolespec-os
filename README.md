@@ -172,6 +172,62 @@ You only need [Docker Desktop](https://www.docker.com/products/docker-desktop/).
    Open **[http://localhost:3100](http://localhost:3100)**. First-run setup now opens in the app
    instead of sending you to the settings page.
 
+#### Method 3: Desktop shell (developer preview)
+
+This is the runtime the Windows installer will wrap. It runs the same standalone server against a
+private PostgreSQL 17 cluster, so no Docker, no user-installed PostgreSQL and no `.env` file is
+needed once staged. It is Windows x64 only today, and **no installer is published yet**.
+
+**Prerequisites**
+- **Windows 10/11 x64** with WebView2 (present on Windows 11 and updated Windows 10)
+- **Node.js 22+**, **Rust** (stable) and the Tauri Windows prerequisites
+
+**Steps**
+
+1. Install dependencies and fetch the pinned runtimes:
+   ```bash
+   npm install
+   npm run desktop:postgres   # one-time: pinned PostgreSQL 17 binaries (~250 MB)
+   ```
+
+2. Build and stage the desktop bundle (standalone server, Node, Prisma CLI, migrations):
+   ```bash
+   npm run desktop:build
+   ```
+
+3. Launch the shell:
+   ```bash
+   npm run desktop:run
+   ```
+
+On first launch the shell creates `%LOCALAPPDATA%\RoleSpecData`, initializes the cluster, applies the
+normal Prisma migrations and opens the app at `/onboarding`. Later launches reuse that cluster and
+the same secrets file, so updates do not lose data or invalidate stored AI keys. It is deliberately a
+*separate* directory from the per-user install location (`%LOCALAPPDATA%\RoleSpec`), so uninstalling
+the app does not delete your data; remove `RoleSpecData` yourself to erase it.
+
+| Location | Contents |
+| :--- | :--- |
+| `%LOCALAPPDATA%\RoleSpecData\data\pg` | private PostgreSQL cluster |
+| `%LOCALAPPDATA%\RoleSpecData\data\exports` | generated PDFs and exports |
+| `%LOCALAPPDATA%\RoleSpecData\config\secrets.json` | stable `AUTH_SECRET` / `ENCRYPTION_KEY` |
+| `%LOCALAPPDATA%\RoleSpecData\logs` | shell, server and PostgreSQL logs |
+
+To point the shell at an existing database instead, set `DATABASE_URL` and `AUTH_SECRET` (plus
+`ENCRYPTION_KEY` if you use one) before launching. `ROLESPEC_MANAGED_DB=0` forces that mode.
+
+Shell checks: `npm run desktop:check`, `npm run desktop:test`.
+
+To produce the (unsigned) NSIS installer locally, after `npm run desktop:build`:
+
+```bash
+cd desktop/src-tauri
+npx @tauri-apps/cli@^2 build --bundles nsis
+```
+
+The result is `desktop/src-tauri/target/release/bundle/nsis/RoleSpec_<version>_x64-setup.exe`.
+It is **unsigned**, so Windows SmartScreen will warn; signing is a release prerequisite.
+
 ---
 
 ## 📸 Feature Tour
