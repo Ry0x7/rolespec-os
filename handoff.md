@@ -13,6 +13,29 @@ Remaining: an Azure signing certificate, a signed release with `latest.json`, an
 The plan is
 `docs/DESKTOP_ONBOARDING_PROPOSAL.md`.
 
+## Maintenance pass (2026-10-21)
+
+Reviewed the three open Dependabot PRs (all green: audit/build/lint/test/types) and merged them:
+vite 8.2.2 → 8.3.4 (#3), hono 4.13.7 → 4.13.13 (#2), extension vite 7.3.6 → 7.3.7 (#1). That closed
+six of the ten open dependency alerts (launch-editor via vite in both packages, hono serveStatic).
+`npm audit` on main is now 8 root entries (5 high dev-only braces/micromatch/fast-glob/
+eslint-config-next, 3 moderate mammoth → argparse@1 → sprintf-js) and 0 in `extension/`.
+
+Not fixable, left open and documented: braces and sprintf-js have **no published patched
+version** (braces 3.0.3 and sprintf-js 1.1.3 are the latest and still in range), and mammoth's
+argparse is only reachable from its CLI bin (`require("mammoth")` loads no argparse). glib 0.18.5
+is pinned by gtk 0.18 (Linux only, needs a gtk-rs 0.20/Tauri bump) and never compiles on Windows.
+The CI audit comment now records the mammoth exception.
+
+Fixed two quality findings: `clippy::question_mark` in `postgres.rs` (behaviour unchanged), and file
+tracing pulling the whole repo into server bundles. `store-export.ts` builds paths at runtime, so
+Turbopack traced every project file: 14,551 entries for the exports route, 13,424 of them
+`desktop/src-tauri/target`. `next.config.ts` now excludes the non-runtime trees; that route traces
+965 entries and the exports-free bundles dropped similarly (85,579 → 31,205 total trace entries).
+A `DOCKER_BUILD=1` standalone build is 3,268 files / 88 MB and its `server.js` boots and serves `/`
+with 200. The 11 build warnings remain — Turbopack emits them during compilation, before excludes
+are applied — but the trace they describe is gone.
+
 ## Verified facts
 
 - The shell runs the shared `.next/standalone` server. There is no desktop fork: one Prisma schema,
@@ -171,6 +194,11 @@ The plan is
   an Authenticode-signed installer has never been downloaded through the updater.
 
 ## Next action
+
+Maintenance pass (above) is verified but **uncommitted**: `next.config.ts`, `.github/workflows/ci.yml`,
+`desktop/src-tauri/src/postgres.rs`, this file. The tracing fix only shrinks `.next/standalone`
+itself — `stage-runtime.mjs` already whitelists runtime entries, so the packaged installer is
+unchanged in size.
 
 Milestone 5: sign the installer and repeat the install → onboard → reopen → upgrade → uninstall
 sequence on a clean Windows VM, recording anything the dev machine hides. The next signed tag (bump

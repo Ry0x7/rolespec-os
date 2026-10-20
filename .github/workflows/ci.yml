@@ -70,6 +70,10 @@ jobs:
       # not fail: a dev-only transitive advisory with no upstream fix (currently
       # braces GHSA-vfj7-8cjw-p6xm via eslint-config-next) must not block unrelated
       # PRs. Remove the dev exception when a fixed braces ships.
+      # Known, accepted production moderate: mammoth -> argparse@1 -> sprintf-js
+      # GHSA-hp3w-g68c-fv3c. No patched release exists (sprintf-js 1.1.3, the
+      # latest, is still in range), and argparse is only reached by mammoth's CLI
+      # bin, which this app never invokes; `require("mammoth")` loads no argparse.
       - run: npm audit --audit-level=high --omit=dev
       - run: npm audit --audit-level=high
         continue-on-error: true
