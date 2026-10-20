@@ -20,6 +20,9 @@ updates:
       npm-patch-minor:
         applies-to: version-updates
         update-types: ["patch", "minor"]
+      npm-major:
+        applies-to: version-updates
+        update-types: ["major"]
       npm-security:
         applies-to: security-updates
         patterns: ["*"]
@@ -35,10 +38,19 @@ updates:
     versioning-strategy: increase
     commit-message:
       prefix: extension
+    ignore:
+      # TypeScript 7 is a breaking major for this package: the compiler stops
+      # resolving node globals, and the extension is not yet migrated. Remove
+      # this when the TS 7 upgrade is planned (it is a code change, not a bump).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       extension-patch-minor:
         applies-to: version-updates
         update-types: ["patch", "minor"]
+      extension-major:
+        applies-to: version-updates
+        update-types: ["major"]
       extension-security:
         applies-to: security-updates
         patterns: ["*"]
@@ -60,6 +72,9 @@ updates:
       cargo-patch-minor:
         applies-to: version-updates
         update-types: ["patch", "minor"]
+      cargo-major:
+        applies-to: version-updates
+        update-types: ["major"]
       cargo-security:
         applies-to: security-updates
         patterns: ["*"]
@@ -75,6 +90,9 @@ updates:
       actions:
         applies-to: version-updates
         update-types: ["minor", "patch"]
+      actions-major:
+        applies-to: version-updates
+        update-types: ["major"]
       actions-security:
         applies-to: security-updates
         patterns: ["*"]
