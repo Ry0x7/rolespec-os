@@ -245,6 +245,8 @@ and the workflow holds no client secret. Configure once:
 With all six present, a `v*` tag build signs the setup executable, verifies the signature and its
 RFC 3161 timestamp, and **publishes** the release. With any of them missing the workflow warns and
 produces an unsigned installer in a **draft** release, so forks and unauthenticated runs still work.
+An unsigned draft can be published deliberately with `gh release edit <tag> --draft=false`; until a
+signed release exists it carries no `latest.json`, so installed copies cannot auto-update.
 
 Only the installer is Authenticode-signed. The application executable inside it is not; signing that
 too requires an `artifact-signing-cli` step wired through `bundle.windows.signCommand` in

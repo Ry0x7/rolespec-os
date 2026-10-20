@@ -7,8 +7,9 @@ are verified on this Windows machine. Pushing tag `v1.0.0` ran the Windows workf
 installer and created a **draft** release; that installer was then silently installed, launched,
 uninstalled and reinstalled with its data preserved. A local 1.0.0 install then updated itself to a
 signed 1.0.1 through the real updater, and the schema guard refuses a database with a migration the
-build does not ship. Tag `v1.0.1` (current main) built a second **draft** release; v1.0.0 predates the
-updater and is superseded. Remaining: an Azure signing certificate, publishing, and a clean-VM test.
+build does not ship. Tag `v1.0.1` (current main) built a release that was **published unsigned on
+purpose**, since no signing account exists; v1.0.0 stays a draft because it predates the updater.
+Remaining: an Azure signing certificate, a signed release with `latest.json`, and a clean-VM test.
 The plan is
 `docs/DESKTOP_ONBOARDING_PROPOSAL.md`.
 
@@ -92,7 +93,14 @@ The plan is
   unsigned). Draft release `v1.0.1` carries `RoleSpec_1.0.1_x64-setup.exe` (110,675,628 bytes), its
   `.sig` and `SHA256SUMS.txt`; the download passes `sha256sum -c`, the signature's trusted comment
   says `version:1.0.1`, and the installer holds 14,876 entries including `resources\app\server.js`,
-  `resources\node\node.exe` and `resources\postgres\bin\postgres.exe`.
+  `resources\node\node.exe` and `resources\postgres\bin\postgres.exe`. The workflow created it as a
+  draft; it was then published with `gh release edit v1.0.1 --draft=false` (an explicit decision to
+  ship unsigned) under the title "RoleSpec 1.0.1 — Windows desktop preview", with notes that list the
+  desktop runtime, installer/data layout, updater, schema guard and the packaging fixes plus the known
+  limitations, rather than GitHub's empty auto-generated changelog. Anonymous checks after publishing:
+  the installer URL answers 302 → 200,
+  `/releases/latest` redirects to `v1.0.1`, and `/releases/latest/download/latest.json` is 404 —
+  auto-update is deliberately still off until a signed release attaches the manifest.
 - CI run 39300819266 on tag `v1.0.0` succeeded: tests, staging and installer build passed. It
   uploaded the artifact and created draft release `v1.0.0` with `RoleSpec_1.0.0_x64-setup.exe`
   (109,950,705 bytes) and `SHA256SUMS.txt`. The downloaded asset passed `sha256sum -c`
@@ -150,9 +158,9 @@ The plan is
 
 ## Known gaps
 
-- `v1.0.0` and `v1.0.1` are drafts and their installers are unsigned; SmartScreen warns about them.
-  `v1.0.1` is the release candidate; `v1.0.0` predates the updater and should be removed or left
-  unpublished rather than shipped.
+- `v1.0.1` is **published but unsigned**: SmartScreen shows its warning, and installed copies
+  cannot self-update because the release has no `latest.json` and their check logs a warning. `v1.0.0`
+  remains a draft; it predates the updater and should stay unpublished.
   Signing is wired into `.github/workflows/desktop.yml` (Azure Artifact Signing over GitHub OIDC,
   then `Get-AuthenticodeSignature` must report `Valid` with a timestamp, and only then does a tag
   build publish instead of drafting). It has never executed: no Artifact Signing account or Entra
@@ -165,10 +173,10 @@ The plan is
 ## Next action
 
 Milestone 5: sign the installer and repeat the install → onboard → reopen → upgrade → uninstall
-sequence on a clean Windows VM, recording anything the dev machine hides. The release candidate is
-the `v1.0.1` draft; publish it only after a tag build reports a valid Authenticode signature, and
-only then does CI attach `latest.json`. Signing may remain blocked without a certificate; the stale
-`v1.0.0` draft predates the updater.
+sequence on a clean Windows VM, recording anything the dev machine hides. The next signed tag (bump
+`version` and tag again) publishes automatically and attaches `latest.json`, which switches
+self-updates on for installed copies; the unsigned `v1.0.1` cannot update itself. Signing may remain
+blocked without a certificate.
 
 ## Do not repeat
 
