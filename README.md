@@ -271,6 +271,12 @@ The shell also refuses to open data a newer build created: it compares the migra
 `_prisma_migrations` against the migrations it ships and exits with an explanation when the database
 is ahead. A downgrade therefore fails loudly instead of running old code against a newer schema.
 
+To exercise an update without publishing anything, build two installers with a `--config` overlay
+that points the endpoint at a local server (`dangerousInsecureTransportProtocol` is required for
+`http://`), serve the newer installer plus a `latest.json` that carries its `.sig`, install the older
+build, and accept the prompt. Both builds must be signed with the same key as the `pubkey` in
+`tauri.conf.json`, or the download is rejected before anything is installed.
+
 **If desktop startup fails**
 
 - The error dialog names the failing step and the log file. Logs are in

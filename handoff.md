@@ -1,13 +1,14 @@
-# Desktop Shell & Local Database (2026-10-20)
+# Desktop Shell & Local Database (2026-10-21)
 
 ## Current task
 
-Milestones 2 (Tauri shell), 3 (local PostgreSQL lifecycle) and 4 (installer pipeline) are verified on
-this Windows machine. Pushing tag `v1.0.0` ran the Windows workflow, produced the NSIS installer and
-created a **draft** release; that installer was then silently installed, launched, uninstalled and
-reinstalled with its data preserved. Code signing, a Rust-driven updater with a downgrade guard, and
-the console-window flash fix are now implemented. Remaining: an Azure signing certificate, publishing,
-end-to-end update, and a clean-VM test. The plan is `docs/DESKTOP_ONBOARDING_PROPOSAL.md`.
+Milestones 2 (Tauri shell), 3 (local PostgreSQL lifecycle), 4 (installer pipeline) and 6 (self-updates)
+are verified on this Windows machine. Pushing tag `v1.0.0` ran the Windows workflow, produced the NSIS
+installer and created a **draft** release; that installer was then silently installed, launched,
+uninstalled and reinstalled with its data preserved. A local 1.0.0 install then updated itself to a
+signed 1.0.1 through the real updater. Remaining: an Azure signing certificate, publishing, a clean-VM
+test, and a live refusal of a downgraded database. The plan is
+`docs/DESKTOP_ONBOARDING_PROPOSAL.md`.
 
 ## Verified facts
 
@@ -100,6 +101,22 @@ end-to-end update, and a clean-VM test. The plan is `docs/DESKTOP_ONBOARDING_PRO
   public key in `tauri.conf.json` (`requireSignedVersion` on), downloads it, stops the server and
   cluster, and lets the NSIS installer relaunch the app. A missing manifest is logged as a warning,
   never fatal; observed in a live run ("the update endpoint could not be reached").
+- Full update run, 1.0.0 → 1.0.1 (isolated install dir and isolated `LOCALAPPDATA`, hosted manifest
+  and installer on `127.0.0.1:8099` through a `--config` overlay that sets the endpoint and
+  `dangerousInsecureTransportProtocol`; version left untouched in the repo): the check logged
+  "RoleSpec 1.0.1 is available (installed: 1.0.0)", the dialog showed that text, accepting it
+  downloaded the 108.7 MB installer, the signature verified (the download would have failed
+  otherwise), the shell stopped the server and cluster, the NSIS `/UPDATE` install replaced
+  `rolespec-desktop.exe` with 1.0.1, and the relaunched app reused the same cluster (no `initdb`),
+  applied migrations idempotently, served health 200 and opened the window. `secrets.json` mtime and
+  the `users` row created at 19:41 survived; the next check logged "RoleSpec is up to date".
+  Uninstall of the updated install left two empty directories (`install\resources\app`) behind, which
+  is cosmetic (no files), unlike the earlier clean install whose directory was removed entirely.
+- The desktop workflow only runs on `v*` tags and manual dispatch. A manual dispatch on `main` used to
+  reach the manifest step with `GITHUB_REF_NAME=main` and fail, because the step only checked for an
+  empty ref and the node invocation carried a stray `\n` argument. It now checks `GITHUB_REF_TYPE`,
+  skips branch builds with a warning, and passes every argument on one line; dispatch run 39482422206
+  on `main` is green and writes no `latest.json`.
 - Updater artifacts: `tauri.conf.json` keeps `createUpdaterArtifacts: false` so local builds need no
   key; CI adds the `--config` overlay when `TAURI_SIGNING_PRIVATE_KEY` exists. A local release build
   produced `RoleSpec_1.0.0_x64-setup.exe.sig` whose trusted comment contains `version:1.0.0`, which
@@ -126,17 +143,19 @@ end-to-end update, and a clean-VM test. The plan is `docs/DESKTOP_ONBOARDING_PRO
   then `Get-AuthenticodeSignature` must report `Valid` with a timestamp, and only then does a tag
   build publish instead of drafting). It has never executed: no Artifact Signing account or Entra
   app exists, so the six secrets/variables are unset and CI takes the warned, unsigned, draft path.
-- Nothing has been tested on a clean Windows VM, and a version-to-version upgrade (rather than the
-  same build reinstalled) has not been exercised.
-- The updater has never downloaded or installed a real update: that needs a published release newer
-  than the installed build, and no signed release exists yet.
+- Nothing has been tested on a clean Windows VM.
+- The updater has only been exercised against a locally hosted manifest. The real path
+  (`releases/latest/download/latest.json` from GitHub) is unproven because nothing is published, and
+  an Authenticode-signed installer has never been downloaded through the updater.
 - The downgrade guard has not been run against a genuinely downgraded database (unit tests only).
 
 ## Next action
 
-Milestone 6 first (updater + downgrade guard, E6), then milestone 5: sign the installer and repeat the install → onboard → reopen → upgrade → uninstall
+Milestone 5: sign the installer and repeat the install → onboard → reopen → upgrade → uninstall
 sequence on a clean Windows VM, recording anything the dev machine hides. Publish the draft release
-after signing; signing may remain blocked without a certificate.
+after signing; signing may remain blocked without a certificate. Once a signed build exists, tag it
+with a matching version bump so the published manifest and the Authenticode-signed installer are
+produced by the same CI run.
 
 ## Do not repeat
 
@@ -152,3 +171,7 @@ after signing; signing may remain blocked without a certificate.
   7.9.1 CLI requires them at startup even for `migrate deploy`.
 - Do not commit `.freebuff/`, staged `desktop/src-tauri/resources/*`, `desktop/vendor/` or
   `desktop/src-tauri/target/` — all are gitignored build output.
+- Do not gate "is this a tag build" on `GITHUB_REF_NAME` being non-empty: a manual run on a branch
+  sets it to the branch name (`main`). Use `GITHUB_REF_TYPE`.
+- Do not test the updater against a local `http://` manifest without
+  `dangerousInsecureTransportProtocol: true`; the plugin rejects non-HTTPS endpoints.

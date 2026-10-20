@@ -174,8 +174,8 @@ Exit criteria:
 - [x] First-run onboarding covers the AI requirement, a real connection test, profile, resume and a
       ready summary.
 - [x] A Tauri 2 shell launches the existing standalone server with a pinned Node runtime on Windows.
-- [ ] First launch initializes a private PostgreSQL 17 cluster, applies migrations and survives
-      restart/update with data intact. Restart is verified; update needs the installer (E4).
+- [x] First launch initializes a private PostgreSQL 17 cluster, applies migrations and survives
+      restart/update with data intact. Restart and an in-place 1.0.0 → 1.0.1 update are verified.
 - [x] CI produces a Windows installer; install, logs and uninstall are documented and tested on
       Windows (clean-VM verification is E5).
 - [ ] A clean Windows VM walkthrough from download to a tracked application is recorded.
@@ -194,10 +194,12 @@ Items:
   (Azure Artifact Signing, OIDC) verify their signature and publish instead of drafting.
 - **E5** Clean-machine verification. Done when: the success criteria in the proposal are observed on
   a fresh Windows VM and recorded in `handoff.md`.
-- **E6** Signed, self-updating releases. Implemented: the updater runs from the shell, the release
-  workflow writes `latest.json` and re-signs the installer after Authenticode, and the database
-  guard refuses a schema newer than the build. Not yet verified end to end: that needs a signed
-  release newer than an installed build.
+- **E6** (verified locally) Signed, self-updating releases. The updater runs from the shell, the
+  release workflow writes `latest.json` and re-signs the installer after Authenticode, and the
+  database guard refuses a schema newer than the build. A 1.0.0 install updated itself from a local
+  signed manifest to 1.0.1, kept its cluster and secrets, and reported up to date afterwards. Still
+  unproven: the GitHub-hosted manifest (nothing is published) and the downgrade refusal against a
+  real downgraded cluster.
 
 Not in this phase: managed AI, auto-apply, SQLite or a desktop-only schema, new product features.
 
