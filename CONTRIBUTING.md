@@ -87,11 +87,14 @@ npm run build
 | `lint` | `npm run lint` | ESLint, must be warning-free |
 | `test` | `npm test` | Vitest; 4,600+ tests run in about 90s |
 | `build` | `npm run build` | runs `prisma generate` first, so no database connection is needed |
+| `extension` | `cd extension && npm ci && npm run build && npm test` | the extension is its own package; it is built and tested on every PR |
 | `audit` | `npm audit --audit-level=high --omit=dev` | production dependencies must stay clean at high/critical |
 | `audit` | `npm audit --audit-level=high` | dev-only advisories are reported, not fatal |
 
-If you touched `extension/`, also run `cd extension && npm ci && npm run build && npm test`. If you
-touched `desktop/src-tauri/`, run `npm run desktop:check` and `npm run desktop:test`.
+If you touched `desktop/src-tauri/`, the **Desktop shell** workflow also runs
+`npm run desktop:check` and `npm run desktop:test` on `windows-latest`. That job only triggers on
+desktop changes and is reported separately from the five required checks, because Tauri cannot
+compile on the Linux runner the main CI uses.
 
 A change is not verified because a build exits 0. Exercise the workflow you changed — the page, the
 API route, the extension popup — and say in the PR what you actually ran.
