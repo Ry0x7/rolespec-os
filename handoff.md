@@ -7,8 +7,9 @@ are verified on this Windows machine. Pushing tag `v1.0.0` ran the Windows workf
 installer and created a **draft** release; that installer was then silently installed, launched,
 uninstalled and reinstalled with its data preserved. A local 1.0.0 install then updated itself to a
 signed 1.0.1 through the real updater, and the schema guard refuses a database with a migration the
-build does not ship. Remaining: an Azure signing certificate, publishing, and a clean-VM test. The
-plan is
+build does not ship. Tag `v1.0.1` (current main) built a second **draft** release; v1.0.0 predates the
+updater and is superseded. Remaining: an Azure signing certificate, publishing, and a clean-VM test.
+The plan is
 `docs/DESKTOP_ONBOARDING_PROPOSAL.md`.
 
 ## Verified facts
@@ -85,6 +86,13 @@ plan is
   confirms `resources/app/server.js`, `resources/node/node.exe`,
   `resources/postgres/bin/postgres.exe`, `@prisma/dev` and `@prisma/studio-core` are inside, and the
   embedded exe timestamp matches the final release build.
+- CI run 39492977194 on tag `v1.0.1` succeeded from commit `dff352a8`: tests, staging, the NSIS build,
+  the update-artifact re-sign and the manifest step all passed (`Wrote .../latest.json`; the file is
+  uploaded as a workflow artifact but deliberately kept off the release because the build is
+  unsigned). Draft release `v1.0.1` carries `RoleSpec_1.0.1_x64-setup.exe` (110,675,628 bytes), its
+  `.sig` and `SHA256SUMS.txt`; the download passes `sha256sum -c`, the signature's trusted comment
+  says `version:1.0.1`, and the installer holds 14,876 entries including `resources\app\server.js`,
+  `resources\node\node.exe` and `resources\postgres\bin\postgres.exe`.
 - CI run 39300819266 on tag `v1.0.0` succeeded: tests, staging and installer build passed. It
   uploaded the artifact and created draft release `v1.0.0` with `RoleSpec_1.0.0_x64-setup.exe`
   (109,950,705 bytes) and `SHA256SUMS.txt`. The downloaded asset passed `sha256sum -c`
@@ -142,7 +150,9 @@ plan is
 
 ## Known gaps
 
-- The `v1.0.0` release is a draft and its installer is unsigned; SmartScreen warns about it.
+- `v1.0.0` and `v1.0.1` are drafts and their installers are unsigned; SmartScreen warns about them.
+  `v1.0.1` is the release candidate; `v1.0.0` predates the updater and should be removed or left
+  unpublished rather than shipped.
   Signing is wired into `.github/workflows/desktop.yml` (Azure Artifact Signing over GitHub OIDC,
   then `Get-AuthenticodeSignature` must report `Valid` with a timestamp, and only then does a tag
   build publish instead of drafting). It has never executed: no Artifact Signing account or Entra
@@ -155,10 +165,10 @@ plan is
 ## Next action
 
 Milestone 5: sign the installer and repeat the install → onboard → reopen → upgrade → uninstall
-sequence on a clean Windows VM, recording anything the dev machine hides. Publish the draft release
-after signing; signing may remain blocked without a certificate. Once a signed build exists, tag it
-with a matching version bump so the published manifest and the Authenticode-signed installer are
-produced by the same CI run.
+sequence on a clean Windows VM, recording anything the dev machine hides. The release candidate is
+the `v1.0.1` draft; publish it only after a tag build reports a valid Authenticode signature, and
+only then does CI attach `latest.json`. Signing may remain blocked without a certificate; the stale
+`v1.0.0` draft predates the updater.
 
 ## Do not repeat
 
