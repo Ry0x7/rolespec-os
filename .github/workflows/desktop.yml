@@ -4,12 +4,16 @@ name: Desktop (Windows)
 # PostgreSQL binaries and the shell targets NSIS. Linux/macOS jobs would need
 # their own pinned runtimes, so they are out of scope until requested.
 #
-# Code signing is optional and configuration-driven. With the six values listed
-# in the "Detect signing configuration" step present, the installer is signed
-# with Azure Artifact Signing (OIDC, no client secret) and a tag build publishes
-# the release instead of leaving it as a draft. Without them the workflow still
-# produces an unsigned installer and a draft, so forks and local tags keep
-# working. See the "Signing Windows releases" section of README.md.
+# Two independent credentials decide what this workflow can ship:
+#
+#   1. Azure Artifact Signing (6 secrets/variables) signs the setup executable.
+#      With it, a tag build publishes the release; without it, the build warns,
+#      stays unsigned and the release stays a draft.
+#   2. TAURI_SIGNING_PRIVATE_KEY signs the update artifact. With it, the build
+#      also produces `<installer>.sig` and a `latest.json`, which is what an
+#      installed copy checks for updates.
+#
+# See "Signing Windows releases" in README.md for the setup.
 on:
   workflow_dispatch:
   push:
@@ -76,10 +80,25 @@ jobs:
 
       # The npm CLI avoids compiling tauri-cli from source. It reads
       # desktop/src-tauri/tauri.conf.json, whose bundle.resources includes the
-      # staged runtime.
+      # staged runtime. `createUpdaterArtifacts` is off in the committed config
+      # so a local build needs no key; the overlay turns it on when this run has
+      # one, which is what produces the `.nsis.zip` and its `.sig`.
       - name: Build NSIS installer
         working-directory: desktop/src-tauri
-        run: npx --yes @tauri-apps/cli@^2 build --bundles nsis
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          args=(build --bundles nsis)
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            args+=(--config '{"bundle":{"createUpdaterArtifacts":true}}')
+            echo "Updater artifacts enabled."
+          else
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set; this build has no updater artifacts and installed copies cannot self-update."
+          fi
+          npx --yes @tauri-apps/cli@^2 "${args[@]}"
 
       # Secrets cannot be tested in a step `if:`, so they are read here and
       # turned into an output. A missing value in any slot means "unsigned";
@@ -152,6 +171,58 @@ jobs:
           if ($null -eq $sig.TimeStamperCertificate) { throw "Installer signature is not timestamped." }
           if ($installer.Length -lt 1MB) { throw "Signed installer is suspiciously small." }
 
+      # Authenticode changes the bytes, which invalidates the `.sig` the
+      # bundler produced. Tauri v2's NSIS updater installs the setup.exe
+      # directly (or a zip containing it), so the signature has to cover the
+      # signed executable; `signer sign` rewrites `<exe>.sig` and records the
+      # version that `requireSignedVersion` checks at runtime.
+      - name: Re-sign the update artifact
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        working-directory: desktop/src-tauri/target/release/bundle/nsis
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+            Write-Host "No updater key; the installer is signed but cannot ship updates."
+            exit 0
+          }
+          $exe = Get-ChildItem *.exe | Select-Object -First 1
+          Remove-Item "$($exe.FullName).sig" -ErrorAction SilentlyContinue
+          npx --yes '@tauri-apps/cli@^2' signer sign $exe.FullName
+          $sig = "$($exe.FullName).sig"
+          if (-not (Test-Path $sig)) { throw "The update artifact was not signed." }
+          $comment = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String((Get-Content $sig -Raw).Trim()))
+          if ($comment -notmatch "version:") {
+            throw "The update signature has no trusted version comment, so every client would reject it."
+          }
+
+      # The app reads `releases/latest/download/latest.json`; the CLI does not
+      # write it, so the workflow does. The signature is the one covering the
+      # installer, and `requireSignedVersion` binds it to this version number.
+      - name: Write the update manifest
+        shell: bash
+        working-directory: desktop/src-tauri/target/release/bundle/nsis
+        run: |
+          set -euo pipefail
+          exe=$(ls -1 -- *.exe 2>/dev/null | head -n 1 || true)
+          if [ -z "$exe" ]; then
+            echo "::warning::No installer; latest.json is not written."
+            exit 0
+          fi
+          if [ ! -f "$exe.sig" ]; then
+            echo "::warning::$exe has no signature; latest.json is not written."
+            exit 0
+          fi
+          if [ -z "${GITHUB_REF_NAME:-}" ]; then
+            echo "::warning::Not a tag build; latest.json is not written."
+            exit 0
+          fi
+
+          version=$(node -e 'console.log(require(process.argv[1]).version)' "$GITHUB_WORKSPACE/desktop/src-tauri/tauri.conf.json")
+          node "$GITHUB_WORKSPACE/scripts/desktop/write-update-manifest.mjs" \n            "$exe" "$exe.sig" "$version" "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
+
       - name: Checksum the installer
         shell: bash
         run: |
@@ -165,6 +236,8 @@ jobs:
           name: rolespec-windows-x64-${{ steps.signing.outputs.enabled == 'true' && 'signed' || 'unsigned' }}
           path: |
             desktop/src-tauri/target/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/release/bundle/nsis/*.sig
+            desktop/src-tauri/target/release/bundle/nsis/latest.json
             desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
@@ -187,17 +260,28 @@ jobs:
           else
             echo "Unsigned installer; creating a draft release."
           fi
-          files="desktop/src-tauri/target/release/bundle/nsis"
+
+          cd desktop/src-tauri/target/release/bundle/nsis
+          assets=()
+          for file in ./*.exe ./*.sig ./SHA256SUMS.txt; do
+            [ -e "$file" ] && assets+=("$file")
+          done
+          # `latest.json` must only be attached when it describes a signed
+          # archive, otherwise installed copies would download an unverifiable
+          # update and fail.
+          if [ -f ./latest.json ] && [ "$SIGNED" = "true" ]; then
+            assets+=(./latest.json)
+          fi
+
           # Re-running a failed job for the same tag must not fail on an
           # existing release: replace its assets and promote or demote it to
           # match this run's signing outcome.
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$files"/*.exe "$files"/SHA256SUMS.txt --clobber
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
             if [ -z "$draft_flag" ]; then
               gh release edit "$GITHUB_REF_NAME" --draft=false
             fi
           else
-            gh release create "$GITHUB_REF_NAME" \
-              "$files"/*.exe "$files"/SHA256SUMS.txt \
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
               $draft_flag --generate-notes --title "RoleSpec $GITHUB_REF_NAME"
           fi

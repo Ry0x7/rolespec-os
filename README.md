@@ -252,6 +252,25 @@ too requires an `artifact-signing-cli` step wired through `bundle.windows.signCo
 remove SmartScreen warnings for a brand-new binary — reputation accrues for the signing identity over
 time, and EV certificates no longer bypass the warning.
 
+**Updates and the downgrade guard**
+
+An installed copy asks `releases/latest/download/latest.json` for a newer version about ten seconds
+after it starts ([update.rs](desktop/src-tauri/src/update.rs)), verifies the archive against the
+updater public key compiled into `tauri.conf.json`, then stops the local server and database before
+the installer replaces files and relaunches the app. The matching private key is the repository
+secret `TAURI_SIGNING_PRIVATE_KEY`; without it CI produces no updater archive and attaches no
+`latest.json`. **Back that key up**: losing it means installed copies can never be updated and every
+user has to install a new build by hand.
+
+Release by bumping `version` in `desktop/src-tauri/tauri.conf.json` and pushing a matching `v*` tag.
+The workflow rebuilds the updater archive from the *signed* installer, re-signs that archive, and
+writes `latest.json`, so the artifact the updater downloads carries the same signature as the one
+people download directly.
+
+The shell also refuses to open data a newer build created: it compares the migrations recorded in
+`_prisma_migrations` against the migrations it ships and exits with an explanation when the database
+is ahead. A downgrade therefore fails loudly instead of running old code against a newer schema.
+
 **If desktop startup fails**
 
 - The error dialog names the failing step and the log file. Logs are in

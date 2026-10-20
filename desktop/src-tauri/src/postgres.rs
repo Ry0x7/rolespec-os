@@ -3,7 +3,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Output, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::job::ProcessJob;
 use crate::logging::Logger;
+use crate::process::quiet;
 use crate::supervisor::{app_data_root, bundled_root, native_path};
 
 const DATABASE_NAME: &str = "rolespec";
@@ -181,7 +182,7 @@ impl LocalPostgres {
         }
 
         let pg_ctl = paths.bin.join("bin").join(binary("pg_ctl"));
-        let status = Command::new(&pg_ctl)
+        let status = quiet(&pg_ctl)
             .args([
                 "-D",
                 cluster.as_os_str().to_string_lossy().as_ref(),
@@ -256,14 +257,104 @@ impl LocalPostgres {
         ));
 
         self.ensure_database()?;
+        self.guard_schema(prisma)?;
         self.apply_migrations(node, prisma)?;
         Ok(())
+    }
+
+    /// One-way guard against downgrades.
+    ///
+    /// Prisma only migrates forward. If the database has a migration this
+    /// build does not ship, the data was written by a newer RoleSpec and
+    /// starting anyway would run old code against a newer schema — usually a
+    /// silent column/type mismatch instead of a clean failure. The
+    /// authoritative record is `_prisma_migrations`, which Prisma maintains,
+    /// so no side table or marker file is needed and a restored backup that
+    /// predates the guard still works.
+    fn guard_schema(&self, prisma: &Path) -> Result<(), String> {
+        let has_table = self.query_scalar(
+            "SELECT 1 FROM information_schema.tables \
+             WHERE table_schema = 'public' AND table_name = '_prisma_migrations'",
+        )?;
+        if has_table.trim() != "1" {
+            return Ok(());
+        }
+
+        let applied = self.query_scalar(
+            "SELECT COALESCE(string_agg(migration_name, chr(10) ORDER BY migration_name), '') \
+             FROM _prisma_migrations \
+             WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL",
+        )?;
+        let applied: Vec<String> = applied
+            .lines()
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string)
+            .collect();
+        if applied.is_empty() {
+            return Ok(());
+        }
+
+        let available = available_migrations(&prisma.join("migrations"));
+        if available.is_empty() {
+            // A missing or unreadable migrations directory is a packaging
+            // problem that `apply_migrations` reports properly; refusing to
+            // start here would only mask it.
+            self.logger
+                .warn("Could not read the bundled migrations; skipping the schema version guard.");
+            return Ok(());
+        }
+
+        let unknown = unknown_migrations(&applied, &available);
+        if unknown.is_empty() {
+            return Ok(());
+        }
+
+        Err(format!(
+            "This RoleSpec data was created by a newer version of RoleSpec.\n\n\
+             Database migrations this build does not have:\n  {}\n\n\
+             Install the newest RoleSpec to open this data. Deleting\n  {}\n\
+             would start over and lose the database, the exports and the stored AI keys.",
+            unknown.join("\n  "),
+            app_data_root().display()
+        ))
+    }
+
+    /// Runs a one-value query as the RoleSpec user against the RoleSpec database.
+    fn query_scalar(&self, sql: &str) -> Result<String, String> {
+        let psql = self.bin.join("bin").join(binary("psql"));
+        let output = quiet(&psql)
+            .args([
+                "-h",
+                "127.0.0.1",
+                "-p",
+                &self.port.to_string(),
+                "-U",
+                DATABASE_USER,
+                "-d",
+                DATABASE_NAME,
+                "-tAc",
+                sql,
+            ])
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|error| format!("Could not run psql: {error}"))?;
+
+        if !output.status.success() {
+            return Err(format!(
+                "The database schema version could not be read.\n\n{}\n\nLog: {}",
+                output_text(&output),
+                self.log_path.display()
+            ));
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
     fn ensure_database(&self) -> Result<(), String> {
         let psql = self.bin.join("bin").join(binary("psql"));
         let query = format!("SELECT 1 FROM pg_database WHERE datname = '{DATABASE_NAME}'");
-        let output = Command::new(&psql)
+        let output = quiet(&psql)
             .args([
                 "-h",
                 "127.0.0.1",
@@ -292,7 +383,7 @@ impl LocalPostgres {
         }
 
         let createdb = self.bin.join("bin").join(binary("createdb"));
-        let output = Command::new(&createdb)
+        let output = quiet(&createdb)
             .args([
                 "-h",
                 "127.0.0.1",
@@ -326,7 +417,7 @@ impl LocalPostgres {
         let config = prisma.join("prisma.config.mjs");
 
         self.logger.info("Applying database migrations...");
-        let output = Command::new(node)
+        let output = quiet(node)
             .arg(&cli)
             .args(["migrate", "deploy", "--config"])
             .arg(&config)
@@ -367,7 +458,7 @@ impl LocalPostgres {
 
         let pg_ctl = self.bin.join("bin").join(binary("pg_ctl"));
         self.logger.info("Stopping the RoleSpec PostgreSQL cluster");
-        let output = Command::new(&pg_ctl)
+        let output = quiet(&pg_ctl)
             .args([
                 "-D",
                 self.cluster.as_os_str().to_string_lossy().as_ref(),
@@ -453,7 +544,7 @@ fn init_cluster(paths: &PostgresPaths, cluster: &Path, logger: &Arc<Logger>) -> 
 
     logger.info("Initializing the RoleSpec PostgreSQL cluster...");
     let initdb = paths.bin.join("bin").join(binary("initdb"));
-    let output = Command::new(&initdb)
+    let output = quiet(&initdb)
         .args([
             "-D",
             temporary.as_os_str().to_string_lossy().as_ref(),
@@ -507,7 +598,7 @@ fn start_cluster(
     // for the database to stop, not for pg_ctl to finish. The server's own
     // output goes to `-l`, so discard the inherited handles and wait on the
     // pg_ctl exit status only.
-    let status = Command::new(pg_ctl)
+    let status = quiet(pg_ctl)
         .args([
             "-D",
             cluster.as_os_str().to_string_lossy().as_ref(),
@@ -649,7 +740,7 @@ fn restrict_windows_acl(path: &Path, logger: &Arc<Logger>) {
         logger.warn("Could not determine the Windows user; leaving the secrets file with inherited permissions.");
         return;
     };
-    let status = Command::new("icacls")
+    let status = quiet("icacls")
         .arg(path)
         .args(["/inheritance:r", "/grant:r"])
         .arg(format!("{user}:F"))
@@ -666,6 +757,29 @@ fn restrict_windows_acl(path: &Path, logger: &Arc<Logger>) {
             "Could not run icacls for the secrets file: {error}. It remains protected by the per-user %LOCALAPPDATA% directory."
         )),
     }
+}
+
+/// Migration directories shipped with this build, sorted for stable messages.
+fn available_migrations(dir: &Path) -> Vec<String> {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_dir())
+        .filter_map(|entry| entry.file_name().to_str().map(str::to_string))
+        .collect();
+    names.sort();
+    names
+}
+
+/// Applied migrations this build cannot honour, in database order.
+fn unknown_migrations(applied: &[String], available: &[String]) -> Vec<String> {
+    applied
+        .iter()
+        .filter(|name| !available.contains(name))
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]
@@ -685,6 +799,40 @@ mod tests {
         let url = postgres.database_url();
         assert!(url.starts_with("postgresql://rolespec@127.0.0.1:54329/rolespec"));
         assert!(!url.contains("0.0.0.0"));
+    }
+
+    #[test]
+    fn downgrade_is_detected_when_the_database_is_ahead() {
+        let applied = ["20260101_a".to_string(), "20260202_b".to_string()];
+        let available = ["20260101_a".to_string()];
+        assert_eq!(
+            unknown_migrations(&applied, &available),
+            vec!["20260202_b".to_string()]
+        );
+    }
+
+    #[test]
+    fn equal_or_older_database_is_allowed() {
+        let applied = ["20260101_a".to_string()];
+        let available = ["20260101_a".to_string(), "20260202_b".to_string()];
+        assert!(unknown_migrations(&applied, &available).is_empty());
+    }
+
+    #[test]
+    fn available_migrations_reads_only_directories() {
+        let root = env::temp_dir().join(format!("rolespec-migrations-{}", random_hex(8)));
+        fs::create_dir_all(root.join("20260101_a")).unwrap();
+        fs::write(
+            root.join("migration_lock.toml"),
+            "provider = \"postgresql\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            available_migrations(&root),
+            vec!["20260101_a".to_string()],
+            "files next to migration directories are not migrations"
+        );
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

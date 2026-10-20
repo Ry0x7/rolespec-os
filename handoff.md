@@ -5,8 +5,9 @@
 Milestones 2 (Tauri shell), 3 (local PostgreSQL lifecycle) and 4 (installer pipeline) are verified on
 this Windows machine. Pushing tag `v1.0.0` ran the Windows workflow, produced the NSIS installer and
 created a **draft** release; that installer was then silently installed, launched, uninstalled and
-reinstalled with its data preserved. The plan is `docs/DESKTOP_ONBOARDING_PROPOSAL.md`. Remaining:
-signing, publishing, a clean-VM test and an updater.
+reinstalled with its data preserved. Code signing, a Rust-driven updater with a downgrade guard, and
+the console-window flash fix are now implemented. Remaining: an Azure signing certificate, publishing,
+end-to-end update, and a clean-VM test. The plan is `docs/DESKTOP_ONBOARDING_PROPOSAL.md`.
 
 ## Verified facts
 
@@ -93,6 +94,28 @@ signing, publishing, a clean-VM test and an updater.
   cleanly; uninstall exit 0 removed the install directory while keeping the PostgreSQL cluster
   (`PG_VERSION` 17) and `secrets.json`; reinstalling and launching reused that data with no second
   `initdb` and the same `owner@rolespec.local` row.
+- Updater: `tauri-plugin-updater` is registered and driven from Rust (`src/update.rs`) because the
+  window loads the server, not bundled HTML, so the JS command surface is unreachable. Ten seconds
+  after startup it reads `releases/latest/download/latest.json`, verifies the artifact against the
+  public key in `tauri.conf.json` (`requireSignedVersion` on), downloads it, stops the server and
+  cluster, and lets the NSIS installer relaunch the app. A missing manifest is logged as a warning,
+  never fatal; observed in a live run ("the update endpoint could not be reached").
+- Updater artifacts: `tauri.conf.json` keeps `createUpdaterArtifacts: false` so local builds need no
+  key; CI adds the `--config` overlay when `TAURI_SIGNING_PRIVATE_KEY` exists. A local release build
+  produced `RoleSpec_1.0.0_x64-setup.exe.sig` whose trusted comment contains `version:1.0.0`, which
+  is what `requireSignedVersion` compares. Authenticode changes the bytes, so CI re-signs the
+  installer with `signer sign` afterwards and only then writes `latest.json`
+  (`scripts/desktop/write-update-manifest.mjs`, which rejects a tag that does not match the version).
+- Downgrade guard: before migrations, the shell reads `_prisma_migrations` through the bundled `psql`
+  and refuses to start when the database has a migration this build does not ship. Unit tests cover
+  the comparison; the refusal path is not exercised against a real downgraded cluster.
+- Console windows: every child (`initdb`, `pg_ctl`, `psql`, `createdb`, `node`, `taskkill`, `icacls`)
+  is spawned through `process::quiet()`, which sets `CREATE_NO_WINDOW`. A top-level-window watcher
+  detected a control console window but zero windows owned by the app's children across a full
+  startup and shutdown.
+- The updater key pair was generated with `tauri signer generate` into `.freebuff/updater-keys/`
+  (gitignored, never committed). The public half is in `tauri.conf.json`; the private half is the
+  repository secret `TAURI_SIGNING_PRIVATE_KEY`. Losing it means installed copies can never update.
 - The staged bundle (`resources/app`) runs `.next-desktop` (its `server.js` config and BUILD_ID match
   the desktop build), which is why the app boots rather than 404-ing every chunk.
 
@@ -105,7 +128,9 @@ signing, publishing, a clean-VM test and an updater.
   app exists, so the six secrets/variables are unset and CI takes the warned, unsigned, draft path.
 - Nothing has been tested on a clean Windows VM, and a version-to-version upgrade (rather than the
   same build reinstalled) has not been exercised.
-- No updater or version/downgrade guard exists yet.
+- The updater has never downloaded or installed a real update: that needs a published release newer
+  than the installed build, and no signed release exists yet.
+- The downgrade guard has not been run against a genuinely downgraded database (unit tests only).
 
 ## Next action
 

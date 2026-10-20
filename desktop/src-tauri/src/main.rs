@@ -3,7 +3,9 @@
 mod job;
 mod logging;
 mod postgres;
+mod process;
 mod supervisor;
+mod update;
 
 use std::env;
 use std::path::Path;
@@ -37,6 +39,9 @@ fn main() {
                 let _ = window.set_focus();
             }
         }))
+        // Configuration lives under `plugins.updater` in tauri.conf.json. The
+        // JavaScript command surface is unused; `update.rs` drives the plugin.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState {
             server: Mutex::new(None),
             postgres: Mutex::new(None),
@@ -118,6 +123,8 @@ fn main() {
                     return Ok(());
                 }
             };
+
+            update::spawn_startup_check(handle.clone(), logger.clone());
 
             std::thread::spawn(move || {
                 if let Err(message) = start_runtime(
@@ -285,7 +292,7 @@ fn start_runtime(
 
 /// Stops the app server before the database: the server must not reconnect to a
 /// cluster that is already shutting down.
-fn stop_runtime(handle: &tauri::AppHandle) {
+pub(crate) fn stop_runtime(handle: &tauri::AppHandle) {
     let state = handle.state::<AppState>();
     let server = state.server.lock().expect("server state lock").take();
     if let Some(mut server) = server {

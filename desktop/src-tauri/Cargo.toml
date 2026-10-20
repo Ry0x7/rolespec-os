@@ -23,6 +23,9 @@ dunce = "1"
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-single-instance = "2"
+# Self-update against the GitHub release manifest. The window loads the app
+# server, so the JS command surface is unused: the flow is driven from Rust.
+tauri-plugin-updater = "2"
 time = { version = "0.3", features = ["formatting"] }
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }

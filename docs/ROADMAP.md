@@ -194,8 +194,10 @@ Items:
   (Azure Artifact Signing, OIDC) verify their signature and publish instead of drafting.
 - **E5** Clean-machine verification. Done when: the success criteria in the proposal are observed on
   a fresh Windows VM and recorded in `handoff.md`.
-- **E6** Signed, self-updating releases. Done when: an installed build finds, verifies and applies an
-  update, and a build older than the data it finds refuses to start instead of corrupting it.
+- **E6** Signed, self-updating releases. Implemented: the updater runs from the shell, the release
+  workflow writes `latest.json` and re-signs the installer after Authenticode, and the database
+  guard refuses a schema newer than the build. Not yet verified end to end: that needs a signed
+  release newer than an installed build.
 
 Not in this phase: managed AI, auto-apply, SQLite or a desktop-only schema, new product features.
 

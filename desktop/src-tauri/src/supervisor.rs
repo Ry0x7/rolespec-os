@@ -3,11 +3,12 @@ use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use std::time::{Duration, Instant};
 
 use crate::job::ProcessJob;
 use crate::logging::Logger;
+use crate::process::quiet;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(400);
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
@@ -246,7 +247,7 @@ impl ServerProcess {
             .try_clone()
             .map_err(|error| format!("Could not duplicate the RoleSpec log handle: {error}"))?;
 
-        let mut command = Command::new(&paths.node);
+        let mut command = quiet(&paths.node);
         command
             .arg("server.js")
             .current_dir(&paths.app_dir)
@@ -324,7 +325,7 @@ impl ServerProcess {
         #[cfg(windows)]
         {
             let pid = self.child.id().to_string();
-            let _ = Command::new("taskkill")
+            let _ = quiet("taskkill")
                 .args(["/PID", &pid, "/T"])
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -338,7 +339,7 @@ impl ServerProcess {
                 std::thread::sleep(Duration::from_millis(150));
             }
 
-            let _ = Command::new("taskkill")
+            let _ = quiet("taskkill")
                 .args(["/PID", &pid, "/T", "/F"])
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
