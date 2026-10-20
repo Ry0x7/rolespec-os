@@ -1,0 +1,80 @@
+version: 2
+
+# Four ecosystems, four independent lockfiles. Grouping keeps the dashboard
+# readable: patch/minor bumps arrive as one PR per ecosystem per week, and major
+# bumps still arrive one at a time so each can be reviewed on its own. Security
+# updates are grouped separately because they should be merged quickly.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    commit-message:
+      prefix: npm
+    groups:
+      npm-patch-minor:
+        applies-to: version-updates
+        update-types: ["patch", "minor"]
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /extension
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    versioning-strategy: increase
+    commit-message:
+      prefix: extension
+    groups:
+      extension-patch-minor:
+        applies-to: version-updates
+        update-types: ["patch", "minor"]
+      extension-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # Rust dependencies of the Tauri shell. Compiling them needs Windows and the
+  # Tauri prerequisites, which CI's desktop workflow provides on tags only —
+  # review these PRs with `npm run desktop:check` locally.
+  - package-ecosystem: cargo
+    directory: /desktop/src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: cargo
+    groups:
+      cargo-patch-minor:
+        applies-to: version-updates
+        update-types: ["patch", "minor"]
+      cargo-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]

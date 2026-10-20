@@ -367,6 +367,9 @@ Load the `extension/dist` folder in `chrome://extensions` via **Load Unpacked**.
 
 ## 🔒 Security & Privacy Invariants
 
+See [SECURITY.md](SECURITY.md) for the disclosure process, supported versions and what is in scope.
+
+
 - **100% Self-Contained**: No third-party analytics, no telemetry, no tracking pixels, and no licensing server callouts.
 - **Encrypted at Rest**: All personal API credentials stored in the database are encrypted using **AES-256-GCM** with keys derived from `ENCRYPTION_KEY` or `AUTH_SECRET`.
 - **User Scoping**: Every resource, resume, application, and file export is strictly isolated to the authenticated account.
@@ -375,19 +378,28 @@ Load the `extension/dist` folder in `chrome://extensions` via **Load Unpacked**.
 
 ## 🤝 Contributing
 
-Contributions from the open-source community are very welcome!
+Contributions are welcome — bug fixes, workflow improvements, docs, desktop packaging and
+accessibility work. Start with **[CONTRIBUTING.md](CONTRIBUTING.md)** for local setup, the code
+layout rules, and what a reviewable pull request looks like.
 
-1. Fork the repository.
-2. Create your feature branch (`git checkout -b feature/amazing-feature`).
-3. Commit your changes (`git commit -m 'Add amazing feature'`).
-4. Push to the branch (`git push origin feature/amazing-feature`).
-5. Open a Pull Request.
+The short version:
 
-Please run tests before submitting:
 ```bash
-npm test
-npx tsc --noEmit
+git checkout -b fix/resume-export-404
+# ... make the change ...
+npx tsc --noEmit && npm run lint && npm test && npm run build
 ```
+
+Then open a pull request using the template and wait for CI (`types`, `lint`, `test`, `build`,
+`audit`). Branches are squash-merged. If you touched `extension/`, run its own `npm ci && npm run
+build && npm test` as well; if you touched `desktop/`, run `npm run desktop:check && npm run
+desktop:test`.
+
+Good places to start are issues labelled `good first issue` or `help wanted` — comment before you
+begin so work is not duplicated. Please read the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+**Security:** do not open a public issue for a vulnerability. Use the private reporting flow in
+[SECURITY.md](SECURITY.md).
 
 ---
 
