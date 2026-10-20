@@ -176,7 +176,7 @@ You only need [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 This is the runtime the Windows installer will wrap. It runs the same standalone server against a
 private PostgreSQL 17 cluster, so no Docker, no user-installed PostgreSQL and no `.env` file is
-needed once staged. It is Windows x64 only today, and **no installer is published yet**.
+needed once staged. It is Windows x64 only today; installers are published from signed tag builds.
 
 **Prerequisites**
 - **Windows 10/11 x64** with WebView2 (present on Windows 11 and updated Windows 10)
@@ -226,7 +226,31 @@ npx @tauri-apps/cli@^2 build --bundles nsis
 ```
 
 The result is `desktop/src-tauri/target/release/bundle/nsis/RoleSpec_<version>_x64-setup.exe`.
-It is **unsigned**, so Windows SmartScreen will warn; signing is a release prerequisite.
+A local build is **unsigned**, so Windows SmartScreen will warn about it.
+
+**Signing Windows releases**
+
+Releases are signed by CI with [Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/)
+(formerly Trusted Signing) using GitHub OIDC, so the signing key is never stored in this repository
+and the workflow holds no client secret. Configure once:
+
+1. Create an Artifact Signing account and a certificate profile, complete identity validation, and
+   grant the GitHub app the *Artifact Signing Certificate Profile Signer* role.
+2. Register an Entra app with a federated credential for `repo:Ry0x7/rolespec-os:ref:refs/tags/v*`
+   (issuer `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`).
+3. Add repository **secrets** `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` and
+   repository **variables** `AZURE_ARTIFACT_SIGNING_ENDPOINT` (e.g. `https://eus.codesigning.azure.net`),
+   `AZURE_ARTIFACT_SIGNING_ACCOUNT`, `AZURE_ARTIFACT_SIGNING_PROFILE`.
+
+With all six present, a `v*` tag build signs the setup executable, verifies the signature and its
+RFC 3161 timestamp, and **publishes** the release. With any of them missing the workflow warns and
+produces an unsigned installer in a **draft** release, so forks and unauthenticated runs still work.
+
+Only the installer is Authenticode-signed. The application executable inside it is not; signing that
+too requires an `artifact-signing-cli` step wired through `bundle.windows.signCommand` in
+`desktop/src-tauri/tauri.conf.json`. Signing shows a verified publisher, but it does not by itself
+remove SmartScreen warnings for a brand-new binary — reputation accrues for the signing identity over
+time, and EV certificates no longer bypass the warning.
 
 **If desktop startup fails**
 

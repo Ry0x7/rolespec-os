@@ -3,6 +3,13 @@ name: Desktop (Windows)
 # The desktop runtime is Windows-only: the staging script pins Windows x64
 # PostgreSQL binaries and the shell targets NSIS. Linux/macOS jobs would need
 # their own pinned runtimes, so they are out of scope until requested.
+#
+# Code signing is optional and configuration-driven. With the six values listed
+# in the "Detect signing configuration" step present, the installer is signed
+# with Azure Artifact Signing (OIDC, no client secret) and a tag build publishes
+# the release instead of leaving it as a draft. Without them the workflow still
+# produces an unsigned installer and a draft, so forks and local tags keep
+# working. See the "Signing Windows releases" section of README.md.
 on:
   workflow_dispatch:
   push:
@@ -28,12 +35,15 @@ env:
 
 jobs:
   installer:
-    name: Windows x64 installer (unsigned)
+    name: Windows x64 installer
     runs-on: windows-latest
     timeout-minutes: 90
     permissions:
-      # Needed only by the draft-release step for tag builds.
       contents: write
+      # Used only by `azure/login` when signing is configured. GitHub rejects a
+      # workflow that requests an OIDC token without this permission, and an
+      # unused permission is harmless.
+      id-token: write
     steps:
       - uses: actions/checkout@v5
 
@@ -71,6 +81,77 @@ jobs:
         working-directory: desktop/src-tauri
         run: npx --yes @tauri-apps/cli@^2 build --bundles nsis
 
+      # Secrets cannot be tested in a step `if:`, so they are read here and
+      # turned into an output. A missing value in any slot means "unsigned";
+      # the warning is visible in the run summary rather than failing the job.
+      - name: Detect signing configuration
+        id: signing
+        shell: bash
+        env:
+          SIGN_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          SIGN_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          SIGN_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          SIGN_ENDPOINT: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          SIGN_ACCOUNT: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
+          SIGN_PROFILE: ${{ vars.AZURE_ARTIFACT_SIGNING_PROFILE }}
+        run: |
+          missing=""
+          for name in SIGN_CLIENT_ID SIGN_TENANT_ID SIGN_SUBSCRIPTION_ID \
+                      SIGN_ENDPOINT SIGN_ACCOUNT SIGN_PROFILE; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -z "$missing" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Signing enabled: Azure Artifact Signing."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Installer will be UNSIGNED (missing:$missing). SmartScreen will warn about it."
+          fi
+
+      - name: Authenticate to Azure
+        if: steps.signing.outputs.enabled == 'true'
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Signs the finished setup.exe in place. The signature is timestamped
+      # against Microsoft's RFC 3161 endpoint because Artifact Signing
+      # certificates are short-lived. Signing happens after bundling so the
+      # bytes users download are the bytes that were signed; the checksum below
+      # is therefore computed afterwards.
+      - name: Sign installer
+        if: steps.signing.outputs.enabled == 'true'
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.AZURE_ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\desktop\src-tauri\target\release\bundle\nsis
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      # A signing step that reports success is not proof the artifact verifies.
+      # Publishing is gated on this step: an untimestamped or broken signature
+      # fails the build instead of shipping.
+      - name: Verify signature
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis -Filter *.exe
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one installer to sign, found $($installers.Count)."
+          }
+          $installer = $installers[0]
+          $sig = Get-AuthenticodeSignature -LiteralPath $installer.FullName
+          Write-Host "$($installer.Name): $($sig.Status) by $($sig.SignerCertificate.Subject)"
+          if ($sig.Status -ne 'Valid') { throw "Installer signature is $($sig.Status), expected Valid." }
+          if ($null -eq $sig.TimeStamperCertificate) { throw "Installer signature is not timestamped." }
+          if ($installer.Length -lt 1MB) { throw "Signed installer is suspiciously small." }
+
       - name: Checksum the installer
         shell: bash
         run: |
@@ -81,23 +162,42 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: rolespec-windows-x64-unsigned
+          name: rolespec-windows-x64-${{ steps.signing.outputs.enabled == 'true' && 'signed' || 'unsigned' }}
           path: |
             desktop/src-tauri/target/release/bundle/nsis/*.exe
             desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
 
-      # Draft on purpose: an unsigned NSIS build is blocked by SmartScreen, so
-      # publishing stays a manual decision after signing. Pushing a version tag
-      # produces the draft with the installer and checksum attached.
-      - name: Create draft release
+      # Signed + verified builds publish. Anything else stays a draft: an
+      # unsigned NSIS installer is blocked by SmartScreen, so making it public
+      # remains a deliberate manual decision.
+      - name: Create release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.signing.outputs.enabled }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            desktop/src-tauri/target/release/bundle/nsis/*.exe \
-            desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS.txt \
-            --draft --generate-notes --title "RoleSpec $GITHUB_REF_NAME"
+          set -euo pipefail
+          draft_flag=--draft
+          if [ "$SIGNED" = "true" ]; then
+            draft_flag=""
+            echo "Signed installer verified; publishing $GITHUB_REF_NAME."
+          else
+            echo "Unsigned installer; creating a draft release."
+          fi
+          files="desktop/src-tauri/target/release/bundle/nsis"
+          # Re-running a failed job for the same tag must not fail on an
+          # existing release: replace its assets and promote or demote it to
+          # match this run's signing outcome.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$files"/*.exe "$files"/SHA256SUMS.txt --clobber
+            if [ -z "$draft_flag" ]; then
+              gh release edit "$GITHUB_REF_NAME" --draft=false
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "$files"/*.exe "$files"/SHA256SUMS.txt \
+              $draft_flag --generate-notes --title "RoleSpec $GITHUB_REF_NAME"
+          fi

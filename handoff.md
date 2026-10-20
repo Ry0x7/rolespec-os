@@ -98,14 +98,18 @@ signing, publishing, a clean-VM test and an updater.
 
 ## Known gaps
 
-- The `v1.0.0` release is a draft and the installer is unsigned; SmartScreen will block it.
+- The `v1.0.0` release is a draft and its installer is unsigned; SmartScreen warns about it.
+  Signing is wired into `.github/workflows/desktop.yml` (Azure Artifact Signing over GitHub OIDC,
+  then `Get-AuthenticodeSignature` must report `Valid` with a timestamp, and only then does a tag
+  build publish instead of drafting). It has never executed: no Artifact Signing account or Entra
+  app exists, so the six secrets/variables are unset and CI takes the warned, unsigned, draft path.
 - Nothing has been tested on a clean Windows VM, and a version-to-version upgrade (rather than the
   same build reinstalled) has not been exercised.
 - No updater or version/downgrade guard exists yet.
 
 ## Next action
 
-Milestone 5: sign the installer and repeat the install → onboard → reopen → upgrade → uninstall
+Milestone 6 first (updater + downgrade guard, E6), then milestone 5: sign the installer and repeat the install → onboard → reopen → upgrade → uninstall
 sequence on a clean Windows VM, recording anything the dev machine hides. Publish the draft release
 after signing; signing may remain blocked without a certificate.
 

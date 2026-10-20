@@ -190,9 +190,12 @@ Items:
 - **E3** Local database lifecycle. `initdb`, start, migrate, restart and shutdown are implemented and
   verified from the desktop runtime with no user-installed Postgres. Upgrade is verified with E4.
 - **E4** (done) Installer pipeline. A tagged build produces an x64 NSIS installer in CI, creates a
-  draft release, and uninstall preserves `%LOCALAPPDATA%\RoleSpecData` by default.
+  draft release, and uninstall preserves `%LOCALAPPDATA%\RoleSpecData` by default. Signed builds
+  (Azure Artifact Signing, OIDC) verify their signature and publish instead of drafting.
 - **E5** Clean-machine verification. Done when: the success criteria in the proposal are observed on
   a fresh Windows VM and recorded in `handoff.md`.
+- **E6** Signed, self-updating releases. Done when: an installed build finds, verifies and applies an
+  update, and a build older than the data it finds refuses to start instead of corrupting it.
 
 Not in this phase: managed AI, auto-apply, SQLite or a desktop-only schema, new product features.
 
