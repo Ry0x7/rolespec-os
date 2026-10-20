@@ -36,6 +36,16 @@ A `DOCKER_BUILD=1` standalone build is 3,268 files / 88 MB and its `server.js` b
 with 200. The 11 build warnings remain — Turbopack emits them during compilation, before excludes
 are applied — but the trace they describe is gone.
 
+Collaboration plumbing (commit `adfaa1b4`): `CONTRIBUTING.md` (setup, invariants, checks, release
+flow), `SECURITY.md` (private advisory flow, scope, supported versions), `CODE_OF_CONDUCT.md`,
+`.github/CODEOWNERS`, PR + issue-form templates, and `.github/dependabot.yml` grouping patch/minor
+per ecosystem (npm root, npm extension, cargo, actions). On GitHub: `main` is protected (PR required,
+checks `types`/`lint`/`test`/`build`/`audit`, conversation resolution, linear history, no force
+push or deletion, admins bypass), squash+rebase only, auto-merge on, delete branch on merge, topics
+and labels set, private vulnerability reporting already enabled. Anonymous rendering of the issue
+forms could not be checked (GitHub redirects the chooser to login); their YAML parses and follows
+the issue-form schema.
+
 ## Verified facts
 
 - The shell runs the shared `.next/standalone` server. There is no desktop fork: one Prisma schema,
@@ -195,10 +205,9 @@ are applied — but the trace they describe is gone.
 
 ## Next action
 
-Maintenance pass (above) is verified but **uncommitted**: `next.config.ts`, `.github/workflows/ci.yml`,
-`desktop/src-tauri/src/postgres.rs`, this file. The tracing fix only shrinks `.next/standalone`
-itself — `stage-runtime.mjs` already whitelists runtime entries, so the packaged installer is
-unchanged in size.
+Both maintenance commits are on `main` (`a413a5c6`, `adfaa1b4`) and pushed. The tracing fix only
+shrinks `.next/standalone` itself — `stage-runtime.mjs` already whitelists runtime entries, so the
+packaged installer is unchanged in size.
 
 Milestone 5: sign the installer and repeat the install → onboard → reopen → upgrade → uninstall
 sequence on a clean Windows VM, recording anything the dev machine hides. The next signed tag (bump
