@@ -119,6 +119,30 @@ const nextConfig: NextConfig = {
       "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
     ],
   },
+  // src/features/export/services/store-export.ts builds its storage paths at
+  // runtime (`process.cwd()` + EXPORT_STORAGE_DIR), so file tracing cannot
+  // bound the search and includes the whole repository: 14.5k entries per
+  // affected bundle, 13.4k of them the Rust build output under
+  // desktop/src-tauri/target. That inflates `.next/standalone` and slows the
+  // build down. None of these trees are read by the server at runtime:
+  // application code is compiled into the bundle, and the Prisma migrations are
+  // applied by the staged CLI (desktop) or `prisma migrate deploy` (Docker), not
+  // from the trace.
+  outputFileTracingExcludes: {
+    "/**/*": [
+      "desktop/**",
+      "extension/**",
+      "docs/**",
+      "scripts/**",
+      "prisma/migrations/**",
+      "coverage/**",
+      ".freebuff/**",
+      ".next-desktop/**",
+      "**/*.md",
+      "Dockerfile",
+      ".dockerignore",
+    ],
+  },
   async headers() {
     return [
       {

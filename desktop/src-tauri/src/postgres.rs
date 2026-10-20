@@ -240,11 +240,9 @@ impl LocalPostgres {
             logger: logger.clone(),
         };
 
-        if let Err(error) = postgres.prepare(node, &paths.prisma) {
-            // Dropping `postgres` stops the server if this was our first start,
-            // so a failed migration never leaves an orphaned cluster behind.
-            return Err(error);
-        }
+        // A failed migration drops `postgres`, which stops the server if this
+        // was our first start, so it never leaves an orphaned cluster behind.
+        postgres.prepare(node, &paths.prisma)?;
 
         Ok(postgres)
     }
