@@ -6,8 +6,9 @@ Milestones 2 (Tauri shell), 3 (local PostgreSQL lifecycle), 4 (installer pipelin
 are verified on this Windows machine. Pushing tag `v1.0.0` ran the Windows workflow, produced the NSIS
 installer and created a **draft** release; that installer was then silently installed, launched,
 uninstalled and reinstalled with its data preserved. A local 1.0.0 install then updated itself to a
-signed 1.0.1 through the real updater. Remaining: an Azure signing certificate, publishing, a clean-VM
-test, and a live refusal of a downgraded database. The plan is
+signed 1.0.1 through the real updater, and the schema guard refuses a database with a migration the
+build does not ship. Remaining: an Azure signing certificate, publishing, and a clean-VM test. The
+plan is
 `docs/DESKTOP_ONBOARDING_PROPOSAL.md`.
 
 ## Verified facts
@@ -124,8 +125,11 @@ test, and a live refusal of a downgraded database. The plan is
   installer with `signer sign` afterwards and only then writes `latest.json`
   (`scripts/desktop/write-update-manifest.mjs`, which rejects a tag that does not match the version).
 - Downgrade guard: before migrations, the shell reads `_prisma_migrations` through the bundled `psql`
-  and refuses to start when the database has a migration this build does not ship. Unit tests cover
-  the comparison; the refusal path is not exercised against a real downgraded cluster.
+  and refuses to start when the database has a migration this build does not ship. Verified on a real
+  cluster by inserting a finished `20990101000000_future_schema` row: the next launch logged the
+  "created by a newer version" message, named that migration, stopped PostgreSQL, showed the error
+  dialog and never ran `migrate deploy`. An unfinished row is a *failed* migration, not a newer
+  schema, and Prisma reports that case (P3009) instead.
 - Console windows: every child (`initdb`, `pg_ctl`, `psql`, `createdb`, `node`, `taskkill`, `icacls`)
   is spawned through `process::quiet()`, which sets `CREATE_NO_WINDOW`. A top-level-window watcher
   detected a control console window but zero windows owned by the app's children across a full
@@ -147,7 +151,6 @@ test, and a live refusal of a downgraded database. The plan is
 - The updater has only been exercised against a locally hosted manifest. The real path
   (`releases/latest/download/latest.json` from GitHub) is unproven because nothing is published, and
   an Authenticode-signed installer has never been downloaded through the updater.
-- The downgrade guard has not been run against a genuinely downgraded database (unit tests only).
 
 ## Next action
 

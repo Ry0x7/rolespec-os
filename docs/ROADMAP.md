@@ -197,9 +197,9 @@ Items:
 - **E6** (verified locally) Signed, self-updating releases. The updater runs from the shell, the
   release workflow writes `latest.json` and re-signs the installer after Authenticode, and the
   database guard refuses a schema newer than the build. A 1.0.0 install updated itself from a local
-  signed manifest to 1.0.1, kept its cluster and secrets, and reported up to date afterwards. Still
-  unproven: the GitHub-hosted manifest (nothing is published) and the downgrade refusal against a
-  real downgraded cluster.
+  signed manifest to 1.0.1, kept its cluster and secrets, and reported up to date afterwards. The
+  schema guard was exercised on a real cluster carrying a migration the build does not ship and
+  refused to start. Still unproven: the GitHub-hosted manifest (nothing is published).
 
 Not in this phase: managed AI, auto-apply, SQLite or a desktop-only schema, new product features.
 
