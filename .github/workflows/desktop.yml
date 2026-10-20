@@ -215,13 +215,16 @@ jobs:
             echo "::warning::$exe has no signature; latest.json is not written."
             exit 0
           fi
-          if [ -z "${GITHUB_REF_NAME:-}" ]; then
-            echo "::warning::Not a tag build; latest.json is not written."
+          # `GITHUB_REF_NAME` is set for branches too (a manual run on main is
+          # "main"), so the ref type has to be checked, not just non-emptiness.
+          if [ "${GITHUB_REF_TYPE:-}" != "tag" ]; then
+            echo "::warning::Not a tag build ($GITHUB_REF_TYPE $GITHUB_REF_NAME); latest.json is not written."
             exit 0
           fi
 
           version=$(node -e 'console.log(require(process.argv[1]).version)' "$GITHUB_WORKSPACE/desktop/src-tauri/tauri.conf.json")
-          node "$GITHUB_WORKSPACE/scripts/desktop/write-update-manifest.mjs" \n            "$exe" "$exe.sig" "$version" "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
+          # One line on purpose: a `\` continuation here would be easy to break.
+          node "$GITHUB_WORKSPACE/scripts/desktop/write-update-manifest.mjs" "$exe" "$exe.sig" "$version" "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
 
       - name: Checksum the installer
         shell: bash
