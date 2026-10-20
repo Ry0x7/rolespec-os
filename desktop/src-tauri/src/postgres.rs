@@ -7,7 +7,8 @@ use std::process::{Output, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use rand::RngCore;
+use rand::rngs::SysRng;
+use rand::TryRng;
 use serde::{Deserialize, Serialize};
 
 use crate::job::ProcessJob;
@@ -657,7 +658,13 @@ pub struct DesktopSecrets {
 
 fn random_hex(bytes: usize) -> String {
     let mut buffer = vec![0u8; bytes];
-    rand::rngs::OsRng.fill_bytes(&mut buffer);
+    // `SysRng` is rand 0.10's name for the OS entropy source (formerly OsRng).
+    // It is stateless and crypto-secure; a failing entropy source is fatal for
+    // secrets that later encrypt stored credentials, so panicking matches the
+    // previous behaviour instead of writing a predictable key.
+    SysRng
+        .try_fill_bytes(&mut buffer)
+        .expect("the operating system entropy source is available");
     buffer.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
