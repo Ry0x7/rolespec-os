@@ -1,0 +1,54 @@
+name: Desktop shell
+
+# The desktop shell is Windows-only and its dependencies (Tauri, webview2) do
+# not compile on the Linux runner the main CI uses. This workflow only runs when
+# the shell changes, so ordinary PRs keep the fast path. It is intentionally not
+# a required check: a fork without Windows runners still gets review, and the
+# release build on a v* tag remains the authority.
+on:
+  pull_request:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop-check.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shell:
+    name: desktop
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Tauri's dependency tree is large; caching the registry and target
+      # directory keeps an unchanged shell around two minutes instead of ten.
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: desktop-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+          restore-keys: desktop-${{ runner.os }}-
+
+      - run: rustc --version && cargo --version
+
+      - run: npm run desktop:check
+      - run: npm run desktop:test
+        env:
+          # The shell tests touch the filesystem and spawn processes, but never
+          # need a database or the fetched PostgreSQL binaries.
+          RUST_BACKTRACE: "1"

@@ -56,6 +56,26 @@ jobs:
 
       - run: ${{ matrix.task.run }}
 
+  # The extension is a separate package with its own lockfile. Without this
+  # job a Dependabot bump there is "green" without ever being compiled, which
+  # is how a TypeScript major could merge unnoticed.
+  extension:
+    name: extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
   audit:
     name: audit
     runs-on: ubuntu-latest
