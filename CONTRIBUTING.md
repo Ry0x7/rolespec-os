@@ -93,8 +93,8 @@ npm run build
 
 If you touched `desktop/src-tauri/`, the **Desktop shell** workflow also runs
 `npm run desktop:check` and `npm run desktop:test` on `windows-latest`. That job only triggers on
-desktop changes and is reported separately from the five required checks, because Tauri cannot
-compile on the Linux runner the main CI uses.
+desktop changes and is reported separately from the required checks, because Tauri cannot compile
+on the Linux runner the main CI uses.
 
 A change is not verified because a build exits 0. Exercise the workflow you changed — the page, the
 API route, the extension popup — and say in the PR what you actually ran.

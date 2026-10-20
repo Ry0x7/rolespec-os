@@ -46,6 +46,16 @@ and labels set, private vulnerability reporting already enabled. Anonymous rende
 forms could not be checked (GitHub redirects the chooser to login); their YAML parses and follows
 the issue-form schema.
 
+Dependency pass after that setup: the patch/minor group, the extension patch/minor group and the
+actions major group are merged; four root majors (dotenv 18, undici 8, framer-motion 14, vitest 5)
+were closed as deliberate migrations. The shell moved to rand 0.10 by hand (`OsRng` → `SysRng`,
+fallible `try_fill_bytes`) rather than merging that bump blind; `cargo test` 18 passed and clippy is
+clean. The extension now declares `@types/node` and lists `node` in its tsconfig types — a
+standalone `npm ci` in `extension/` previously failed on `__dirname`, which the new `extension` CI
+job caught on its first run. `main` now requires `types`/`lint`/`test`/`build`/`extension`/`audit`;
+the Windows `desktop` job (`.github/workflows/desktop-check.yml`) runs only when `desktop/**`
+changes and is not required. Dependabot groups patch+minor, major and security per ecosystem.
+
 ## Verified facts
 
 - The shell runs the shared `.next/standalone` server. There is no desktop fork: one Prisma schema,
