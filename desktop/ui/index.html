@@ -24,14 +24,8 @@
         text-align: center;
       }
       .mark {
-        display: inline-flex;
         width: 3rem;
         height: 3rem;
-        align-items: center;
-        justify-content: center;
-        border-radius: 0.75rem;
-        background: #6d28d9;
-        font-weight: 700;
         margin-bottom: 1rem;
       }
       p {
@@ -42,7 +36,27 @@
   </head>
   <body>
     <main>
-      <div class="mark">R</div>
+      <div class="mark">
+        <svg viewBox="0 0 512 512" width="48" height="48" role="img" aria-label="RoleSpec logo">
+          <defs>
+            <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#8b5cf6"/>
+              <stop offset="1" stop-color="#4c1d95"/>
+            </linearGradient>
+          </defs>
+          <rect width="512" height="512" rx="115" fill="url(#bg)"/>
+          <g fill="#f5f3ff">
+            <rect x="154" y="72" width="50" height="50" rx="7"/><rect x="212" y="72" width="50" height="50" rx="7"/><rect x="270" y="72" width="50" height="50" rx="7"/><rect x="328" y="72" width="50" height="50" rx="7"/>
+            <rect x="90" y="130" width="50" height="50" rx="7"/><rect x="148" y="130" width="50" height="50" rx="7"/><rect x="326" y="130" width="50" height="50" rx="7"/><rect x="384" y="130" width="50" height="50" rx="7"/>
+            <rect x="90" y="188" width="50" height="50" rx="7"/><rect x="148" y="188" width="50" height="50" rx="7"/><rect x="326" y="188" width="50" height="50" rx="7"/><rect x="384" y="188" width="50" height="50" rx="7"/>
+            <rect x="90" y="246" width="50" height="50" rx="7"/><rect x="148" y="246" width="50" height="50" rx="7"/><rect x="206" y="246" width="50" height="50" rx="7"/><rect x="264" y="246" width="50" height="50" rx="7"/><rect x="322" y="246" width="50" height="50" rx="7"/>
+            <rect x="90" y="304" width="50" height="50" rx="7"/><rect x="148" y="304" width="50" height="50" rx="7"/><rect x="264" y="304" width="50" height="50" rx="7"/>
+            <rect x="90" y="362" width="50" height="50" rx="7"/><rect x="148" y="362" width="50" height="50" rx="7"/><rect x="326" y="362" width="50" height="50" rx="7"/><rect x="384" y="362" width="50" height="50" rx="7"/>
+            <rect x="90" y="420" width="50" height="50" rx="7"/><rect x="148" y="420" width="50" height="50" rx="7"/><rect x="326" y="420" width="50" height="50" rx="7"/><rect x="384" y="420" width="50" height="50" rx="7"/>
+          </g>
+          <rect x="432" y="428" width="31" height="31" rx="6" fill="#fcd34d"/>
+        </svg>
+      </div>
       <h1>RoleSpec</h1>
       <p>
         This is the bundled fallback page. The desktop shell opens the local

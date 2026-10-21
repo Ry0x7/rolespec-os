@@ -21,6 +21,9 @@
     "icon": [
       "icons/icon.ico"
     ],
+    "publisher": "RoleSpec OS",
+    "homepage": "https://github.com/Ry0x7/rolespec-os",
+    "copyright": "© 2026 RoleSpec contributors. AGPL-3.0-or-later.",
     "resources": [
       "resources/**/*"
     ],
@@ -28,6 +31,12 @@
       "webviewInstallMode": {
         "type": "downloadBootstrapper",
         "silent": true
+      },
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "headerImage": "icons/header.bmp",
+        "sidebarImage": "icons/sidebar.bmp"
       }
     },
     "createUpdaterArtifacts": false

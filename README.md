@@ -218,6 +218,11 @@ To point the shell at an existing database instead, set `DATABASE_URL` and `AUTH
 
 Shell checks: `npm run desktop:check`, `npm run desktop:test`.
 
+The app icon, installer icon and installer wizard images (`icons/`) are generated from
+`scripts/desktop/generate-icons.mjs`. Regenerate them after changing the design with
+`npm run desktop:icons`; it renders the SVG through the playwright DevDependency and rewrites
+`icon.svg`, `icon.png`, `icon.ico`, `header.bmp` and `sidebar.bmp` in place.
+
 To produce the (unsigned) NSIS installer locally, after `npm run desktop:build`:
 
 ```bash
