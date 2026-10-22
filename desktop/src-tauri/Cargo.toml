@@ -1,6 +1,6 @@
 [package]
 name = "rolespec-desktop"
-version = "1.0.1"
+version = "1.0.2"
 description = "RoleSpec desktop shell"
 edition = "2021"
 rust-version = "1.77"
