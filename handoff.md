@@ -3,9 +3,10 @@
 ## Current task
 
 The repository is set up for collaboration and the dependency/quality pass is landed on `main`.
-Next product milestone is 5: a **signed** Windows release plus a clean-VM install → onboard →
-reopen → upgrade → uninstall run. Plan: `docs/DESKTOP_ONBOARDING_PROPOSAL.md`; runtime details
-(data root, updater, downgrade guard, signing) are in the README's desktop section.
+Desktop is a secondary channel: the primary install is Docker or npm. `v1.0.2` is published
+unsigned with the OpenCode provider and branded installer; signing is deferred. Plan:
+`docs/DESKTOP_ONBOARDING_PROPOSAL.md`; runtime details (data root, updater, downgrade guard,
+signing) are in the README's desktop section.
 
 ## Repo state
 
@@ -57,8 +58,10 @@ reopen → upgrade → uninstall run. Plan: `docs/DESKTOP_ONBOARDING_PROPOSAL.md
 
 ## Known gaps
 
-- No Azure Artifact Signing account, so `v1.0.1` is published **unsigned** and carries no
-  `latest.json`; installed copies cannot self-update. Signing is wired in `desktop.yml` and untested.
+- `v1.0.2` is published **unsigned** and carries no `latest.json`, so installed copies cannot
+  self-update. Signing is deferred: Azure Artifact Signing Public Trust is unavailable to a
+  Philippine individual, and the desktop installer is a secondary channel. SignPath Foundation is
+  the free OSS fallback if signing is ever wanted. The workflow is wired and untested.
 - Nothing has been tested on a clean Windows VM.
 - `glib` 0.18.5 is pinned by gtk 0.18 (Linux only; needs a gtk-rs 0.20/Tauri bump) and `sprintf-js`
   has no patched release (reachable only through mammoth's CLI bin, which the app never runs).
@@ -67,9 +70,11 @@ reopen → upgrade → uninstall run. Plan: `docs/DESKTOP_ONBOARDING_PROPOSAL.md
 
 ## Next action
 
-Milestone 5: configure signing, bump `version` in `desktop/src-tauri/tauri.conf.json`, push a `v*`
-tag, and run the install/onboard/reopen/upgrade/uninstall sequence on a clean Windows VM. A signed
-tag build publishes `latest.json`, which switches self-updates on for installed copies.
+No active release milestone. `v1.0.2` shipped on 2026-10-23 from `main`. The next product direction
+is the SaaS/agentic approach: hosted accounts and jobs first, then per-application agent runs
+(tailoring, scoring, outreach, follow-ups, reply ingestion) with pgvector memory and approval gates.
+It is chosen but deferred pending an explicit go-ahead; the design doc starts with the
+auth/tenancy/jobs/storage blockers.
 
 ## Do not repeat
 
