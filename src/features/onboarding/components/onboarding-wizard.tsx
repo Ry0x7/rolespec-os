@@ -93,7 +93,15 @@ export function OnboardingWizard({
     (savedProvider && aiSetupGroupForProvider(savedProvider)) || "chatgpt"
   const [group, setGroup] = useState<AiSetupGroupId>(initialGroup)
   const [provider, setProvider] = useState<AiProvider>(savedProvider ?? "codex-cli")
-  const [model, setModel] = useState(savedModel ?? "")
+  const [model, setModel] = useState(() => {
+    if (savedProvider !== "opencode-cli") return savedModel ?? ""
+    // A saved id may have been retired by a CLI update. Start from the first
+    // free model the current install actually reports instead.
+    const available = diagnostics["opencode-cli"]?.models ?? []
+    return savedModel && available.includes(savedModel)
+      ? savedModel
+      : available[0] ?? ""
+  })
   const [apiKey, setApiKey] = useState("")
   const [aiResult, setAiResult] = useState<AiConnectionTestResult | null>(null)
   const [skippedAi, setSkippedAi] = useState(false)
@@ -105,12 +113,25 @@ export function OnboardingWizard({
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
+  /** The model id a newly selected provider should start with. */
+  function defaultModelFor(nextProvider: AiProvider): string {
+    if (nextProvider === "opencode-cli") {
+      // The probe result is the only trustworthy source: a hardcoded model may
+      // have been retired by the installed CLI since this build shipped.
+      return diagnostics["opencode-cli"]?.models?.[0] ?? ""
+    }
+    return ""
+  }
+
   function handleGroupChange(nextGroup: AiSetupGroupId) {
     setGroup(nextGroup)
     const nextProviders = aiSetupGroupById(nextGroup)?.providers ?? []
     if (!nextProviders.some((option) => option.provider === provider)) {
       const first = nextProviders[0]
-      if (first) setProvider(first.provider)
+      if (first) {
+        setProvider(first.provider)
+        setModel(defaultModelFor(first.provider))
+      }
     }
     setApiKey("")
     setAiResult(null)
@@ -120,6 +141,8 @@ export function OnboardingWizard({
 
   function handleProviderChange(nextProvider: AiProvider) {
     setProvider(nextProvider)
+    // A model id belongs to one provider, so never carry it across.
+    setModel(defaultModelFor(nextProvider))
     setApiKey("")
     setAiResult(null)
     setSaveError(null)

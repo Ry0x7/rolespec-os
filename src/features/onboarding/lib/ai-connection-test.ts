@@ -74,6 +74,8 @@ export function providerDisplayName(provider: AiProvider): string {
       return "ChatGPT via Codex CLI"
     case "claude-code":
       return "Claude via Claude Code"
+    case "opencode-cli":
+      return "OpenCode (free models)"
     default:
       return AI_PROVIDER_META[provider].label
   }
@@ -135,6 +137,21 @@ export function connectionFailureForDiagnostic(
         ...links,
       }
     case "no-models":
+      if (provider === "opencode-cli") {
+        return {
+          ok: false,
+          code: "NO_LOCAL_MODEL",
+          title: "No free OpenCode models are available.",
+          message:
+            "OpenCode is installed, but it did not report any zero-cost models.",
+          guidance: [
+            ...guideSteps(provider),
+            "Free models can change. Update OpenCode, then run `opencode models` again.",
+          ],
+          provider,
+          ...links,
+        }
+      }
       return {
         ok: false,
         code: "NO_LOCAL_MODEL",
@@ -268,7 +285,11 @@ function failure(
 }
 
 function isCliProvider(provider: AiProvider): boolean {
-  return provider === "claude-code" || provider === "codex-cli"
+  return (
+    provider === "claude-code" ||
+    provider === "codex-cli" ||
+    provider === "opencode-cli"
+  )
 }
 
 function isLocalServerProvider(provider: AiProvider): boolean {
@@ -334,17 +355,25 @@ export function classifyProviderError(
       lower.includes("not logged in") ||
       lower.includes("not signed in") ||
       lower.includes("login required") ||
-      lower.includes("unauthorized")
+      lower.includes("unauthorized") ||
+      lower.includes("free tier")
     ) {
       return failure(
         provider,
         "NOT_SIGNED_IN",
-        `You're not signed in to ${name} yet.`,
+        `${name} could not use its sign-in.`,
         "The installed program rejected the request because its sign-in is missing or expired.",
-        ["Sign in again with the provider's official command.", "Then test the connection again."]
+        provider === "opencode-cli"
+          ? [
+              "Run `opencode auth login` on the host, then test again.",
+              "Or run `opencode models` to confirm the free models are listed.",
+            ]
+          : ["Sign in again with the provider's official command.", "Then test the connection again."]
       )
     }
-    if (lower.includes("enoent") || lower.includes("not found")) {
+    // Deliberately narrower than "not found": provider messages like
+    // "model not found" must reach the model-specific branch below.
+    if (lower.includes("enoent") || lower.includes("command not found")) {
       return failure(
         provider,
         "NOT_INSTALLED",
@@ -404,18 +433,31 @@ export function classifyProviderError(
       lower.includes("not available") ||
       lower.includes("not supported"))
   ) {
+    const cliGuidance =
+      provider === "opencode-cli"
+        ? [
+            "Run `opencode models` and pick one of the free models it lists.",
+            "If you pinned a model under Advanced, clear it so the first available free model is used.",
+          ]
+        : provider === "codex-cli"
+          ? [
+              "Run `codex doctor` to check the CLI's configured model.",
+              "If you pinned a model under Advanced, clear it so the CLI default is used.",
+            ]
+          : [
+              "Run `claude auth status` to check the CLI's configured model.",
+              "If you pinned a model under Advanced, clear it so the CLI default is used.",
+            ]
+
     return failure(
       provider,
       "MODEL_NOT_FOUND",
       `The selected model isn't available for ${name}.`,
       isCliProvider(provider)
-        ? "This account cannot use the model RoleSpec sent. Codex model names change often; follow the model configured in the CLI rather than pinning an old one."
+        ? "This account cannot use the model RoleSpec sent. CLI model names change often; follow the models the CLI itself reports rather than pinning an old one."
         : "The provider rejected the model name. Use the provider's default model unless you intentionally chose another one.",
       isCliProvider(provider)
-        ? [
-            "Run `codex doctor` (or `claude auth status`) to check the CLI's configured model.",
-            "If you pinned a model under Advanced, clear it so the CLI default is used.",
-          ]
+        ? cliGuidance
         : ["Clear the model field to use the default.", "Save the provider again and test."],
       `${message} ${detail}`.trim()
     )

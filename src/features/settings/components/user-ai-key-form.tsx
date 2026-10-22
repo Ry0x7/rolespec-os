@@ -24,6 +24,12 @@ export interface UserAiKeyFormValues {
   last4?: string
 }
 
+/** One free OpenCode model returned by the server-side CLI probe. */
+export interface UserAiModelOption {
+  value: string
+  label: string
+}
+
 const KEY_PLACEHOLDER: Partial<Record<UserAiProvider, string>> = {
   openai: "sk-...",
   anthropic: "sk-ant-...",
@@ -31,16 +37,47 @@ const KEY_PLACEHOLDER: Partial<Record<UserAiProvider, string>> = {
   google: "AIza...",
 }
 
-export function UserAiKeyForm({ status }: { status: UserAiKeyFormValues }) {
+export function UserAiKeyForm({
+  status,
+  openCodeModels = [],
+}: {
+  status: UserAiKeyFormValues
+  /** Only free models the installed OpenCode CLI reports, probed on the server. */
+  openCodeModels?: UserAiModelOption[]
+}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [provider, setProvider] = useState<UserAiProvider>(
     status.provider ?? USER_AI_PROVIDERS[0]
   )
+  const [model, setModel] = useState(status.model ?? "")
 
   const meta = AI_PROVIDER_META[provider]
   const isLocalProvider = meta.localOnly
   const requiresApiKey = meta.credentialEnvVar !== null && !isLocalProvider
+
+  // Never advertise a provider this computer cannot run. A saved value stays
+  // visible so the user can see what is configured and switch away from it.
+  const providers = USER_AI_PROVIDERS.filter(
+    (key) =>
+      key !== "opencode-cli" ||
+      openCodeModels.length > 0 ||
+      status.provider === "opencode-cli"
+  )
+  const openCodeModelOptions = openCodeModels
+  // A saved model can be retired by a CLI update. Never render a value the
+  // selector does not contain; fall back to the first model that is available.
+  const selectedOpenCodeModel =
+    openCodeModelOptions.find((option) => option.value === model)?.value ??
+    openCodeModelOptions[0]?.value ??
+    ""
+
+  function handleProviderChange(next: UserAiProvider) {
+    setProvider(next)
+    // A model id belongs to one provider; carrying it across would submit a
+    // name the new provider has never heard of.
+    setModel("")
+  }
 
   /** Drop the plaintext key from the DOM once it has been saved. */
   function resetKeyFields(form: HTMLFormElement) {
@@ -75,9 +112,9 @@ export function UserAiKeyForm({ status }: { status: UserAiKeyFormValues }) {
           name="provider"
           value={provider}
           disabled={isPending}
-          onChange={(e) => setProvider(e.target.value as UserAiProvider)}
+          onChange={(e) => handleProviderChange(e.target.value as UserAiProvider)}
         >
-          {USER_AI_PROVIDERS.map((key) => (
+          {providers.map((key) => (
             <option key={key} value={key}>
               {AI_PROVIDER_META[key].label}
             </option>
@@ -87,18 +124,65 @@ export function UserAiKeyForm({ status }: { status: UserAiKeyFormValues }) {
 
       <div className="space-y-2">
         <Label htmlFor="user-ai-model">Model</Label>
-        <Input
-          id="user-ai-model"
-          name="model"
-          defaultValue={status.model ?? ""}
-          placeholder={meta.defaultModel}
-          disabled={isPending}
-        />
-        <p className="text-xs text-muted-foreground">
-          Leave empty to use {meta.label}&apos;s default model (
-          <span className="font-mono">{meta.defaultModel}</span>).
-        </p>
+        {provider === "opencode-cli" && openCodeModelOptions.length > 0 ? (
+          <>
+            <Select
+              id="user-ai-model"
+              name="model"
+              value={selectedOpenCodeModel}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={isPending}
+            >
+              {openCodeModelOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              These are the zero-cost models the installed OpenCode CLI currently
+              reports. Unavailable models are not listed.
+            </p>
+          </>
+        ) : (
+          <>
+            <Input
+              id="user-ai-model"
+              name="model"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder={meta.defaultModel}
+              disabled={isPending}
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave empty to use {meta.label}&apos;s default model (
+              <span className="font-mono">{meta.defaultModel}</span>).
+            </p>
+          </>
+        )}
       </div>
+
+      {provider === "opencode-cli" && openCodeModelOptions.length === 0 && (
+        <div className="rounded-lg border border-amber-600/30 bg-amber-600/5 p-3 text-xs text-muted-foreground space-y-1">
+          <p className="font-medium text-foreground">No free OpenCode models found</p>
+          <p>
+            The OpenCode CLI is not installed, or it does not report any free models.
+            Install OpenCode and run <code className="font-mono">opencode models</code>,
+            then reload this page.
+          </p>
+        </div>
+      )}
+
+      {provider === "opencode-cli" && (
+        <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
+          <p className="font-medium text-foreground">OpenCode (free models)</p>
+          <p>
+            Runs the OpenCode CLI on this computer as a text generator. Free models
+            need no API key. RoleSpec disables shell, write and web tools and runs
+            the subprocess in an empty scratch folder.
+          </p>
+        </div>
+      )}
 
       {provider === "claude-code" && (
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">

@@ -9,7 +9,7 @@
 
 import type { AiProvider } from "@/shared/lib/ai-providers/constants"
 
-export type AiSetupGroupId = "chatgpt" | "claude" | "local" | "api"
+export type AiSetupGroupId = "free" | "chatgpt" | "claude" | "local" | "api"
 
 /**
  * How the provider authenticates. Drives which setup fields the UI shows.
@@ -51,6 +51,31 @@ export interface AiSetupGroup {
 }
 
 export const AI_SETUP_GROUPS: readonly AiSetupGroup[] = [
+  {
+    id: "free",
+    label: "Use free AI",
+    tagline: "No API key or subscription",
+    description:
+      "OpenCode includes a free tier of hosted models. RoleSpec runs the OpenCode CLI locally, so there is no API key to create and no per-token bill.",
+    providers: [
+      {
+        provider: "opencode-cli",
+        label: "OpenCode free models",
+        tagline: "Free hosted models through the OpenCode CLI",
+        credentialKind: "cli-session",
+        requirement:
+          "The OpenCode CLI must be installed on this computer. Its free models need no API key.",
+        steps: [
+          "Install OpenCode from opencode.ai (one-time download).",
+          "Run `opencode models` once so the CLI loads its free model list.",
+          "Come back here, choose a free model, and test the connection.",
+        ],
+        command: "opencode models",
+        docsUrl: "https://opencode.ai/docs/",
+        note: "Free models are supplied by OpenCode and can change or be rate-limited. RoleSpec runs the CLI as a text generator in an empty scratch folder with shell, write and web tools disabled.",
+      },
+    ],
+  },
   {
     id: "chatgpt",
     label: "Use ChatGPT",

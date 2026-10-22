@@ -12,6 +12,7 @@ export const AI_PROVIDERS = [
   "lmstudio",
   "claude-code",
   "codex-cli",
+  "opencode-cli",
 ] as const
 
 export type AiProvider = (typeof AI_PROVIDERS)[number]
@@ -123,6 +124,16 @@ export const AI_PROVIDER_META: Record<AiProvider, AiProviderMeta> = {
     label: "ChatGPT (Codex CLI)",
     modelEnvVar: "CODEX_CLI_MODEL",
     defaultModel: "gpt-6.1-sol",
+    credentialEnvVar: null,
+    localOnly: true,
+  },
+  // OpenCode's free tier: `opencode/*` models cost zero, so no API key or
+  // subscription is needed. Runtime resolution prefers OPENCODE_MODEL, then the
+  // best free model the installed CLI reports (see opencode-models.ts).
+  "opencode-cli": {
+    label: "OpenCode (free models)",
+    modelEnvVar: "OPENCODE_MODEL",
+    defaultModel: "opencode/deepseek-v4.1-flash-free",
     credentialEnvVar: null,
     localOnly: true,
   },

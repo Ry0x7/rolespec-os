@@ -11,6 +11,7 @@ import {
   type UserAiProvider,
 } from "./ai-providers/constants"
 import { resolveCodexModelId } from "./ai-providers/codex-paths"
+import { resolveOpenCodeModelId } from "./ai-providers/opencode-models"
 import { prisma } from "./prisma"
 import { tryDecryptSecret } from "./secret-box"
 import { logger } from "@/shared/lib/logger"
@@ -79,9 +80,9 @@ async function readAiSettings(): Promise<AiSettingsValue | null> {
 
 /**
  * True in a deployed serverless environment, where `localOnly` providers cannot
- * work: they either spawn a native subprocess (claude-code) or point at
- * localhost (ollama, lmstudio). `VERCEL` is set on every Vercel build and
- * invocation, preview and production alike.
+ * work: they either spawn a native subprocess (claude-code, codex-cli,
+ * opencode-cli) or point at localhost (ollama, lmstudio). `VERCEL` is set on
+ * every Vercel build and invocation, preview and production alike.
  */
 function isServerlessDeploy(): boolean {
   return Boolean(process.env.VERCEL)
@@ -124,14 +125,15 @@ async function storedApiKey(provider: AiProvider): Promise<string | undefined> {
 }
 
 /**
- * The model to use when nothing pins one. Codex follows the CLI's own config so
- * RoleSpec never sends `-m` with a model that account retired; every other
- * provider uses its metadata default.
+ * The model to use when nothing pins one. Codex follows its CLI configuration;
+ * OpenCode honors OPENCODE_MODEL and otherwise falls back to its preferred free
+ * model; every other provider uses its metadata default. The setup UIs replace
+ * the OpenCode fallback with a model the installed CLI actually lists.
  */
 function defaultModelFor(provider: AiProvider): string {
-  return provider === "codex-cli"
-    ? resolveCodexModelId()
-    : AI_PROVIDER_META[provider].defaultModel
+  if (provider === "codex-cli") return resolveCodexModelId()
+  if (provider === "opencode-cli") return resolveOpenCodeModelId()
+  return AI_PROVIDER_META[provider].defaultModel
 }
 
 function envModel(provider: AiProvider): string {
@@ -453,6 +455,12 @@ export async function getAIModel(override?: {
       // ESM-only, so it must not be pulled into every AI-touching module.
       const { getCodexCliModel } = await import("./ai-providers/codex-cli")
       return getCodexCliModel(model)
+    }
+    case "opencode-cli": {
+      // Lazy so the child_process/CLI plumbing is only loaded when this
+      // provider is actually selected.
+      const { getOpenCodeCliModel } = await import("./ai-providers/opencode-cli")
+      return getOpenCodeCliModel(model)
     }
   }
 }

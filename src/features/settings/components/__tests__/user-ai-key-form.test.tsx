@@ -30,7 +30,7 @@ afterEach(cleanup)
 const NO_KEY = { provider: null, model: null, configured: false }
 
 describe("UserAiKeyForm", () => {
-  it("offers all supported providers including CLI and local", () => {
+  it("hides OpenCode when the server probed no free models", () => {
     render(<UserAiKeyForm status={NO_KEY} />)
 
     const options = screen
@@ -46,6 +46,51 @@ describe("UserAiKeyForm", () => {
       "claude-code",
       "codex-cli",
     ])
+  })
+
+  it("offers the probed free models when OpenCode is available", async () => {
+    render(
+      <UserAiKeyForm
+        status={NO_KEY}
+        openCodeModels={[
+          { value: "opencode/beam-free", label: "Beam Free" },
+          { value: "opencode/big-pickle", label: "Big Pickle" },
+        ]}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText("Provider"), {
+      target: { value: "opencode-cli" },
+    })
+
+    const model = screen.getByLabelText("Model") as HTMLSelectElement
+    expect(model.tagName).toBe("SELECT")
+    expect([...model.options].map((option) => option.value)).toEqual([
+      "opencode/beam-free",
+      "opencode/big-pickle",
+    ])
+    // The first probed model is selected without the user touching the field.
+    expect(model.value).toBe("opencode/beam-free")
+
+    fireEvent.click(screen.getByRole("button", { name: /Save AI provider/ }))
+
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+    const formData = mockUpdate.mock.calls[0][0] as FormData
+    expect(formData.get("provider")).toBe("opencode-cli")
+    expect(formData.get("model")).toBe("opencode/beam-free")
+  })
+
+  it("keeps a saved OpenCode provider visible without probed models", () => {
+    render(
+      <UserAiKeyForm
+        status={{ provider: "opencode-cli", model: null, configured: false }}
+      />,
+    )
+
+    expect(
+      (screen.getByLabelText("Provider") as HTMLSelectElement).value,
+    ).toBe("opencode-cli")
+    expect(screen.getByText("No free OpenCode models found")).toBeTruthy()
   })
 
   it("masks the key input and shows no stored key", () => {

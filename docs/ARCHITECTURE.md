@@ -201,6 +201,12 @@ detection, and `src/features/onboarding/lib/ai-connection-test.ts` for the autho
   for the test.
 - `codex-cli` must use the user's installed Codex CLI, not the provider's older bundled binary, and
   must follow the CLI's configured model. ChatGPT-account model ids retire faster than releases.
+- `opencode-cli` is the zero-cost hosted path: the server probes `opencode models --verbose` and
+  exposes only zero-cost models from the `opencode` provider, so a retired or paid model never
+  appears in a selector. Calls spawn `opencode run --format json` as a text generator. OpenCode's
+  free tier rejects requests that omit the `read` tool, so `read` stays enabled while every other
+  tool is disabled and the subprocess runs in an empty scratch directory with
+  `external_directory: "deny"` — leaving it nothing useful to read or execute.
 - Desktop distribution adds platform bootstrapping only: `desktop/` holds the Tauri 2 shell (bundled
   Node, bundled PostgreSQL 17) and `scripts/desktop/` fetches and stages those pinned runtimes. The
   shell runs the same `.next/standalone` bundle and `prisma/migrations`; domain logic, UI, AI

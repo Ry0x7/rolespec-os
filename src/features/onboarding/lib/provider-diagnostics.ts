@@ -21,6 +21,7 @@ import {
   type AiProvider,
 } from "@/shared/lib/ai-providers/constants"
 import { resolveCodexModelId } from "@/shared/lib/ai-providers/codex-paths"
+import { probeOpenCodeCli } from "@/shared/lib/ai-providers/opencode-models"
 
 const COMMAND_TIMEOUT_MS = 2_500
 const HTTP_TIMEOUT_MS = 2_000
@@ -154,7 +155,8 @@ export function lmStudioBaseUrl(): string {
 function configuredModel(provider: AiProvider): string {
   const meta = AI_PROVIDER_META[provider]
   if (process.env[meta.modelEnvVar]?.trim()) return process.env[meta.modelEnvVar]!.trim()
-  return provider === "codex-cli" ? resolveCodexModelId() : meta.defaultModel
+  if (provider === "codex-cli") return resolveCodexModelId()
+  return meta.defaultModel
 }
 
 /** Ollama reports names with tags (`qwen2.5vl:7b`); `latest` is implicit. */
@@ -239,6 +241,60 @@ async function detectClaudeCode(): Promise<ProviderDiagnostic> {
     status: "ready",
     reason: "ready",
     message: "Claude Code is installed and signed in.",
+    configuredModel: model,
+  }
+}
+
+async function detectOpenCodeCli(): Promise<ProviderDiagnostic> {
+  const provider: AiProvider = "opencode-cli"
+  const model = configuredModel(provider)
+  const probe = await probeOpenCodeCli()
+
+  if (!probe.installed) {
+    return {
+      provider,
+      status: "unavailable",
+      reason: "not-installed",
+      message: "The OpenCode CLI was not found on this computer.",
+      detail:
+        "Install OpenCode from opencode.ai, then run `opencode models` once to load its free models.",
+      configuredModel: model,
+    }
+  }
+
+  const free = probe.models.filter((entry) => entry.free)
+  if (free.length === 0) {
+    return {
+      provider,
+      status: "needs-setup",
+      reason: "no-models",
+      message: "OpenCode is installed, but it reports no free models.",
+      detail: probe.error
+        ? `${probe.error}. Run \`opencode models\` to refresh the catalog.`
+        : "Run `opencode models` on this computer. If the list is empty, update the CLI or sign in with `opencode auth login`.",
+      configuredModel: model,
+    }
+  }
+
+  const ids = free.map((entry) => entry.id)
+  if (model.trim() && !ids.includes(model.trim())) {
+    return {
+      provider,
+      status: "needs-setup",
+      reason: "model-missing",
+      message: `OpenCode is installed, but "${model}" is not one of its free models.`,
+      detail: `Available free models: ${ids.join(", ")}.`,
+      models: ids,
+      configuredModel: model,
+    }
+  }
+
+  return {
+    provider,
+    status: "ready",
+    reason: "ready",
+    message: `OpenCode is installed with ${free.length} free model${free.length === 1 ? "" : "s"}.`,
+    models: ids,
     configuredModel: model,
   }
 }
@@ -403,6 +459,8 @@ export async function diagnoseProvider(
       return detectCodexCli()
     case "claude-code":
       return detectClaudeCode()
+    case "opencode-cli":
+      return detectOpenCodeCli()
     case "ollama":
       return detectOllama()
     case "lmstudio":

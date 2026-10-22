@@ -8,6 +8,7 @@ import {
 } from "@/shared/lib/ai-providers/constants"
 import { clearUserAiSettingsCache } from "@/shared/lib/ai-provider"
 import { resolveCodexModelId } from "@/shared/lib/ai-providers/codex-paths"
+import { resolveOpenCodeModelId } from "@/shared/lib/ai-providers/opencode-models"
 
 export { USER_AI_PROVIDERS }
 export type { UserAiProvider }
@@ -51,7 +52,9 @@ export async function getUserAiKeyStatus(userId: string): Promise<UserAiKeyStatu
     defaultModel: provider
       ? provider === "codex-cli"
         ? resolveCodexModelId()
-        : AI_PROVIDER_META[provider].defaultModel
+        : provider === "opencode-cli"
+          ? resolveOpenCodeModelId()
+          : AI_PROVIDER_META[provider].defaultModel
       : null,
   }
 }

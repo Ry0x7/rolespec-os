@@ -46,6 +46,7 @@ behind a managed AI service.
 | :--- | :--- | :--- |
 | **ChatGPT via Codex CLI** | Your **ChatGPT Plus or Pro** subscription | **$0 extra.** Run `npm i -g @openai/codex && codex login` |
 | **Claude via Claude Code** | Your **Claude Pro or Team** subscription | **$0 extra.** Run `claude setup-token` |
+| **OpenCode free models** | OpenCode's **zero-cost hosted models** | **$0, no account.** Install the `opencode` CLI and run `opencode models` once. |
 | **Ollama / LM Studio** | 100% offline local GPU/CPU models (Llama 3, Mistral, Qwen) | **Free forever & fully offline.** Zero internet needed. |
 | **Cloud APIs (Optional)** | OpenAI (`gpt-4o`), Anthropic (`claude-3-7-sonnet`), DeepSeek, Google Gemini | Pay-per-token API keys saved securely under Settings. |
 
@@ -75,6 +76,21 @@ behind a managed AI service.
    AI_PROVIDER=claude-code
    ```
 
+#### Option C: OpenCode free models (no account)
+1. Install the OpenCode CLI from [opencode.ai](https://opencode.ai/docs/) and run it once so it loads its catalog:
+   ```bash
+   opencode models
+   ```
+2. Set in your `.env` (or select in `/settings/ai`):
+   ```env
+   AI_PROVIDER=opencode-cli
+   ```
+3. Pick one of the free models RoleSpec discovered. Only zero-cost `opencode/*` models are listed.
+
+> OpenCode's free tier can change or rate-limit models. RoleSpec runs the CLI as a text generator in
+> an empty scratch folder with shell, write and web tools disabled; prompts are still handled by
+> OpenCode's hosted service.
+
 ---
 
 ## 🚀 Get started
@@ -96,7 +112,7 @@ path below remains available for developers and early users in the meantime.
 
 What first-run setup will ask for — and what it will **not** ask for:
 
-- **It asks:** how AI should work (ChatGPT, Claude, local AI, or an API key), and whether to test it.
+- **It asks:** how AI should work (ChatGPT, Claude, OpenCode free models, local AI, or an API key), and whether to test it.
 - **It does not ask** for `DATABASE_URL`, `AI_PROVIDER`, `OPENAI_API_KEY`, or any other environment variable.
 
 See [`docs/DESKTOP_ONBOARDING_PROPOSAL.md`](docs/DESKTOP_ONBOARDING_PROPOSAL.md) for the desktop
@@ -364,7 +380,7 @@ Load the `extension/dist` folder in `chrome://extensions` via **Load Unpacked**.
 | **Motion** | Framer Motion (Smooth layout animations & gesture physics) |
 | **Database & ORM** | PostgreSQL (Neon serverless or local Docker) + Prisma 7 |
 | **Authentication** | Local auto-login (single-user OS), optional GitHub OAuth & credentials |
-| **AI Integration** | Vercel AI SDK v7 (`codex-cli`, `claude-code`, Ollama, LM Studio, OpenAI, Anthropic, Gemini, DeepSeek) |
+| **AI Integration** | Vercel AI SDK v7 (`codex-cli`, `claude-code`, `opencode-cli` free models, Ollama, LM Studio, OpenAI, Anthropic, Gemini, DeepSeek) |
 | **State Management**| Zustand + TanStack React Query |
 | **PDF Engine** | `@react-pdf/renderer` (Paginated vector PDF generation) |
 

@@ -74,6 +74,7 @@ describe("getAIModel", () => {
       CODEX_HOME: TEST_CODEX_HOME,
     }
     delete process.env.CODEX_CLI_MODEL
+    delete process.env.OPENCODE_MODEL
   })
 
   afterEach(() => {
@@ -236,6 +237,27 @@ describe("getAIModel", () => {
     await getAIModel()
 
     expect(mockCodexModel).toHaveBeenCalledWith("gpt-6.1-sol")
+  })
+
+  it("uses opencode-cli when AI_PROVIDER=opencode-cli", async () => {
+    process.env.AI_PROVIDER = "opencode-cli"
+    process.env.OPENCODE_MODEL = "opencode/beam-free"
+    const { getAIModel } = await import("../ai-provider")
+
+    const model = await getAIModel()
+
+    expect(model.provider).toBe("opencode-cli")
+    expect(model.modelId).toBe("opencode/beam-free")
+  })
+
+  it("defaults the opencode-cli model to the free DeepSeek fallback", async () => {
+    process.env.AI_PROVIDER = "opencode-cli"
+    delete process.env.OPENCODE_MODEL
+    const { getAIModel } = await import("../ai-provider")
+
+    const model = await getAIModel()
+
+    expect(model.modelId).toBe("opencode/deepseek-v4.1-flash-free")
   })
 
   it("prefers the AiSettings API key over the env var for openai", async () => {
@@ -484,6 +506,7 @@ describe("getEffectiveAiConfigForUser", () => {
     }
     delete process.env.AI_PROVIDER
     delete process.env.OPENAI_MODEL
+    delete process.env.OPENCODE_MODEL
   })
 
   afterEach(() => {
@@ -547,6 +570,25 @@ describe("getEffectiveAiConfigForUser", () => {
     const config = await getEffectiveAiConfigForUser("u1")
     expect(config.provider).toBe("claude-code")
     expect(config.model).toBe("sonnet")
+  })
+
+  it("allows a user to select OpenCode's free tier with no API key", async () => {
+    mockUserFindUnique.mockResolvedValue(
+      userRow("USER", {
+        provider: "opencode-cli",
+        model: null,
+        apiKeyEnc: null,
+      }),
+    )
+    const { getEffectiveAiConfigForUser } = await import("../ai-provider")
+
+    await expect(getEffectiveAiConfigForUser("u1")).resolves.toMatchObject({
+      provider: "opencode-cli",
+      model: "opencode/deepseek-v4.1-flash-free",
+      source: "user",
+      apiKey: undefined,
+      modelPinned: false,
+    })
   })
 
   it("throws when there is no user id at all", async () => {
@@ -677,6 +719,9 @@ describe("assertAiConfigUsable", () => {
 
     await expect(
       assertAiConfigUsable({ provider: "claude-code", source: "env" }),
+    ).resolves.toBeUndefined()
+    await expect(
+      assertAiConfigUsable({ provider: "opencode-cli", source: "user" }),
     ).resolves.toBeUndefined()
   })
 

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import {
   ExternalLink,
+  Gift,
   KeyRound,
   Laptop,
   MessageSquare,
@@ -14,6 +15,7 @@ import { Badge } from "@/shared/ui/badge"
 import { Button } from "@/shared/ui/button"
 import { Input } from "@/shared/ui/input"
 import { Label } from "@/shared/ui/label"
+import { Select } from "@/shared/ui/select"
 import { cn } from "@/shared/lib/utils"
 import type { AiProvider } from "@/shared/lib/ai-providers/constants"
 import {
@@ -27,11 +29,21 @@ import type { AiConnectionTestFailure } from "../lib/ai-connection-test"
 import { ConnectionResult } from "./connection-result"
 
 const GROUP_ICONS = {
+  free: Gift,
   chatgpt: MessageSquare,
   claude: Sparkles,
   local: Laptop,
   api: KeyRound,
 } as const
+
+/** `opencode/glm-5.3-flash-free` → `GLM 5.3 Flash Free`. */
+function modelLabel(id: string): string {
+  const slug = id.split("/")[1] ?? id
+  return slug
+    .split("-")
+    .map((part) => (part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(" ")
+}
 
 function diagnosticBadge(diagnostic: ProviderDiagnostic) {
   switch (diagnostic.status) {
@@ -101,6 +113,22 @@ export function AiSetupPanel({
 
   if (!selectedGroup || !guide) return null
 
+  // A free option that this computer cannot run is noise in first-run setup:
+  // the point of the model list is that every visible choice is actionable.
+  // A saved OpenCode choice stays visible so its owner can see what broke.
+  const openCodeDiagnostic = diagnostics["opencode-cli"]
+  const openCodeUnusable =
+    openCodeDiagnostic?.status === "unavailable" ||
+    (openCodeDiagnostic?.status === "needs-setup" &&
+      openCodeDiagnostic.reason === "no-models")
+  const visibleGroups = AI_SETUP_GROUPS.filter(
+    (option) => option.id !== "free" || !openCodeUnusable || group === "free"
+  )
+  const openCodeModels = diagnostic.models ?? []
+  const selectedOpenCodeModel = openCodeModels.includes(model)
+    ? model
+    : openCodeModels[0] ?? ""
+
   return (
     <div className="space-y-5">
       <div>
@@ -113,7 +141,7 @@ export function AiSetupPanel({
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="AI options">
-        {AI_SETUP_GROUPS.map((option) => {
+        {visibleGroups.map((option) => {
           const Icon = GROUP_ICONS[option.id]
           const selected = option.id === group
           return (
@@ -251,17 +279,42 @@ export function AiSetupPanel({
         <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer select-none">Advanced: choose a model</summary>
           <div className="mt-2 space-y-1.5">
-            <Label htmlFor="onboarding-model">Model</Label>
-            <Input
-              id="onboarding-model"
-              value={model}
-              onChange={(event) => onModelChange(event.target.value)}
-              disabled={pending}
-              placeholder={diagnostic.configuredModel}
-            />
-            <p>
-              Leave empty to use {guide.label}&apos;s default ({diagnostic.configuredModel}).
-            </p>
+            <Label htmlFor="onboarding-model">
+              {provider === "opencode-cli" ? "Free model" : "Model"}
+            </Label>
+            {provider === "opencode-cli" && openCodeModels.length > 0 ? (
+              <>
+                <Select
+                  id="onboarding-model"
+                  value={selectedOpenCodeModel}
+                  onChange={(event) => onModelChange(event.target.value)}
+                  disabled={pending}
+                >
+                  {openCodeModels.map((id) => (
+                    <option key={id} value={id}>
+                      {modelLabel(id)}
+                    </option>
+                  ))}
+                </Select>
+                <p>
+                  Only models that <code className="font-mono">opencode models</code> reports
+                  as free are listed. Available choices change with the installed CLI.
+                </p>
+              </>
+            ) : (
+              <>
+                <Input
+                  id="onboarding-model"
+                  value={model}
+                  onChange={(event) => onModelChange(event.target.value)}
+                  disabled={pending}
+                  placeholder={diagnostic.configuredModel}
+                />
+                <p>
+                  Leave empty to use {guide.label}&apos;s default ({diagnostic.configuredModel}).
+                </p>
+              </>
+            )}
           </div>
         </details>
 

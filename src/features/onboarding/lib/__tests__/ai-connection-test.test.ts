@@ -20,6 +20,7 @@ import { AiDailyLimitError, AiKeyRequiredError } from "@/shared/lib/ai-provider"
 import {
   classifyProviderError,
   connectionFailureForDiagnostic,
+  providerDisplayName,
   sanitizeProviderDetail,
   testProviderConnection,
 } from "../ai-connection-test"
@@ -58,6 +59,41 @@ describe("connectionFailureForDiagnostic", () => {
     expect(result.command).toBe("codex login")
     expect(result.docsUrl).toContain("openai.com")
     expect(result.guidance.length).toBeGreaterThan(0)
+  })
+
+  it("uses the OpenCode model command for a missing free CLI", () => {
+    const result = connectionFailureForDiagnostic(
+      diagnostic({
+        provider: "opencode-cli",
+        status: "unavailable",
+        reason: "not-installed",
+        configuredModel: "opencode/deepseek-v4.1-flash-free",
+      })
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.code).toBe("NOT_INSTALLED")
+    expect(result.title).toContain("OpenCode")
+    expect(result.command).toBe("opencode models")
+    expect(result.docsUrl).toContain("opencode.ai")
+  })
+
+  it("does not describe missing OpenCode models as a local download", () => {
+    const result = connectionFailureForDiagnostic(
+      diagnostic({
+        provider: "opencode-cli",
+        status: "needs-setup",
+        reason: "no-models",
+      })
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.code).toBe("NO_LOCAL_MODEL")
+    expect(result.title).toContain("free OpenCode models")
+    expect(result.guidance.join(" ")).not.toContain("gigabytes")
+    expect(result.guidance.join(" ")).toContain("opencode models")
   })
 
   it("distinguishes a stopped local server from a missing model", () => {
@@ -99,6 +135,12 @@ describe("connectionFailureForDiagnostic", () => {
   })
 })
 
+describe("providerDisplayName", () => {
+  it("names OpenCode's free tier without exposing the provider id", () => {
+    expect(providerDisplayName("opencode-cli")).toBe("OpenCode (free models)")
+  })
+})
+
 describe("classifyProviderError", () => {
   it("maps a rejected API key to KEY_REJECTED", () => {
     const error = Object.assign(new Error("Unauthorized"), { statusCode: 401 })
@@ -115,6 +157,28 @@ describe("classifyProviderError", () => {
     const result = classifyProviderError("codex-cli", error)
 
     expect(result.code).toBe("NOT_SIGNED_IN")
+  })
+
+  it("maps OpenCode's free-tier rejection to sign-in guidance", () => {
+    const error = Object.assign(
+      new Error("OpenCode's free tier can only be used from within OpenCode"),
+      { data: { statusCode: 403 } },
+    )
+
+    const result = classifyProviderError("opencode-cli", error)
+
+    expect(result.code).toBe("NOT_SIGNED_IN")
+    expect(result.guidance.join(" ")).toContain("opencode auth login")
+  })
+
+  it("points an OpenCode model failure at the CLI's free model list", () => {
+    const result = classifyProviderError(
+      "opencode-cli",
+      new Error("model not found: opencode/retired-free"),
+    )
+
+    expect(result.code).toBe("MODEL_NOT_FOUND")
+    expect(result.guidance.join(" ")).toContain("opencode models")
   })
 
   it("maps 429 to RATE_LIMITED", () => {

@@ -5,6 +5,7 @@ const mockExecFile = vi.hoisted(() => vi.fn())
 
 vi.mock("node:child_process", () => ({ execFile: mockExecFile }))
 
+import { clearOpenCodeModelsCache } from "@/shared/lib/ai-providers/opencode-models"
 import {
   clearProviderDiagnosticsCache,
   diagnoseProvider,
@@ -35,6 +36,38 @@ function jsonResponse(body: unknown) {
   return { ok: true, json: async () => body } as Response
 }
 
+/** Mirrors the `id` + pretty-printed metadata blocks of `opencode models --verbose`. */
+function openCodeModelBlock(
+  id: string,
+  cost: { input: number; output: number } = { input: 0, output: 0 }
+): string {
+  return `${id}\n${JSON.stringify(
+    {
+      providerID: "opencode",
+      name: id.split("/")[1],
+      cost,
+    },
+    null,
+    2
+  )}\n`
+}
+
+function openCodeInstalled(models: string) {
+  mockExecFile.mockImplementation(
+    (command: string, args: string[], _options: unknown, callback: ExecCallback) => {
+      if (command === "opencode" && args[0] === "--version") {
+        callback(null, "1.18.35", "")
+        return
+      }
+      if (command === "opencode" && args[0] === "models") {
+        callback(null, models, "")
+        return
+      }
+      callback(Object.assign(new Error("not found"), { code: "ENOENT" }), "", "")
+    }
+  )
+}
+
 function stubFetch(result: Response | Error) {
   vi.stubGlobal(
     "fetch",
@@ -49,7 +82,9 @@ beforeEach(() => {
   mockExecFile.mockReset()
   vi.unstubAllGlobals()
   clearProviderDiagnosticsCache()
+  clearOpenCodeModelsCache()
   delete process.env.CLAUDE_CODE_OAUTH_TOKEN
+  delete process.env.OPENCODE_MODEL
   delete process.env.OLLAMA_BASE_URL
   delete process.env.OLLAMA_MODEL
   delete process.env.LMSTUDIO_BASE_URL
@@ -128,6 +163,58 @@ describe("Claude Code detection", () => {
     expect(result.status).toBe("needs-setup")
     expect(result.reason).toBe("not-signed-in")
     expect(mockExecFile.mock.calls[1][1]).toEqual(["auth", "status"])
+  })
+})
+
+describe("OpenCode CLI detection", () => {
+  it("is ready when the CLI reports free models", async () => {
+    openCodeInstalled(
+      openCodeModelBlock("opencode/beam-free") +
+        openCodeModelBlock("opencode/deepseek-v4.1-flash-free")
+    )
+
+    const result = await diagnoseProvider("opencode-cli")
+
+    expect(result.status).toBe("ready")
+    expect(result.reason).toBe("ready")
+    expect(result.models).toEqual([
+      "opencode/beam-free",
+      "opencode/deepseek-v4.1-flash-free",
+    ])
+    expect(mockExecFile.mock.calls[1][1]).toEqual(["models", "--verbose"])
+  })
+
+  it("reports a missing CLI without probing the model catalog", async () => {
+    commandFails("ENOENT")
+
+    const result = await diagnoseProvider("opencode-cli")
+
+    expect(result.status).toBe("unavailable")
+    expect(result.reason).toBe("not-installed")
+    expect(mockExecFile).toHaveBeenCalledTimes(1)
+  })
+
+  it("separates an installed CLI with no free models", async () => {
+    openCodeInstalled(
+      openCodeModelBlock("opencode/paid-model", { input: 1, output: 2 })
+    )
+
+    const result = await diagnoseProvider("opencode-cli")
+
+    expect(result.status).toBe("needs-setup")
+    expect(result.reason).toBe("no-models")
+    expect(result.models).toBeUndefined()
+  })
+
+  it("names a pinned model that is no longer free", async () => {
+    process.env.OPENCODE_MODEL = "opencode/retired-free"
+    openCodeInstalled(openCodeModelBlock("opencode/beam-free"))
+
+    const result = await diagnoseProvider("opencode-cli")
+
+    expect(result.status).toBe("needs-setup")
+    expect(result.reason).toBe("model-missing")
+    expect(result.detail).toContain("opencode/beam-free")
   })
 })
 
