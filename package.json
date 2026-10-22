@@ -76,7 +76,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "browserslist": "^4.28.7",
