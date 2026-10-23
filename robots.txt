@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://rolespec.ry0x7.dev/sitemap.xml
