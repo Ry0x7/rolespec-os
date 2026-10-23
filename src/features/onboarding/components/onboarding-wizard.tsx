@@ -296,13 +296,13 @@ export function OnboardingWizard({
           <div className="space-y-2 rounded-lg border border-amber-600/30 bg-amber-600/5 p-4">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
-              AI is required for the AI-powered features
+              AI is optional for importing and editing
             </p>
             <p className="text-sm text-muted-foreground">
-              RoleSpec is not an AI-free app. Resume import from PDF/DOCX, tailoring,
-              ATS analysis, job matching, cover letters and outreach all use AI. You
-              will choose a provider in the next step. Resume editing and application
-              tracking work without one.
+              Import text from PDF/DOCX, edit resumes and track applications without
+              a provider. AI structuring and polishing, tailoring, ATS analysis, job
+              matching, cover letters and outreach need AI. You can choose and test
+              a provider in the next step, or skip and connect one later.
             </p>
           </div>
 

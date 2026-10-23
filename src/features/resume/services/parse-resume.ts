@@ -10,6 +10,7 @@ import {
   UNTRUSTED_CONTENT_RULES,
 } from "@/shared/lib/prompts/untrusted"
 import { logger } from "@/shared/lib/logger"
+import { importResumeText, ResumeTextRequiredError } from "./import-resume-text"
 
 const log = logger("resume/parse-file")
 
@@ -99,7 +100,10 @@ type StripNulls<T> = T extends (infer U)[]
         Partial<Pick<StrippedProps<T>, NullableKeys<T>>>
     : T
 
-export type ParsedResume = StripNulls<RawParsedResume>
+export type ParsedResume = StripNulls<RawParsedResume> & {
+  /** Locally extracted text, editable without guessing structured fields. */
+  importedSections?: Array<{ title: string; content: string }>
+}
 
 /**
  * Recursively drops null-valued keys from objects and null entries from arrays,
@@ -164,7 +168,7 @@ function capText(text: string): string {
 async function extractText(buffer: Uint8Array, mimeType: string): Promise<string> {
   if (mimeType === "application/pdf") {
     const { PDFParse } = await import("pdf-parse")
-    const parser = new PDFParse(buffer)
+    const parser = new PDFParse({ data: buffer })
     try {
       const result = await withParseTimeout(parser.getText(), "PDF parse")
       return capText(result.text)
@@ -249,9 +253,11 @@ async function partialOptimize(
 // ─── Main parse function ─────────────────────────────────────────────────────
 
 export interface ParseResumeOptions {
+  /** AI structuring is opt-in. Plain import never contacts a provider. */
+  useAi?: boolean
   /**
-   * Run the second, bullet-rewriting AI pass. Defaults to true; the upload
-   * dialog lets the user turn it off to spend one call instead of two.
+   * Run the bullet-rewriting pass after AI structuring. Has no effect unless
+   * useAi is true.
    */
   optimizeBullets?: boolean
 }
@@ -264,6 +270,8 @@ export async function parseResumeFile(
   options: ParseResumeOptions = {}
 ): Promise<ParsedResume> {
   const text = await extractText(buffer, mimeType)
+  if (options.useAi !== true) return importResumeText(text)
+  if (!text.trim()) throw new ResumeTextRequiredError()
 
   const { object } = await generateObjectTracked({
     schema: parsedResumeSchema,

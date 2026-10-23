@@ -8,6 +8,8 @@ const parseResumeFile = vi.fn()
 const analyzeResumeATS = vi.fn()
 
 const resumeCreate = vi.fn()
+const sectionCreate = vi.fn()
+const itemCreateMany = vi.fn()
 const resumeFindUnique = vi.fn()
 const atsAnalysisCount = vi.fn()
 const atsAnalysisCreate = vi.fn()
@@ -20,8 +22,8 @@ vi.mock("@/shared/lib/prisma", () => ({
         ? Promise.all(arg)
         : (arg as (tx: unknown) => unknown)({
             resume: { create: (...args: unknown[]) => resumeCreate(...args) },
-            resumeSection: { create: async () => ({ id: "section-1" }) },
-            resumeSectionItem: { createMany: async () => ({ count: 0 }) },
+            resumeSection: { create: (...args: unknown[]) => sectionCreate(...args) },
+            resumeSectionItem: { createMany: (...args: unknown[]) => itemCreateMany(...args) },
           }),
     resume: {
       findUnique: (...args: unknown[]) => resumeFindUnique(...args),
@@ -143,6 +145,8 @@ beforeEach(() => {
   consumeRateLimit.mockResolvedValue(true)
   formData.mockRejectedValue(new Error("body not read in these tests"))
   resumeCreate.mockResolvedValue({ id: "resume-1" })
+  sectionCreate.mockResolvedValue({ id: "section-1" })
+  itemCreateMany.mockResolvedValue({ count: 1 })
   resumeFindUnique.mockResolvedValue({ id: "resume-1", sections: [] })
   atsAnalysisCount.mockResolvedValue(0)
   atsAnalysisCreate.mockResolvedValue({})
@@ -318,6 +322,7 @@ describe("POST /api/resume/parse automatic ATS analysis", () => {
   function bodyWithJobDescription(): FormData {
     const body = bodyWith(upload("resume.pdf", PDF_TYPE))
     body.append("jobDescription", "Senior engineer, TypeScript, Postgres")
+    body.append("useAi", "true")
     return body
   }
 
@@ -376,5 +381,42 @@ describe("POST /api/resume/parse automatic ATS analysis", () => {
     expect(res.status).toBe(201)
     expect(atsAnalysisCount).not.toHaveBeenCalled()
     expect(analyzeResumeATS).not.toHaveBeenCalled()
+  })
+})
+
+describe("POST /api/resume/parse local import", () => {
+  it("persists editable source sections and skips all ATS work without AI opt-in", async () => {
+    const body = bodyWith(upload("resume.pdf", PDF_TYPE))
+    body.append("optimizeBullets", "false")
+    body.append("jobDescription", "TypeScript engineer")
+    formData.mockResolvedValue(body)
+    parseResumeFile.mockResolvedValue({
+      title: "", contact: {},
+      importedSections: [{ title: "Experience", content: "Built a compiler\nReduced latency" }],
+    })
+
+    const res = await POST(request)
+
+    expect(res.status).toBe(201)
+    expect(parseResumeFile).toHaveBeenCalledWith(expect.any(Uint8Array), PDF_TYPE, USER_ID,
+      { useAi: false, optimizeBullets: false })
+    expect(sectionCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
+      type: "CUSTOM", title: "Experience", visible: true,
+    }), select: { id: true } })
+    expect(itemCreateMany).toHaveBeenCalledWith({ data: [expect.objectContaining({
+      content: { content: "Built a compiler\nReduced latency" },
+    })] })
+    expect(atsAnalysisCount).not.toHaveBeenCalled()
+    expect(analyzeResumeATS).not.toHaveBeenCalled()
+  })
+
+  it("returns a useful error for a scan with no extractable text", async () => {
+    const { ResumeTextRequiredError } = await import("@/features/resume/services/import-resume-text")
+    formData.mockResolvedValue(bodyWith(upload("scan.pdf", PDF_TYPE)))
+    parseResumeFile.mockRejectedValue(new ResumeTextRequiredError())
+    const res = await POST(request)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ code: "NO_READABLE_TEXT", error: expect.stringContaining("OCR") })
+    expect(resumeCreate).not.toHaveBeenCalled()
   })
 })

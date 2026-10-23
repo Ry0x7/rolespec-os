@@ -109,7 +109,7 @@ src/config/       site/runtime configuration
 extension/        standalone MV3 extension (own package)
 desktop/          Tauri shell + staged runtime
 prisma/           one schema, one migration history
-docs/             ARCHITECTURE.md, ROADMAP.md, DESKTOP_ONBOARDING_PROPOSAL.md
+docs/             ARCHITECTURE.md, ROADMAP.md, DESKTOP.md
 ```
 
 Invariants that reviews enforce:
@@ -130,8 +130,8 @@ Invariants that reviews enforce:
    covered by a test or a verified manual run.
 
 `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` are the canonical references for boundaries and
-sequencing. `handoff.md` is a working checkpoint, not a design document — do not add planning docs
-that duplicate them.
+sequencing. `AGENTS.md` contains shared contributor-agent instructions. Use git history for past
+investigations; do not add planning diaries or documents that duplicate these references.
 
 ### Database changes
 

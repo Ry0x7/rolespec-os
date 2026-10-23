@@ -176,7 +176,7 @@ describe("parseResumeFile schema strictness", () => {
   it("passes a schema with no optional fields anywhere (OpenAI strict mode)", async () => {
     mockedGenerateObject.mockResolvedValue({ object: allNulls } as never)
 
-    await parseResumeFile(buffer, PDF, USER_ID)
+    await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     const { schema } = capturedCall()
     // Sanity check that the walker actually reaches nested array items: an
@@ -192,7 +192,7 @@ describe("parseResumeFile schema strictness", () => {
   it("accepts a fully-null payload and requires a non-null title", async () => {
     mockedGenerateObject.mockResolvedValue({ object: allNulls } as never)
 
-    await parseResumeFile(buffer, PDF, USER_ID)
+    await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     const { schema } = capturedCall()
     expect(schema.safeParse(allNulls).success).toBe(true)
@@ -206,7 +206,7 @@ describe("parseResumeFile schema strictness", () => {
   it("tells the model to emit null instead of omitting keys", async () => {
     mockedGenerateObject.mockResolvedValue({ object: allNulls } as never)
 
-    await parseResumeFile(buffer, PDF, USER_ID)
+    await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     const { system } = capturedCall()
     expect(system).toContain("set that field to null")
@@ -220,7 +220,7 @@ describe("parseResumeFile null stripping", () => {
   it("returns no null values when the model answers with nulls everywhere", async () => {
     mockedGenerateObject.mockResolvedValue({ object: allNulls } as never)
 
-    const result = await parseResumeFile(buffer, PDF, USER_ID)
+    const result = await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     expect(findNullPaths(result)).toEqual([])
     expect(result).toEqual({
@@ -240,7 +240,7 @@ describe("parseResumeFile null stripping", () => {
   it("keeps keys absent rather than present-and-null", async () => {
     mockedGenerateObject.mockResolvedValue({ object: allNulls } as never)
 
-    const result = await parseResumeFile(buffer, PDF, USER_ID)
+    const result = await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     expect("fullName" in result.contact).toBe(false)
     expect(Object.keys(result.contact)).toEqual([])
@@ -253,7 +253,7 @@ describe("parseResumeFile happy path", () => {
       .mockResolvedValueOnce({ object: fullyPopulated } as never)
       .mockResolvedValueOnce({ object: { bullets: ["Built the note engine, faster"] } } as never)
 
-    const result = await parseResumeFile(buffer, PDF, USER_ID)
+    const result = await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     expect(findNullPaths(result)).toEqual([])
     expect(result).toEqual({
@@ -275,7 +275,7 @@ describe("parseResumeFile happy path", () => {
       .mockResolvedValueOnce({ object: fullyPopulated } as never)
       .mockResolvedValueOnce({ object: { bullets: ["Built the note engine, faster"] } } as never)
 
-    await parseResumeFile(buffer, PDF, USER_ID)
+    await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     const { system } = capturedCall(1)
     expect(system).toContain("Action–Result–Reason")
@@ -291,7 +291,7 @@ describe("parseResumeFile happy path", () => {
       .mockResolvedValueOnce({ object: fullyPopulated } as never)
       .mockResolvedValueOnce({ object: { bullets: ["Built the note engine, faster"] } } as never)
 
-    await parseResumeFile(buffer, PDF, USER_ID)
+    await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     const optimizeCall = mockedGenerateObject.mock.calls[1][0] as { tier?: string }
     const parseCall = mockedGenerateObject.mock.calls[0][0] as { tier?: string }
@@ -304,7 +304,7 @@ describe("parseResumeFile happy path", () => {
     mockedGenerateObject.mockResolvedValueOnce({ object: fullyPopulated } as never)
 
     const result = await parseResumeFile(buffer, PDF, USER_ID, {
-      optimizeBullets: false,
+      useAi: true, optimizeBullets: false,
     })
 
     expect(mockedGenerateObject).toHaveBeenCalledTimes(1)

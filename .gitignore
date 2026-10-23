@@ -1,46 +1,37 @@
-# dependencies
-node_modules
-/.pnp
+# Dependencies (root and standalone packages)
+node_modules/
+.pnp/
 .pnp.js
 
-# testing
-/coverage
-
-# next.js
+# Next.js, TypeScript and test output
 /.next/
 /.next-desktop/
 /out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-
-# local env files
-.env
-.env*.local
-
-# vercel
-.vercel
-
-# typescript
+/build/
+/coverage/
 *.tsbuildinfo
 next-env.d.ts
+/src/generated/prisma/
+/extension/dist/
 
-# prisma
-/src/generated/prisma
+# Local secrets; keep distributable examples tracked
+.env*
+!.env.example
+!.env.docker.example
+*.pem
 
-# local screenshots
+# Local app data and verification artifacts
+/.exports/
+/resumes/
+/*.pdf
+/*.docx
 /scripts/screenshots/
 /scripts/ux-audit/
 /scripts/pdf-preview/
+/scripts/verify-extension/
+/.tmp-verify-extension/
 
-# desktop runtime build output (npm run desktop:stage)
+# Bundled desktop runtime and generated Rust/Tauri output
 /desktop/src-tauri/resources/app/
 /desktop/src-tauri/resources/node/
 /desktop/src-tauri/resources/prisma/
@@ -50,29 +41,25 @@ next-env.d.ts
 /desktop/src-tauri/target/
 /desktop/src-tauri/gen/
 
-#claude
-.claude
-.playwright-mcp
-.superpowers
-docs/superpowers/
+# Local editor, hosting and AI-tool state
+/.vscode/
+/.idea/
+/.vercel/
+/.claude/
+/CLAUDE.local.md
+/.codex/
+/.agents/
+/.serena/
+/.freebuff/
+/.playwright-mcp/
+/.superpowers/
+/.impeccable/
+/docs/superpowers/
 
-.env*
-!.env.example
-!.env.docker.example
-.serena
-*.pdf
-
-# Local export storage fallback (no BLOB_READ_WRITE_TOKEN)
-/.exports/
-.impeccable/
-.codex/
-.agents/skills/
-
-# chrome extension (standalone build)
-/extension/node_modules/
-/extension/dist/
-
-# local extension verification harness
-/scripts/verify-extension/
-/.tmp-verify-extension/
-.freebuff
+# OS and package-manager logs
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

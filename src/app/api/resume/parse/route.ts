@@ -4,6 +4,7 @@ import { auth } from "@/features/auth/config"
 import { prisma } from "@/shared/lib/prisma"
 import { AiDailyLimitError, AiKeyRequiredError } from "@/shared/lib/ai-provider"
 import { parseResumeFile } from "@/features/resume/services/parse-resume"
+import { ResumeTextRequiredError } from "@/features/resume/services/import-resume-text"
 import { analyzeResumeATS } from "@/features/resume/services/ats-analyze"
 import {
   ATS_RATE_LIMIT_MAX,
@@ -26,10 +27,9 @@ import {
 const log = logger("resume/parse")
 
 /**
- * The longest request in the app: text extraction, then a full-resume
- * `generateObject` parse, then an optional second bullet pass, then a
- * multi-step transaction, then a further `analyzeResumeATS` call when a job
- * description was supplied. Two to three sequential model round trips. See the
+ * Plain import only extracts text and saves sections. With AI explicitly
+ * enabled, structuring, optional bullet polishing and optional job-match
+ * analysis can take two to three sequential model round trips. See the
  * note in ../../linkedin/assist/route.ts on the 60s value.
  */
 export const maxDuration = 60
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
 
   // ── Rate limit: max 10 uploads per user per 10 minutes ──────────────────
   // Checked before the body is read or the PDF is parsed, so a throttled caller
-  // never burns AI compute.
+  // never spends parser or provider resources.
   const parseAllowed = await consumeRateLimit(
     RATE_LIMIT_BUCKETS.RESUME_PARSE,
     userId,
@@ -119,9 +119,9 @@ export async function POST(req: Request) {
   }
   const targetRole = parsedFields.data.targetRole ?? null
   const jobDescription = parsedFields.data.jobDescription ?? null
-  // Opt-out for the second (bullet-polish) AI call. Absent means "on", so an
-  // older client — or the extension — keeps the previous behaviour.
-  const optimizeBullets = formData.get("optimizeBullets") !== "false"
+  // No provider calls unless explicitly requested, including ATS analysis.
+  const useAi = formData.get("useAi") === "true"
+  const optimizeBullets = useAi && formData.get("optimizeBullets") !== "false"
 
   if (!file || !(file instanceof File)) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -165,10 +165,13 @@ export async function POST(req: Request) {
   // ── Parse ────────────────────────────────────────────────────────────────
   let parsed
   try {
-    parsed = await parseResumeFile(buffer, file.type, userId, { optimizeBullets })
+    parsed = await parseResumeFile(buffer, file.type, userId, { useAi, optimizeBullets })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
-    log.error("AI parse failed", { err })
+    log.error("Resume import failed", { err })
+    if (err instanceof ResumeTextRequiredError) {
+      return NextResponse.json({ error: err.message, code: "NO_READABLE_TEXT" }, { status: 400 })
+    }
     // Parsing is the first AI touchpoint for a new user, so the missing-key
     // message has to reach the upload dialog instead of a generic failure.
     if (err instanceof AiKeyRequiredError) {
@@ -188,9 +191,9 @@ export async function POST(req: Request) {
     const isConnectionError = errMsg.includes("ECONNREFUSED") || errMsg.includes("fetch failed") || errMsg.includes("connect")
     return NextResponse.json(
       {
-        error: isConnectionError
+        error: useAi && isConnectionError
           ? "Could not reach the AI model. If using LM Studio, make sure it is running and the model is loaded."
-          : "Failed to parse resume. Please try again.",
+          : "Failed to read resume. Please try a text-based PDF or DOCX.",
       },
       { status: 500 }
     )
@@ -296,10 +299,18 @@ export async function POST(req: Request) {
     })
   }
 
+  for (const section of parsed.importedSections ?? []) {
+    sectionDefs.push({
+      type: "CUSTOM", title: section.title, order: idx++, visible: true,
+      items: { create: [{ content: { content: section.content }, order: 0 }] },
+    })
+  }
+
   // Fallback: if only Contact was extracted, add empty defaults
   const createdTypes = sectionDefs.map((s) => s.type)
   if (
     !createdTypes.includes("SUMMARY") &&
+    !parsed.importedSections?.length &&
     !createdTypes.includes("EXPERIENCE") &&
     !createdTypes.includes("EDUCATION") &&
     !createdTypes.includes("SKILLS")
@@ -355,7 +366,7 @@ export async function POST(req: Request) {
   // Set when the analysis is skipped for the scan limit; the upload itself
   // still succeeds.
   let ats: { error: string; code: "RATE_LIMITED" } | undefined
-  if (jobDescription?.trim()) {
+  if (useAi && jobDescription?.trim()) {
     try {
       // Same window as the analyze action: max 5 scans per user per 10 minutes,
       // counted against ATSAnalysis rows.

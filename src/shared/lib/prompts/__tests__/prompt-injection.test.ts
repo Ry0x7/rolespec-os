@@ -114,6 +114,7 @@ describe("prompt injection — resume parser", () => {
     } as never)
 
     await parseResumeFile(new Uint8Array([1, 2, 3]), "application/pdf", USER_ID, {
+      useAi: true,
       optimizeBullets: false,
     })
 
