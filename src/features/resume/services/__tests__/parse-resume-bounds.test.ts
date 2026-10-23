@@ -65,7 +65,7 @@ describe("parseResumeFile parser bounds", () => {
     // Never settles: stands in for a document that pins the parser.
     getText.mockReturnValue(new Promise(() => {}))
 
-    const promise = parseResumeFile(buffer, PDF, USER_ID)
+    const promise = parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
     const assertion = expect(promise).rejects.toThrow(/timed out after 30000ms/)
     await vi.advanceTimersByTimeAsync(30_000)
     await assertion
@@ -77,7 +77,7 @@ describe("parseResumeFile parser bounds", () => {
     vi.useFakeTimers()
     getText.mockResolvedValue({ text: "Ada Lovelace" })
 
-    const promise = parseResumeFile(buffer, PDF, USER_ID)
+    const promise = parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
     await vi.advanceTimersByTimeAsync(31_000)
 
     await expect(promise).resolves.toMatchObject({ title: "Resume" })
@@ -86,7 +86,7 @@ describe("parseResumeFile parser bounds", () => {
   it("releases the parser after use", async () => {
     getText.mockResolvedValue({ text: "Ada Lovelace" })
 
-    await parseResumeFile(buffer, PDF, USER_ID)
+    await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     expect(destroy).toHaveBeenCalledTimes(1)
   })
@@ -94,7 +94,7 @@ describe("parseResumeFile parser bounds", () => {
   it("releases the parser even when extraction fails", async () => {
     getText.mockRejectedValue(new Error("broken pdf"))
 
-    await expect(parseResumeFile(buffer, PDF, USER_ID)).rejects.toThrow("broken pdf")
+    await expect(parseResumeFile(buffer, PDF, USER_ID, { useAi: true })).rejects.toThrow("broken pdf")
     expect(destroy).toHaveBeenCalledTimes(1)
   })
 
@@ -102,7 +102,7 @@ describe("parseResumeFile parser bounds", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {})
     getText.mockResolvedValue({ text: "a".repeat(250_000) })
 
-    await parseResumeFile(buffer, PDF, USER_ID)
+    await parseResumeFile(buffer, PDF, USER_ID, { useAi: true })
 
     const { prompt } = mockedGenerateObject.mock.calls[0][0] as unknown as {
       prompt: string

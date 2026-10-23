@@ -23,6 +23,9 @@ src/generated
 
 # Local export storage fallback from dev runs — never bake exports into an image
 .exports
+resumes
+/*.pdf
+/*.docx
 
 # Platform / agent scratch
 .vercel
@@ -31,14 +34,16 @@ src/generated
 .serena
 .superpowers
 .playwright-mcp
+.freebuff
+.codex
+.agents
+.impeccable
 
 # Docs and local scratch output
 docs
 scripts/screenshots
 scripts/ux-audit
 scripts/pdf-preview
-*.pdf
-resumes-archived-section.png
 
 # Desktop build output and Rust target tree (not used by the container)
 desktop

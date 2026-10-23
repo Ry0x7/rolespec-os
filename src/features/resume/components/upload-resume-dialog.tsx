@@ -28,16 +28,20 @@ export function UploadResumeDialog() {
   const [dragOver, setDragOver] = useState(false)
   const [targetRole, setTargetRole] = useState("")
   const [jobDescription, setJobDescription] = useState("")
-  const [optimizeBullets, setOptimizeBullets] = useState(true)
+  const [useAi, setUseAi] = useState(false)
 
   function handleClose() {
     if (isUploading) return
+    resetForm()
+  }
+
+  function resetForm() {
     setOpen(false)
     setError(null)
     setFile(null)
     setTargetRole("")
     setJobDescription("")
-    setOptimizeBullets(true)
+    setUseAi(false)
     setIsUploading(false)
   }
 
@@ -86,7 +90,8 @@ export function UploadResumeDialog() {
       if (targetRole.trim()) formData.append("targetRole", targetRole.trim())
       if (jobDescription.trim())
         formData.append("jobDescription", jobDescription.trim())
-      formData.append("optimizeBullets", optimizeBullets ? "true" : "false")
+      formData.append("useAi", useAi ? "true" : "false")
+      formData.append("optimizeBullets", useAi ? "true" : "false")
 
       const res = await fetch("/api/resume/parse", {
         method: "POST",
@@ -100,8 +105,8 @@ export function UploadResumeDialog() {
         return
       }
 
-      toast.success("Resume parsed successfully!")
-      handleClose()
+      toast.success(useAi ? "Resume imported successfully!" : "Resume imported. Review the extracted text before exporting.")
+      resetForm()
       router.push(`/resumes/${data.resumeId}`)
     } catch {
       setError("Something went wrong. Please try again.")
@@ -211,8 +216,8 @@ export function UploadResumeDialog() {
           </div>
 
           {/* Job Description */}
-          <div className="space-y-1.5">
-            <Label htmlFor="upload-jd">Job Description (needed for ATS analysis)</Label>
+          {useAi && <div className="space-y-1.5">
+            <Label htmlFor="upload-jd">Job Description (optional AI analysis)</Label>
             <textarea
               id="upload-jd"
               value={jobDescription}
@@ -225,23 +230,23 @@ export function UploadResumeDialog() {
               We&apos;ll analyze your resume against this job description for
               ATS optimization.
             </p>
-          </div>
+          </div>}
 
-          {/* Bullet polish — the second AI call of an upload */}
+          {/* All provider calls are opt-in, including structuring and ATS. */}
           <label className="flex items-start gap-2 text-sm">
             <input
               id="upload-optimize"
               type="checkbox"
-              checked={optimizeBullets}
-              onChange={(e) => setOptimizeBullets(e.target.checked)}
+              checked={useAi}
+              onChange={(e) => setUseAi(e.target.checked)}
               disabled={isUploading}
               className="mt-0.5 size-4 rounded border-border accent-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
             />
             <span>
-              Polish bullets with AI (1 extra AI call)
+              Organize and polish with AI (optional)
               <span className="block text-[11px] text-muted-foreground">
-                Rewrites about half your experience bullets on import. Turn off to
-                import exactly what your file says.
+                Requires a working AI provider and sends your resume text to it.
+                Leave off to import text locally into editable sections without AI.
               </span>
             </span>
           </label>
@@ -250,7 +255,7 @@ export function UploadResumeDialog() {
 
           {isUploading && (
             <p className="text-sm text-muted-foreground animate-pulse">
-              Parsing your resume with AI... this may take a moment
+              {useAi ? "Organizing your resume with AI... this may take a moment" : "Extracting your resume text locally..."}
             </p>
           )}
 
@@ -273,7 +278,7 @@ export function UploadResumeDialog() {
                   Parsing...
                 </>
               ) : (
-                "Upload & Analyze"
+                useAi ? "Upload with AI" : "Import Resume"
               )}
             </Button>
           </div>

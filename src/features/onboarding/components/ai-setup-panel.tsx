@@ -353,9 +353,10 @@ export function AiSetupPanel({
         <div className="space-y-3 rounded-lg border border-amber-600/30 bg-amber-600/5 p-3">
           <p className="text-sm font-medium">Continue without AI?</p>
           <p className="text-sm text-muted-foreground">
-            Resume editing, application tracking and job discovery setup still
-            work, but AI features stay unavailable: PDF/DOCX resume import, resume
-            tailoring, ATS analysis, job matching, cover letters and outreach. You
+            PDF/DOCX text import, resume editing, application tracking and job
+            discovery setup still work. AI structuring and polishing, resume
+            tailoring, ATS analysis, job matching, cover letters and outreach need
+            a provider. You
             can connect a provider later in Settings → AI.
           </p>
           <div className="flex flex-wrap gap-2">

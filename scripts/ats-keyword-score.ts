@@ -1,7 +1,7 @@
 /**
  * Deterministic keyword scoring for the ATS analyzer — MEASUREMENT ONLY.
  *
- * NOT WIRED INTO THE PRODUCT, and deliberately so. PP0.13 (`handoff.md`)
+ * NOT WIRED INTO THE PRODUCT, and deliberately so. A prior comparison
  * ran this against the real `analyzeResumeATS()` on eight live fixtures and the
  * model won decisively on long, boilerplate-heavy postings: this module showed
  * the user `Christmas`, `Twenty`, `Tuition`, `Free`, `Unlimited` and `Home` as
