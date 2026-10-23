@@ -1,0 +1,48 @@
+name: Deploy RoleSpec showcase
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/showcase.yml
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: rolespec-showcase-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out showcase source
+        uses: actions/checkout@v4
+        with:
+          repository: Ry0x7/Ry0x7.github.io
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/configure-pages@v5
+      - run: npm ci
+      - run: npm run build:rolespec
+      - run: npm run verify:rolespec
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .cache/rolespec-site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish showcase
+        id: deployment
+        uses: actions/deploy-pages@v4
