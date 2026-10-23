@@ -130,8 +130,8 @@ Invariants that reviews enforce:
    covered by a test or a verified manual run.
 
 `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` are the canonical references for boundaries and
-sequencing. `AGENTS.md` contains shared contributor-agent instructions. Use git history for past
-investigations; do not add planning diaries or documents that duplicate these references.
+sequencing. Use git history for past investigations; do not add planning diaries or documents
+that duplicate these references.
 
 ### Database changes
 
