@@ -285,7 +285,7 @@ export function CapabilitiesCard({ capabilities, evidenceOptions }: Capabilities
                 {paged.pageItems.map((capability) => (
                   <div
                     key={capability.id}
-                    className="rounded-lg border border-border bg-card p-3"
+                    className="group rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/20"
                   >
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
