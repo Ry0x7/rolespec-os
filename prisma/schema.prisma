@@ -47,6 +47,7 @@ model User {
   coverLetters        CoverLetter[]
   todos               Todo[]
   notes               Note[]
+  activityEvents      ActivityEvent[]
   profileRatings      ProfileRating[]
   linkedinSuggestions LinkedinSuggestion[]
   aiSettingsUpdates   AiSettings[]
@@ -166,6 +167,8 @@ model Resume {
   // must belong to the same user that owns the application row.
   @@unique([id, userId])
   @@index([userId, status])
+  @@index([userId, updatedAt])
+  @@index([userId, createdAt])
   @@index([careerProfileId, userId])
   @@index([roleFamilyId, careerProfileId])
   @@index([jobApplicationId, userId])
@@ -259,6 +262,8 @@ model ResumeExport {
 
   @@index([resumeId])
   @@index([userId])
+  @@index([userId, createdAt])
+  @@index([resumeId, createdAt])
   @@map("resume_exports")
 }
 
@@ -311,6 +316,9 @@ model JobApplication {
   @@unique([id, userId])
   @@index([userId, status])
   @@index([userId, createdAt])
+  @@index([userId, updatedAt])
+  @@index([userId, followUpAt])
+  @@index([userId, status, updatedAt])
   @@index([jobId, userId])
   @@index([resumeId, userId])
   @@map("job_applications")
@@ -371,6 +379,8 @@ model Job {
   // postings without a resolvable URL (manual entries, imports) coexist.
   @@unique([userId, canonicalUrl])
   @@index([userId, createdAt])
+  @@index([userId, updatedAt])
+  @@index([userId, source])
   @@map("jobs")
 }
 
@@ -427,6 +437,8 @@ model Todo {
   jobApplication JobApplication? @relation(fields: [jobApplicationId], references: [id], onDelete: SetNull)
 
   @@index([userId, done])
+  @@index([userId, dueDate])
+  @@index([userId, updatedAt])
   @@index([jobApplicationId])
   @@map("todos")
 }
@@ -440,8 +452,31 @@ model Note {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, updatedAt])
   @@map("notes")
+}
+
+/// Append-only OS activity feed. Written best-effort by API routes and server
+/// actions (application moves, follow-ups, todo/note changes, job saves).
+/// The feed reader unions this table with live application/todo rows, so an
+/// absent row never hides current state — this table is the human narrative.
+model ActivityEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  /// e.g. job.saved, application.status, application.followup, todo.done, note.created
+  type      String
+  title     String
+  body      String?  @db.Text
+  /// { jobId, applicationId, todoId, noteId, from, to } — never resume text.
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, type, createdAt])
+  @@map("activity_events")
 }
 
 // ─── ADMIN ───────────────────────────────────
@@ -787,6 +822,10 @@ enum Template {
   MODERN
   HARVARD
   CORPORATE
+  EXECUTIVE
+  CREATIVE
+  TECH
+  ELEGANT
 }
 
 enum ResumeStatus {

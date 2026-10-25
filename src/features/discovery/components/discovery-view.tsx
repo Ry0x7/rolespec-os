@@ -228,6 +228,12 @@ const CandidateRow = memo(function CandidateRow({
               >
                 Open
               </Link>
+              <Link
+                href={jobDetailHref(savedJobId, "prepare")}
+                className="text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
+              >
+                Tailor
+              </Link>
             </span>
           ) : (
             <>
@@ -370,6 +376,8 @@ export function DiscoveryView({
   // Freshness, off by default: a narrower window is the user's call, and it
   // hides every posting from a source that publishes no date.
   const [postedWithin, setPostedWithin] = useState<PostedWithin>("any")
+  const [hideSaved, setHideSaved] = useState(false)
+  const [isSavingAll, setIsSavingAll] = useState(false)
   // Which grouped roles have their other locations showing, keyed by the
   // primary row's key. Collapsed by default: the whole point of the fold is a
   // shorter list.
@@ -535,6 +543,38 @@ export function DiscoveryView({
     runAddByUrl(url)
   }
 
+  // One-click pipeline: save every unsaved posting currently visible.
+  // Sequential so toasts stay accurate and the board never gets a half-run
+  // the user cannot see; each save reuses the same `saveDiscoveredJob` path.
+  const handleSaveAllVisible = () => {
+    const unsaved = visible.filter((c) => !saved[candidateKey(c)])
+    if (unsaved.length === 0) return
+    setIsSavingAll(true)
+    void (async () => {
+      let done = 0
+      for (const candidate of unsaved.slice(0, 25)) {
+        const result = await saveDiscoveredJob({
+          provider: candidate.provider,
+          externalId: candidate.externalId,
+          title: candidate.title,
+          companyName: candidate.companyName,
+          url: candidate.url,
+          location: candidate.location,
+          workType: candidate.workType,
+          salaryText: candidate.salaryText,
+          description: candidate.description,
+          postedAt: candidate.postedAt,
+        })
+        if (!("error" in result)) {
+          done += 1
+          setSaved((current) => ({ ...current, [candidateKey(candidate)]: result.id }))
+        }
+      }
+      setIsSavingAll(false)
+      toast.success(done === 1 ? "Saved 1 posting" : `Saved ${done} postings`)
+    })()
+  }
+
   // Ruled-out postings stay in the result and out of the way: the verdict is a
   // heuristic, so the user must always be able to see what it hid.
   const ruledOutCount = candidates.filter(
@@ -555,10 +595,14 @@ export function DiscoveryView({
       : shortlist
 
   // Freshness is a view choice, applied last so the counts above are unaffected.
-  const visible =
+  const fresh =
     postedWithin === "any"
       ? inMarket
       : inMarket.filter((candidate) => isPostedWithin(candidate.postedAt, postedWithin))
+  const savedCount = fresh.filter((c) => saved[candidateKey(c)]).length
+  const visible = hideSaved
+    ? fresh.filter((candidate) => !saved[candidateKey(candidate)])
+    : fresh
   // Some sources never publish a date (BambooHR/Freshteam list mode). A window
   // hides them, so say how many rather than let them disappear silently.
   const undatedHiddenCount =
@@ -772,6 +816,28 @@ export function DiscoveryView({
                   />
                   Hide postings limited to other regions ({restrictedCount})
                 </label>
+              )}
+              {savedCount > 0 && (
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={hideSaved}
+                    onChange={(event) => setHideSaved(event.target.checked)}
+                    className="h-4 w-4 rounded border-border accent-brand-500"
+                  />
+                  Hide saved ({savedCount})
+                </label>
+              )}
+              {visible.some((c) => !saved[candidateKey(c)]) && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleSaveAllVisible}
+                  loading={isSavingAll}
+                  disabled={isSavingAll}
+                >
+                  {isSavingAll ? "Saving…" : `Save all visible (${visible.filter((c) => !saved[candidateKey(c)]).length})`}
+                </Button>
               )}
             </div>
             {undatedHiddenCount > 0 && (
