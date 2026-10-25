@@ -9,7 +9,14 @@ import {
   type PanelSize,
 } from "../constants/panels"
 
-interface WorkspaceStore {
+interface WorkspaceBoardUi {
+  query: string
+  statuses: string[]
+  followUpOnly: boolean
+  selectedIds: string[]
+}
+
+interface WorkspaceStore extends WorkspaceBoardUi {
   panelOrder: PanelId[]
   collapsed: Partial<Record<PanelId, boolean>>
   sizes: Record<PanelId, PanelSize>
@@ -20,6 +27,14 @@ interface WorkspaceStore {
   setPanelSize: (id: PanelId, size: PanelSize) => void
   togglePanelSize: (id: PanelId) => void
   setHasHydrated: (v: boolean) => void
+
+  setQuery: (query: string) => void
+  toggleStatus: (status: string) => void
+  clearStatuses: () => void
+  toggleFollowUpOnly: () => void
+  toggleSelected: (id: string) => void
+  setSelected: (ids: string[]) => void
+  clearSelected: () => void
 }
 
 /**
@@ -99,6 +114,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       collapsed: {},
       sizes: DEFAULT_PANEL_SIZES,
       hasHydrated: false,
+      query: "",
+      statuses: [],
+      followUpOnly: false,
+      selectedIds: [],
 
       setOrder: (order) => set({ panelOrder: order }),
       toggleCollapsed: (id) =>
@@ -115,6 +134,24 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           },
         })),
       setHasHydrated: (v) => set({ hasHydrated: v }),
+      setQuery: (query) => set({ query }),
+      toggleStatus: (status) =>
+        set((state) => ({
+          statuses: state.statuses.includes(status)
+            ? state.statuses.filter((s) => s !== status)
+            : [...state.statuses, status],
+        })),
+      clearStatuses: () => set({ statuses: [] }),
+      toggleFollowUpOnly: () =>
+        set((state) => ({ followUpOnly: !state.followUpOnly })),
+      toggleSelected: (id) =>
+        set((state) => ({
+          selectedIds: state.selectedIds.includes(id)
+            ? state.selectedIds.filter((s) => s !== id)
+            : [...state.selectedIds, id],
+        })),
+      setSelected: (ids) => set({ selectedIds: ids }),
+      clearSelected: () => set({ selectedIds: [] }),
     }),
     {
       name: "workspace-panels",

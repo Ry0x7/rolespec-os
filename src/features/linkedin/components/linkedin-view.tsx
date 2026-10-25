@@ -1,5 +1,6 @@
 "use client"
 
+import { Button } from "@/shared/ui/button"
 import { ScrollReveal, ScrollRevealItem } from "@/shared/components/scroll-reveal"
 import type { ProfileRatingData } from "@/shared/lib/rating/rating.service"
 import { useLinkedin } from "../hooks/use-linkedin"
@@ -14,9 +15,8 @@ import {
   LinkedinResultsEmpty,
   LinkedinResultsSkeleton,
   LinkedinSuggestions,
-} from "./linkedin-findings"
-import {
-  LinkedinSourcePanel,
+} from "./linkedin-findings"import { LinkedinQuickCheck } from "./linkedin-quick-check"
+import { LinkedinSourcePanel,
   type LinkedinResumeOption,
 } from "./linkedin-source-panel"
 import { LinkedinStatsSidebar } from "./linkedin-stats-sidebar"
@@ -38,9 +38,13 @@ export function LinkedinView({
     isRatingLinkedIn,
     isAssistingLinkedIn,
     linkedinError,
+    lastFileName,
     setLinkedinError,
     runLinkedIn,
     runLinkedInAssist,
+    runLinkedInBoth,
+    applyQuickCheck,
+    clearLinkedInResults,
     selectedResumeId,
     setSelectedResumeId,
     contextUsed,
@@ -59,6 +63,8 @@ export function LinkedinView({
       error={linkedinError}
       onRate={runLinkedIn}
       onAssist={runLinkedInAssist}
+      onRateAndAssist={runLinkedInBoth}
+      lastFileName={lastFileName}
       onError={setLinkedinError}
       resumeOptions={resumeOptions}
       selectedResumeId={selectedResumeId}
@@ -79,9 +85,12 @@ export function LinkedinView({
 
   if (nothingToShow) {
     return (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {sourcePanel}
-        <LinkedinResultsEmpty className="h-full" />
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {sourcePanel}
+          <LinkedinResultsEmpty className="h-full" />
+        </div>
+        <LinkedinQuickCheck onResult={applyQuickCheck} />
       </div>
     )
   }
@@ -91,6 +100,22 @@ export function LinkedinView({
       {/* One fluid scroll: source → context → actions → results. */}
       <div className="space-y-4 lg:col-span-2 lg:space-y-6">
         {sourcePanel}
+        <LinkedinQuickCheck onResult={applyQuickCheck} />
+
+        {(linkedin || linkedinSuggestions) &&
+          !isRatingLinkedIn &&
+          !isAssistingLinkedIn && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearLinkedInResults}
+              >
+                Clear results & start over
+              </Button>
+            </div>
+          )}
 
         {isRatingLinkedIn ? (
           <LinkedinResultsSkeleton />

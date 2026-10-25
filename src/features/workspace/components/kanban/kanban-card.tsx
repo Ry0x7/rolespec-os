@@ -1,6 +1,6 @@
 "use client"
 
-import { useContext } from "react"
+import { memo, useContext } from "react"
 import Link from "next/link"
 import { ArrowUpRight, BellRing, CalendarClock, CalendarCheck } from "lucide-react"
 import { cn, formatDate } from "@/shared/lib/utils"
@@ -15,7 +15,15 @@ import type { ApplicationStatus } from "@/generated/prisma/enums"
 import type { WorkspaceJobRow } from "../workspace-board"
 import { KanbanStatusContext, KanbanTodayContext, STATUS_LABELS } from "./kanban-status"
 
-export function KanbanCard({ job }: { job: WorkspaceJobRow }) {
+export const KanbanCard = memo(function KanbanCard({
+  job,
+  selected,
+  onToggleSelect,
+}: {
+  job: WorkspaceJobRow
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
+}) {
   const changeStatus = useContext(KanbanStatusContext)
   const today = useContext(KanbanTodayContext)
 
@@ -32,7 +40,31 @@ export function KanbanCard({ job }: { job: WorkspaceJobRow }) {
     : ""
 
   return (
-    <div className="glass rounded-md border border-border p-2 text-sm">
+    <div
+      className={cn(
+        "glass rounded-md border border-border p-2 text-sm",
+        selected && "border-primary/60 ring-1 ring-primary/30",
+      )}
+    >
+      {onToggleSelect && (
+        <div className="mb-1 flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={selected ?? false}
+            onChange={() => onToggleSelect(job.id)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Select ${job.job.title} at ${job.job.companyName} for bulk actions`}
+            className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-current"
+          />
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Select
+          </span>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-semibold leading-tight">
@@ -121,4 +153,4 @@ export function KanbanCard({ job }: { job: WorkspaceJobRow }) {
       )}
     </div>
   )
-}
+})

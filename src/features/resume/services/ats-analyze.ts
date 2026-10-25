@@ -4,7 +4,9 @@ import {
   AI_USAGE_FEATURES,
   generateObjectTracked,
 } from "@/shared/lib/ai-generate"
+import { AiDailyLimitError, AiKeyRequiredError } from "@/shared/lib/ai-provider"
 import { logger } from "@/shared/lib/logger"
+import { heuristicAtsScore } from "../lib/heuristic-ats"
 import {
   fenceUntrusted,
   UNTRUSTED_CONTENT_RULES,
@@ -166,7 +168,9 @@ export async function analyzeResumeATS(
     )
   }
 
-  const { object } = await generateObjectTracked({
+  let generated: import("zod").infer<typeof atsAnalysisSchema> | null = null
+  try {
+    const { object } = await generateObjectTracked({
     schema: atsAnalysisSchema,
     tracking: {
       feature: AI_USAGE_FEATURES.RESUME_ATS_SCAN,
@@ -222,7 +226,18 @@ export async function analyzeResumeATS(
         : "If a job description is provided: identify important keywords, technologies, certifications, and qualifications from it that are missing from the resume and include them in missingKeywords. If no job description is provided, return an empty missingKeywords array.",
     ].join("\n"),
     prompt: promptParts.join("\n\n"),
-  })
+    }))
+    generated = object as import("zod").infer<typeof atsAnalysisSchema>
+  } catch (err) {
+    // No AI key / daily limit: score offline from stored sections only.
+    // Same shape as the AI path so callers and persistence stay unchanged.
+    if (err instanceof AiKeyRequiredError || err instanceof AiDailyLimitError) {
+      log.warn("ats falling back to offline heuristic", { mode })
+      return heuristicAtsScore(sections, { jobDescription: options.jobDescription ?? undefined, mode })
+    }
+    throw err
+  }
+  const object = generated as import("zod").infer<typeof atsAnalysisSchema>
 
   // Deterministic parse-compatibility findings lead the list: they are certain
   // where the model's are judgement calls. Best-effort — a bug in the checker

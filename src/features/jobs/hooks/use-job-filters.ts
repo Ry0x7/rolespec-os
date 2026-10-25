@@ -24,6 +24,8 @@ import type { ApplicationNextStep } from "../services/application-next-step.serv
 import type { QuickAction } from "../services/application-quick-actions"
 import {
   CONFIDENCE_SORT_PARAM,
+  DEADLINE_SORT_PARAM,
+  MATCH_SORT_PARAM,
   parseJobSortParam,
   RECENT_SORT_PARAM,
   SAVED_NEWEST_SORT_PARAM,
@@ -142,6 +144,40 @@ export const CONFIDENCE_FILTER_OPTIONS: { value: ConfidenceFilterValue; label: s
   { value: "LOW_UNKNOWN", label: "Low / unknown" },
 ]
 
+/** Work-mode filter: mirrors the posting's `WorkType`, ALL means no filtering. */
+export type WorkTypeFilterValue = "ALL" | "REMOTE" | "HYBRID" | "ONSITE"
+
+export const WORK_TYPE_FILTER_OPTIONS: { value: WorkTypeFilterValue; label: string }[] = [
+  { value: "ALL", label: "All work modes" },
+  { value: "REMOTE", label: "Remote" },
+  { value: "HYBRID", label: "Hybrid" },
+  { value: "ONSITE", label: "On-site" },
+]
+
+export function parseWorkTypeParam(param: string | null | undefined): WorkTypeFilterValue {
+  return WORK_TYPE_FILTER_OPTIONS.some((o) => o.value !== "ALL" && o.value === param)
+    ? (param as WorkTypeFilterValue)
+    : "ALL"
+}
+
+/** Fit filter over the stored qualification verdict. */
+export type VerdictFilterValue = "ALL" | "STRONG" | "WORTH_A_LOOK" | "WEAK" | "BLOCKED" | "UNCHECKED"
+
+export const VERDICT_FILTER_OPTIONS: { value: VerdictFilterValue; label: string }[] = [
+  { value: "ALL", label: "All fit" },
+  { value: "STRONG", label: "Strong fit" },
+  { value: "WORTH_A_LOOK", label: "Worth a look" },
+  { value: "WEAK", label: "Weak" },
+  { value: "BLOCKED", label: "Blocked" },
+  { value: "UNCHECKED", label: "Not checked" },
+]
+
+export function parseVerdictParam(param: string | null | undefined): VerdictFilterValue {
+  return VERDICT_FILTER_OPTIONS.some((o) => o.value !== "ALL" && o.value === param)
+    ? (param as VerdictFilterValue)
+    : "ALL"
+}
+
 /** Maps the `confidence` search param onto the confidence filter; anything unknown is "ALL". */
 export function parseConfidenceParam(
   param: string | null | undefined,
@@ -194,13 +230,15 @@ export function parseStaleParam(param: string | null | undefined): boolean {
 }
 
 /** How long the search box waits after the last keystroke before writing `q`. */
-export const SEARCH_PARAM_DEBOUNCE_MS = 300
+export const SEARCH_PARAM_DEBOUNCE_MS = 250
 
 function sortToParam(sort: JobSortValue): string | null {
   if (sort === "RECENT") return RECENT_SORT_PARAM
   if (sort === "CONFIDENCE") return CONFIDENCE_SORT_PARAM
   if (sort === "SAVED_NEWEST") return SAVED_NEWEST_SORT_PARAM
   if (sort === "SAVED_OLDEST") return SAVED_OLDEST_SORT_PARAM
+  if (sort === "DEADLINE") return DEADLINE_SORT_PARAM
+  if (sort === "MATCH_SCORE") return MATCH_SORT_PARAM
   return null
 }
 
@@ -208,6 +246,8 @@ interface JobFilterState {
   q: string
   status: StatusFilterValue
   confidence: ConfidenceFilterValue
+  workType: WorkTypeFilterValue
+  verdict: VerdictFilterValue
   sort: JobSortValue
   followUp: FollowUpFilterValue
   stale: boolean
@@ -223,6 +263,8 @@ function parseJobFilterParams(
     q: searchParams.get("q") ?? "",
     status: parseStatusParam(searchParams.get("status")),
     confidence: parseConfidenceParam(searchParams.get("confidence")),
+    workType: parseWorkTypeParam(searchParams.get("work")),
+    verdict: parseVerdictParam(searchParams.get("fit")),
     sort: searchParams.has("sort")
       ? parseJobSortParam(searchParams.get("sort") ?? undefined)
       : initialSort,
@@ -246,6 +288,8 @@ function serializeJobFilterParams(currentQuery: string, state: JobFilterState): 
   write("q", state.q === "" ? null : state.q)
   write("status", state.status === "ALL" ? null : state.status)
   write("confidence", state.confidence === "ALL" ? null : state.confidence)
+  write("work", state.workType === "ALL" ? null : state.workType)
+  write("fit", state.verdict === "ALL" ? null : state.verdict)
   write("sort", sortToParam(state.sort))
   write("filter", state.followUp === "FOLLOW_UP_DUE" ? FOLLOW_UP_DUE_PARAM : null)
   write("stale", state.stale ? STALE_FILTER_PARAM_VALUE : null)
@@ -277,6 +321,8 @@ export function useJobFilters(
   const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceFilterValue>(
     initial.confidence,
   )
+  const [workTypeFilter, setWorkTypeFilter] = useState<WorkTypeFilterValue>(initial.workType)
+  const [verdictFilter, setVerdictFilter] = useState<VerdictFilterValue>(initial.verdict)
   const [staleFilter, setStaleFilter] = useState(initial.stale)
 
   // Typing filters the list at once; only the URL write waits, so a search
@@ -291,6 +337,8 @@ export function useJobFilters(
     q: debouncedQuery,
     status: statusFilter,
     confidence: confidenceFilter,
+    workType: workTypeFilter,
+    verdict: verdictFilter,
     sort,
     followUp: followUpFilter,
     stale: staleFilter,
@@ -313,6 +361,8 @@ export function useJobFilters(
       setDebouncedQuery(next.q)
       setStatusFilter(next.status)
       setConfidenceFilter(next.confidence)
+      setWorkTypeFilter(next.workType)
+      setVerdictFilter(next.verdict)
       setSort(next.sort)
       setFollowUpFilter(next.followUp)
       setStaleFilter(next.stale)
@@ -334,12 +384,18 @@ export function useJobFilters(
   }, [pathname, query, observedQuery])
 
   const filteredApplications = useMemo(() => {
-    const q = searchQuery.toLowerCase()
+    const q = debouncedQuery.toLowerCase().trim()
     const matching = applications.filter((app) => {
-      const matchesSearch =
-        q === "" ||
-        app.job.companyName.toLowerCase().includes(q) ||
-        app.job.title.toLowerCase().includes(q)
+      const haystack = [
+        app.job.companyName,
+        app.job.title,
+        app.job.location ?? "",
+        app.contact ?? "",
+        app.notes ?? "",
+      ]
+        .join(" ")
+        .toLowerCase()
+      const matchesSearch = q === "" || haystack.includes(q)
       const matchesStatus =
         statusFilter === "ALL" || app.status === statusFilter
       const matchesFollowUp =
@@ -348,9 +404,20 @@ export function useJobFilters(
         app.confidence.level,
         confidenceFilter,
       )
+      const matchesWorkType =
+        workTypeFilter === "ALL" || app.job.workType === workTypeFilter
+      const matchesVerdict =
+        verdictFilter === "ALL" ||
+        (verdictFilter === "UNCHECKED" ? app.verdict === null : app.verdict === verdictFilter)
       const matchesStale = !staleFilter || isStaleJob(app, today)
       return (
-        matchesSearch && matchesStatus && matchesFollowUp && matchesConfidence && matchesStale
+        matchesSearch &&
+        matchesStatus &&
+        matchesFollowUp &&
+        matchesConfidence &&
+        matchesWorkType &&
+        matchesVerdict &&
+        matchesStale
       )
     })
     // The server already hands the rows over in "Needs action" order; re-sorting
@@ -359,17 +426,40 @@ export function useJobFilters(
   }, [
     applications,
     today,
-    searchQuery,
+    debouncedQuery,
     statusFilter,
     followUpFilter,
     confidenceFilter,
+    workTypeFilter,
+    verdictFilter,
     staleFilter,
     sort,
   ])
 
+  function resetJobFilters() {
+    setSearchQuery("")
+    setStatusFilter("ALL")
+    setFollowUpFilter("ALL")
+    setConfidenceFilter("ALL")
+    setWorkTypeFilter("ALL")
+    setVerdictFilter("ALL")
+    setStaleFilter(false)
+    setSort("NEEDS_ACTION")
+  }
+
+  const hasActiveJobFilters =
+    searchQuery !== "" ||
+    statusFilter !== "ALL" ||
+    followUpFilter !== "ALL" ||
+    confidenceFilter !== "ALL" ||
+    workTypeFilter !== "ALL" ||
+    verdictFilter !== "ALL" ||
+    staleFilter
+
   return {
     filteredApplications,
     searchQuery,
+    debouncedQuery,
     setSearchQuery,
     statusFilter,
     setStatusFilter,
@@ -377,9 +467,15 @@ export function useJobFilters(
     setFollowUpFilter,
     confidenceFilter,
     setConfidenceFilter,
+    workTypeFilter,
+    setWorkTypeFilter,
+    verdictFilter,
+    setVerdictFilter,
     staleFilter,
     setStaleFilter,
     sort,
     setSort,
+    resetJobFilters,
+    hasActiveJobFilters,
   }
 }

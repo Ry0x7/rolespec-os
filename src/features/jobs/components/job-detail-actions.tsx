@@ -1,8 +1,9 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { BellPlus, CheckCircle2, Loader2, Pencil, Trash2 } from "lucide-react"
+import { BellPlus, CheckCircle2, FileText, Loader2, Pencil, PenLine, RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { ApplicationStatus } from "@/generated/prisma/enums"
 import { Button } from "@/shared/ui/button"
@@ -16,6 +17,7 @@ import {
 import { FOLLOW_UP_STATUSES } from "../services/follow-up.service"
 import { isTerminalStatus } from "../services/outcome.service"
 import { requestOutcomeNoteFocus } from "./outcome-panel"
+import { jobDetailHref } from "../lib/job-detail-href"
 import { STATUS_OPTIONS } from "./job-form-options"
 import { DeleteJobDialog } from "./delete-job-dialog"
 import { EditJobDialog } from "./edit-job-dialog"
@@ -119,6 +121,25 @@ export function JobDetailActions({
     })
   }
 
+  const isTerminal = isTerminalStatus(application.status)
+  const canReopen = isTerminal
+
+  function handleReopen() {
+    startMarking(async () => {
+      const result = await updateJobApplicationStatus(
+        application.id,
+        ApplicationStatus.INTERESTED,
+        localCalendarDateString()
+      )
+      if ("error" in result) {
+        toast.error(result.error)
+        return
+      }
+      toast.success("Reopened — back to Interested")
+      router.refresh()
+    })
+  }
+
   // Once the application is in flight, the next move used to mean opening the
   // Edit dialog. The same action Mark applied uses does the move here, and it
   // is the one place `outcomeAt` gets stamped when the pick is a terminal one.
@@ -163,6 +184,42 @@ export function JobDetailActions({
             </option>
           ))}
         </Select>
+      )}
+      {canReopen && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleReopen}
+          disabled={isMarking}
+          aria-label={`Reopen ${application.companyName}`}
+        >
+          {isMarking ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          Reopen
+        </Button>
+      )}
+      {!isTerminal && (
+        <>
+          <Link
+            href={jobDetailHref(application.id, "prepare")}
+            aria-label={`Tailor resume for ${application.companyName}`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium transition-colors hover:border-brand-600 hover:text-brand-500"
+          >
+            <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
+            Tailor
+          </Link>
+          <Link
+            href={jobDetailHref(application.id, "prepare")}
+            aria-label={`Cover letter for ${application.companyName}`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium transition-colors hover:border-brand-600 hover:text-brand-500"
+          >
+            <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+            Cover letter
+          </Link>
+        </>
       )}
       {canMarkApplied && (
         <Button

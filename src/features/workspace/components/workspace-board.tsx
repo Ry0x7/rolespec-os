@@ -18,6 +18,7 @@ import {
 import { ChevronDown, GripVertical, Maximize2, Minimize2 } from "lucide-react"
 import type { ApplicationStatus } from "@/generated/prisma/enums"
 import { cn } from "@/shared/lib/utils"
+import { useEffect, useMemo } from "react"
 import { useWorkspaceStore } from "../hooks/use-workspace-store"
 import {
   DEFAULT_PANEL_SIZES,
@@ -28,6 +29,9 @@ import { WorkspacePanel } from "./workspace-panel"
 import { KanbanBoard } from "./kanban/kanban-board"
 import { GoalPanel } from "./goal-panel"
 import { QuickAddPanel } from "./quick-add-panel"
+import { WorkspaceToolbar } from "./workspace-toolbar"
+import { FollowUpsPanel } from "./follow-ups-panel"
+import { filterWorkspaceJobs } from "../hooks/use-workspace-filters"
 
 export type WorkspaceJobRow = {
   id: string
@@ -64,19 +68,43 @@ function PanelBody({
   appliedThisWeek,
   today,
 }: { panelId: PanelId } & WorkspaceBoardProps) {
+  const query = useWorkspaceStore((s) => s.query)
+  const statuses = useWorkspaceStore((s) => s.statuses)
+  const followUpOnly = useWorkspaceStore((s) => s.followUpOnly)
+  const selectedIds = useWorkspaceStore((s) => s.selectedIds)
+  const toggleSelected = useWorkspaceStore((s) => s.toggleSelected)
+
+  const visibleJobs = useMemo(
+    () => filterWorkspaceJobs(jobs, { query, statuses, followUpOnly }, today),
+    [jobs, query, statuses, followUpOnly, today],
+  )
+
   switch (panelId) {
     case "goal":
       return (
-        <GoalPanel
-          goal={goal}
-          appliedToday={appliedToday}
-          appliedThisWeek={appliedThisWeek}
-        />
+        <div className="space-y-4">
+          <GoalPanel
+            goal={goal}
+            appliedToday={appliedToday}
+            appliedThisWeek={appliedThisWeek}
+          />
+          <FollowUpsPanel jobs={jobs} today={today} />
+        </div>
       )
     case "quickAdd":
       return <QuickAddPanel />
     case "pipeline":
-      return <KanbanBoard jobs={jobs} today={today} />
+      return (
+        <div className="space-y-3">
+          <WorkspaceToolbar totalCount={jobs.length} visibleCount={visibleJobs.length} />
+          <KanbanBoard
+            jobs={visibleJobs}
+            today={today}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelected}
+          />
+        </div>
+      )
     default:
       return null
   }
@@ -102,6 +130,34 @@ export function WorkspaceBoard(props: WorkspaceBoardProps) {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   )
+
+  // Keyboard shortcuts: "/" focuses search, "f" toggles due-only,
+  // "Escape" clears the bulk selection. Skipped while typing in inputs.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null
+      const typing =
+        !!target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      if (e.key === "Escape") {
+        useWorkspaceStore.getState().clearSelected()
+        return
+      }
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === "/") {
+        e.preventDefault()
+        document.getElementById("workspace-search")?.focus()
+      } else if (e.key === "f") {
+        e.preventDefault()
+        useWorkspaceStore.getState().toggleFollowUpOnly()
+      }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [])
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event

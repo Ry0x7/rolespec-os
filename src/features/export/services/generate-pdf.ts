@@ -1,4 +1,3 @@
-import { renderToBuffer } from "@react-pdf/renderer"
 import { createElement } from "react"
 import type { Section } from "@/features/resume/hooks/use-resume-store"
 import type { ResumeCustomization } from "@/features/resume/types/customization"
@@ -31,7 +30,11 @@ export async function generatePdf({
   const element = createElement(TemplateComponent, { sections, metadata, groupAdditional, groupAdditionalTitle }) as any
 
   // The customized config is scoped to this render, so parallel exports of the
-  // four templates cannot read each other's styles.
+  // templates cannot read each other's styles. `@react-pdf/renderer` (the
+  // layout engine) loads only on the export path — never in the editor bundle
+  // — keeping first paint free of the PDF runtime. No AI is involved: this
+  // renders the stored sections verbatim.
+  const { renderToBuffer } = await import("@react-pdf/renderer")
   const buffer = await runWithPdfConfig(resolvePdfConfig(template, customization), () =>
     renderToBuffer(element)
   )

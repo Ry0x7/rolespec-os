@@ -1,15 +1,13 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
-  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   FileText,
   ListChecks,
-  Lock,
   Sparkles,
   Target,
 } from "lucide-react"
@@ -20,7 +18,7 @@ import { Label } from "@/shared/ui/label"
 import { Select } from "@/shared/ui/select"
 import { cn } from "@/shared/lib/utils"
 import type { AiProvider } from "@/shared/lib/ai-providers/constants"
-import { completeOnboarding } from "../actions/onboarding.actions"
+import { completeOnboarding, saveOnboardingDraft } from "../actions/onboarding.actions"
 import {
   configureAndTestAiProvider,
   testSavedAiProvider,
@@ -44,7 +42,25 @@ const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string }[] = [
   { value: "EXECUTIVE", label: "Executive" },
 ]
 
-const TOTAL_STEPS = 7
+/** Condensed 4-step flow: welcome, AI (setup + inline test), profile, ready. */
+const TOTAL_STEPS = 4
+
+const DRAFT_KEY = "rolespec-onboarding-draft-v1"
+
+/** Smart defaults: seniors default to a lighter, higher-signal weekly goal. */
+function smartGoalFor(level: ExperienceLevel | ""): { target: string; period: GoalPeriod } {
+  switch (level) {
+    case "LEAD":
+    case "EXECUTIVE":
+      return { target: "5", period: "WEEKLY" }
+    case "SENIOR":
+      return { target: "8", period: "WEEKLY" }
+    case "JUNIOR":
+      return { target: "10", period: "WEEKLY" }
+    default:
+      return { target: "10", period: "WEEKLY" }
+  }
+}
 
 interface OnboardingWizardProps {
   name: string
@@ -79,24 +95,66 @@ export function OnboardingWizard({
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(1)
 
-  // Profile (step 5)
+  // Restore a locally saved draft once (server props win when non-empty).
+  const [hydrated, setHydrated] = useState(false)
   const [currentRole, setCurrentRole] = useState(initialCurrentRole)
   const [targetRole, setTargetRole] = useState(initialTargetRole)
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | "">(
     initialExperienceLevel
   )
-  const [goalTarget, setGoalTarget] = useState(String(initialGoalTarget))
-  const [goalPeriod, setGoalPeriod] = useState<GoalPeriod>(initialGoalPeriod)
+  const smart = smartGoalFor(initialExperienceLevel)
+  const [goalTarget, setGoalTarget] = useState(
+    initialGoalTarget ? String(initialGoalTarget) : smart.target
+  )
+  const [goalPeriod, setGoalPeriod] = useState<GoalPeriod>(initialGoalPeriod ?? smart.period)
 
-  // AI (steps 3-4)
+  useEffect(() => {
+    if (hydrated) return
+    setHydrated(true)
+    try {
+      const raw = window.localStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const draft = JSON.parse(raw) as Partial<{
+        currentRole: string
+        targetRole: string
+        experienceLevel: ExperienceLevel | ""
+        goalTarget: string
+        goalPeriod: GoalPeriod
+        step: number
+      }>
+      if (!initialCurrentRole && draft.currentRole) setCurrentRole(draft.currentRole)
+      if (!initialTargetRole && draft.targetRole) setTargetRole(draft.targetRole)
+      if (!initialExperienceLevel && draft.experienceLevel)
+        setExperienceLevel(draft.experienceLevel)
+      if (draft.goalTarget) setGoalTarget(draft.goalTarget)
+      if (draft.goalPeriod) setGoalPeriod(draft.goalPeriod)
+      if (draft.step && draft.step >= 1 && draft.step <= TOTAL_STEPS) setStep(draft.step)
+    } catch {
+      // Corrupt draft: ignore and continue with server values.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Persist progress locally on every change so "finish later" resumes instantly.
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      window.localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ currentRole, targetRole, experienceLevel, goalTarget, goalPeriod, step })
+      )
+    } catch {
+      // Storage full or blocked: onboarding still works without it.
+    }
+  }, [hydrated, currentRole, targetRole, experienceLevel, goalTarget, goalPeriod, step])
+
+  // AI state (step 2: setup + inline test live together)
   const initialGroup: AiSetupGroupId =
     (savedProvider && aiSetupGroupForProvider(savedProvider)) || "chatgpt"
   const [group, setGroup] = useState<AiSetupGroupId>(initialGroup)
   const [provider, setProvider] = useState<AiProvider>(savedProvider ?? "codex-cli")
   const [model, setModel] = useState(() => {
     if (savedProvider !== "opencode-cli") return savedModel ?? ""
-    // A saved id may have been retired by a CLI update. Start from the first
-    // free model the current install actually reports instead.
     const available = diagnostics["opencode-cli"]?.models ?? []
     return savedModel && available.includes(savedModel)
       ? savedModel
@@ -109,15 +167,11 @@ export function OnboardingWizard({
 
   function goTo(next: number) {
     setStep(next)
-    // The setup panel is the only long step; start it at the top.
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  /** The model id a newly selected provider should start with. */
   function defaultModelFor(nextProvider: AiProvider): string {
     if (nextProvider === "opencode-cli") {
-      // The probe result is the only trustworthy source: a hardcoded model may
-      // have been retired by the installed CLI since this build shipped.
       return diagnostics["opencode-cli"]?.models?.[0] ?? ""
     }
     return ""
@@ -141,12 +195,19 @@ export function OnboardingWizard({
 
   function handleProviderChange(nextProvider: AiProvider) {
     setProvider(nextProvider)
-    // A model id belongs to one provider, so never carry it across.
     setModel(defaultModelFor(nextProvider))
     setApiKey("")
     setAiResult(null)
     setSaveError(null)
     setSkippedAi(false)
+  }
+
+  function handleLevelChange(next: ExperienceLevel | "") {
+    setExperienceLevel(next)
+    // Smart default: only fill the goal when the user hasn't customised it.
+    const smartNext = smartGoalFor(next)
+    setGoalTarget((prev) => (prev.trim() === "" ? smartNext.target : prev))
+    setGoalPeriod((prev) => prev ?? smartNext.period)
   }
 
   function handleSaveAndTest() {
@@ -157,13 +218,11 @@ export function OnboardingWizard({
         ...(model.trim() ? { model: model.trim() } : {}),
         ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
       })
-      // Drop the plaintext key from component state as soon as it has been
-      // handed to the server action.
       setApiKey("")
       setSaveError(result.saveError ?? null)
       setSkippedAi(false)
+      // Inline: stay on step 2 and render the result under the panel.
       setAiResult(result.test)
-      goTo(4)
     })
   }
 
@@ -178,7 +237,47 @@ export function OnboardingWizard({
   function handleSkipAi() {
     setSkippedAi(true)
     setAiResult(null)
-    goTo(4)
+  }
+
+  function handleSaveDraft() {
+    startTransition(async () => {
+      const result = await saveOnboardingDraft({
+        currentRole,
+        targetRole,
+        experienceLevel: experienceLevel === "" ? undefined : experienceLevel,
+        applicationGoalTarget: Number(goalTarget) || undefined,
+        applicationGoalPeriod: goalPeriod,
+      })
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success("Progress saved — come back anytime to finish setup")
+      router.push("/dashboard")
+    })
+  }
+
+  function handleSkipToEnd() {
+    // One-click path: complete with smart defaults, AI optional.
+    startTransition(async () => {
+      const result = await completeOnboarding({
+        currentRole: currentRole || undefined,
+        targetRole: targetRole || undefined,
+        experienceLevel: experienceLevel === "" ? undefined : experienceLevel,
+        applicationGoalTarget: Number(goalTarget) || 5,
+        applicationGoalPeriod: goalPeriod,
+      })
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      try {
+        window.localStorage.removeItem(DRAFT_KEY)
+      } catch {
+        // Ignore storage errors on finish.
+      }
+      router.push("/dashboard")
+    })
   }
 
   function handleFinish() {
@@ -194,11 +293,15 @@ export function OnboardingWizard({
         toast.error(result.error)
         return
       }
+      try {
+        window.localStorage.removeItem(DRAFT_KEY)
+      } catch {
+        // Ignore storage errors on finish.
+      }
       router.push("/dashboard")
     })
   }
 
-  const selectedGroupLabel = aiSetupGroupById(group)?.label ?? "AI"
   const aiConnected = aiResult?.ok === true
 
   return (
@@ -239,7 +342,7 @@ export function OnboardingWizard({
             <div className="min-w-0">
               <h1 className="text-xl font-bold">Welcome, {name}</h1>
               <p className="text-sm text-muted-foreground">
-                Let&apos;s get RoleSpec ready. This takes about five minutes.
+                About two minutes. Resumes, ATS scoring and tracking in one place.
               </p>
             </div>
           </div>
@@ -247,7 +350,7 @@ export function OnboardingWizard({
           <ul className="space-y-3 text-sm">
             <li className="flex items-start gap-3">
               <FileText className="mt-0.5 h-4 w-4 shrink-0 text-brand-400" />
-              <span>Keep your resumes in one place and export them in a few clicks.</span>
+              <span>Keep resumes in one place and export them in a few clicks.</span>
             </li>
             <li className="flex items-start gap-3">
               <Target className="mt-0.5 h-4 w-4 shrink-0 text-brand-400" />
@@ -260,79 +363,23 @@ export function OnboardingWizard({
           </ul>
 
           <p className="text-xs text-muted-foreground">
-            You can change every choice later in Settings.
+            AI is optional — editing and tracking work without it. Every choice can
+            change later in Settings.
           </p>
 
-          <Button type="button" onClick={() => goTo(2)} className="w-full sm:w-auto">
-            Get started
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={() => goTo(2)} className="w-full sm:w-auto">
+              Get started
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button type="button" variant="ghost" onClick={handleSkipToEnd} disabled={isPending}>
+              Skip for now
+            </Button>
+          </div>
         </div>
       )}
 
       {step === 2 && (
-        <div className="space-y-5">
-          <div>
-            <h1 className="text-xl font-bold">What RoleSpec does</h1>
-            <p className="text-sm text-muted-foreground">
-              One workspace for the whole job hunt: get ready, apply, then follow up.
-            </p>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            {[
-              ["Resumes", "Build, tailor and export ATS-friendly resumes."],
-              ["ATS analysis", "See the score and the changes that would improve it."],
-              ["Job tracking", "Move each opportunity through your own pipeline."],
-              ["Outreach", "Draft cover letters and follow-up emails from your own evidence."],
-            ].map(([title, body]) => (
-              <div key={title} className="rounded-md border border-border bg-muted/20 p-3">
-                <p className="text-sm font-medium">{title}</p>
-                <p className="text-xs text-muted-foreground">{body}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-2 rounded-lg border border-amber-600/30 bg-amber-600/5 p-4">
-            <p className="flex items-center gap-2 text-sm font-semibold">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              AI is optional for importing and editing
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Import text from PDF/DOCX, edit resumes and track applications without
-              a provider. AI structuring and polishing, tailoring, ATS analysis, job
-              matching, cover letters and outreach need AI. You can choose and test
-              a provider in the next step, or skip and connect one later.
-            </p>
-          </div>
-
-          <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-4">
-            <p className="flex items-center gap-2 text-sm font-semibold">
-              <Lock className="h-4 w-4 text-brand-400" />
-              Your data stays yours
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Resumes, applications and notes are stored in your own RoleSpec
-              database. When you use an AI feature, only the text needed for that
-              request is sent to the provider you choose. Saved API keys are
-              encrypted before they are stored. RoleSpec has no analytics or
-              telemetry.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={() => goTo(1)}>
-              Back
-            </Button>
-            <Button type="button" onClick={() => goTo(3)}>
-              Choose AI
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
         <div className="space-y-5">
           <AiSetupPanel
             savedProvider={savedProvider}
@@ -353,112 +400,48 @@ export function OnboardingWizard({
             saveError={saveError}
             failure={aiResult && !aiResult.ok ? aiResult : null}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => goTo(2)}
-            disabled={isPending}
-          >
-            Back
-          </Button>
-        </div>
-      )}
 
-      {step === 4 && (
-        <div className="space-y-5">
-          <div>
-            <h1 className="text-xl font-bold">Test the connection</h1>
-            <p className="text-sm text-muted-foreground">
-              Every real AI feature goes through this same path, so a passing test
-              means tailoring, scoring and matching can run.
-            </p>
-          </div>
-
+          {/* Inline test result: no separate test step needed. */}
           {skippedAi ? (
-            <div className="space-y-3 rounded-lg border border-amber-600/30 bg-amber-600/5 p-4">
-              <p className="flex items-center gap-2 text-sm font-semibold">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                AI features are off for now
-              </p>
-              <p className="text-sm text-muted-foreground">
-                You can still edit resumes and track applications. These stay
-                unavailable until you connect a provider:
-              </p>
-              <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                <li>Resume import from PDF or DOCX</li>
-                <li>Resume tailoring, enhancement and ATS analysis</li>
-                <li>Job matching, cover letters and outreach drafts</li>
-                <li>LinkedIn, portfolio and job-risk analysis</li>
-              </ul>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={() => goTo(3)}>
-                  Set up AI now
-                </Button>
-                <Button type="button" variant="secondary" onClick={() => goTo(5)}>
-                  Continue without AI
-                </Button>
-              </div>
-            </div>
+            <p className="rounded-md border border-amber-600/30 bg-amber-600/5 p-3 text-xs text-muted-foreground">
+              AI stays off for now — editing and tracking still work. Tailoring, ATS
+              analysis, matching and outreach need a provider later in Settings → AI.
+            </p>
           ) : aiResult ? (
-            <>
-              <ConnectionResult
-                result={aiResult}
-                onRetry={handleTestAgain}
-                retrying={isPending}
-              />
-              <div className="flex flex-wrap gap-2">
-                {aiConnected ? (
-                  <Button type="button" onClick={() => goTo(5)}>
-                    Continue
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button type="button" onClick={() => goTo(3)}>
-                    Back to AI setup
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => goTo(3)}
-                  disabled={isPending}
-                >
-                  Change option
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
-              <p className="text-sm font-medium">No test has run yet.</p>
-              <p className="text-sm text-muted-foreground">
-                Save and test the selected option to check that{" "}
-                {selectedGroupLabel} can answer.
-              </p>
-              <Button type="button" onClick={handleTestAgain} loading={isPending}>
-                {isPending ? "Testing the connection..." : "Test connection"}
-              </Button>
-            </div>
-          )}
+            <ConnectionResult
+              result={aiResult}
+              onRetry={handleTestAgain}
+              retrying={isPending}
+            />
+          ) : null}
 
-          <Button type="button" variant="ghost" onClick={() => goTo(3)} disabled={isPending}>
-            Back
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" onClick={() => goTo(1)} disabled={isPending}>
+              Back
+            </Button>
+            <Button type="button" onClick={() => goTo(3)} disabled={isPending}>
+              Continue{aiConnected ? " with AI" : ""}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button type="button" variant="ghost" onClick={handleSaveDraft} disabled={isPending}>
+              Save & finish later
+            </Button>
+          </div>
         </div>
       )}
 
-      {step === 5 && (
+      {step === 3 && (
         <form
           className="space-y-5"
           onSubmit={(event) => {
             event.preventDefault()
-            goTo(6)
+            goTo(4)
           }}
         >
           <div>
             <h1 className="text-xl font-bold">Tell us about your search</h1>
             <p className="text-sm text-muted-foreground">
-              Optional, but it helps tailor your resumes and job matches. You can
-              change it later.
+              Optional — pre-filled with a sensible goal. Change anything, or skip.
             </p>
           </div>
 
@@ -470,6 +453,7 @@ export function OnboardingWizard({
               placeholder="e.g. Registered Nurse"
               value={currentRole}
               onChange={(e) => setCurrentRole(e.target.value)}
+              autoComplete="organization-title"
             />
           </div>
 
@@ -481,6 +465,7 @@ export function OnboardingWizard({
               placeholder="e.g. Nurse Manager"
               value={targetRole}
               onChange={(e) => setTargetRole(e.target.value)}
+              autoComplete="off"
             />
           </div>
 
@@ -490,9 +475,9 @@ export function OnboardingWizard({
               id="experienceLevel"
               name="experienceLevel"
               value={experienceLevel}
-              onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel | "")}
+              onChange={(e) => handleLevelChange(e.target.value as ExperienceLevel | "")}
             >
-              <option value="">Select a level</option>
+              <option value="">Select a level (optional)</option>
               {EXPERIENCE_LEVELS.map((level) => (
                 <option key={level.value} value={level.value}>
                   {level.label}
@@ -527,81 +512,36 @@ export function OnboardingWizard({
             </div>
           </div>
 
+          {resumeCount > 0 ? (
+            <p className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/5 p-3 text-sm">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+              <span>
+                {resumeCount} resume{resumeCount === 1 ? "" : "s"} already in your workspace.
+              </span>
+            </p>
+          ) : (
+            <p className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
+              No resume yet — add one from the Resume Studio after setup, or continue
+              now and do it later.
+            </p>
+          )}
+
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={() => goTo(4)}>
+            <Button type="button" variant="secondary" onClick={() => goTo(2)}>
               Back
             </Button>
             <Button type="submit">
               Continue
               <ArrowRight className="h-4 w-4" />
             </Button>
+            <Button type="button" variant="ghost" onClick={handleSaveDraft} disabled={isPending}>
+              Save & finish later
+            </Button>
           </div>
         </form>
       )}
 
-      {step === 6 && (
-        <div className="space-y-5">
-          <div>
-            <h1 className="text-xl font-bold">Add your resume</h1>
-            <p className="text-sm text-muted-foreground">
-              Start with the resume you already have, or create one from scratch. The
-              Resume Studio opens in a new tab so this setup stays where it is.
-            </p>
-          </div>
-
-          {resumeCount > 0 ? (
-            <div className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/5 p-3 text-sm">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
-              <span>
-                {resumeCount} resume{resumeCount === 1 ? "" : "s"} found in your workspace.
-              </span>
-            </div>
-          ) : (
-            <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-              No resumes yet. That is fine — you can add one after setup.
-            </div>
-          )}
-
-          {!aiConnected && !skippedAi ? (
-            <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-              Importing a PDF or DOCX uses AI to read the file. If AI is not
-              connected, create a resume manually instead.
-            </p>
-          ) : null}
-
-          <div className="flex flex-wrap gap-2">
-            <a
-              href="/resumes"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-4 text-sm font-medium transition-colors hover:bg-muted"
-            >
-              Open Resume Studio
-              <ArrowRight className="h-4 w-4" />
-            </a>
-            <Button type="button" variant="ghost" onClick={() => router.refresh()}>
-              Check again
-            </Button>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Upload Resume and Create Resume are both on that page. Come back here
-            when you are done, or continue and add it later.
-          </p>
-
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={() => goTo(5)}>
-              Back
-            </Button>
-            <Button type="button" onClick={() => goTo(7)}>
-              Continue
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {step === 7 && (
+      {step === 4 && (
         <div className="space-y-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted">
@@ -610,7 +550,7 @@ export function OnboardingWizard({
             <div>
               <h1 className="text-xl font-bold">You&apos;re ready</h1>
               <p className="text-sm text-muted-foreground">
-                Here is what RoleSpec will use. Everything can be changed later.
+                Everything can be changed later in Settings.
               </p>
             </div>
           </div>
@@ -655,27 +595,26 @@ export function OnboardingWizard({
             </div>
           </dl>
 
-          <Button type="button" onClick={handleFinish} loading={isPending}>
-            {isPending ? "Opening RoleSpec..." : "Open RoleSpec"}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={handleFinish} loading={isPending}>
+              {isPending ? "Opening RoleSpec..." : "Open RoleSpec"}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => goTo(3)}
+              disabled={isPending}
+            >
+              Back
+            </Button>
+          </div>
 
           <p className="text-xs text-muted-foreground">
-            AI settings live under Settings → AI. Your resume and applications are
-            already saved in your own workspace.
+            AI settings live under Settings → AI. Resumes are in the Resume Studio.
           </p>
-
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => goTo(6)}
-            disabled={isPending}
-          >
-            Back
-          </Button>
         </div>
       )}
-
     </div>
   )
 }

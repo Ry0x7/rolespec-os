@@ -260,6 +260,23 @@ export function SectionPanel() {
         )}
       </div>
 
+      {!showAddMenu && availableTyped.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" aria-label="Quick add sections">
+          {availableTyped.slice(0, 4).map((item) => (
+            <button
+              key={item.type}
+              type="button"
+              onClick={() => handleAdd(item.type)}
+              disabled={isAdding}
+              aria-label={`Add ${item.label} section`}
+              className="rounded-full border border-dashed border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
+            >
+              + {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <ConfirmDialog
         open={pendingRemoval !== null}
         title="Remove section?"

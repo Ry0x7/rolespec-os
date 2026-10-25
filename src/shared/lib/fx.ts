@@ -28,6 +28,7 @@ const FAILURE_CACHE_TTL_MS = 300_000
 const FETCH_TIMEOUT_MS = 5_000
 
 let cached: { rate: number; expiresAt: number } | null = null
+let inflight: Promise<number> | null = null
 
 function fallbackRate(): number {
   const fromEnv = Number(process.env.FX_USD_PHP_RATE)
@@ -49,10 +50,14 @@ function cacheFallbackRate(): number {
  */
 export async function getUsdPhpRate(): Promise<number> {
   if (cached && Date.now() < cached.expiresAt) return cached.rate
+  if (inflight) return inflight
 
+  inflight = (async () => {
   try {
     const res = await fetch(FX_URL, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      // Day-old rates are fine; let the edge/CDN serve a cached copy too.
+      next: { revalidate: 86_400 },
     })
     if (!res.ok) {
       log.warn("FX lookup returned a non-200", { status: res.status })
@@ -71,10 +76,15 @@ export async function getUsdPhpRate(): Promise<number> {
   } catch (err) {
     log.warn("FX lookup failed, using the fallback rate", { err })
     return cacheFallbackRate()
+  } finally {
+    inflight = null
   }
+  })()
+  return inflight
 }
 
 /** Test seam — drops the cached rate so the next call refetches. */
 export function resetUsdPhpRateCache(): void {
   cached = null
+  inflight = null
 }

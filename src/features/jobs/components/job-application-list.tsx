@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Briefcase, Plus, SearchX } from "lucide-react"
 import { Button } from "@/shared/ui/button"
 import { Input } from "@/shared/ui/input"
@@ -15,6 +15,8 @@ import {
   CONFIDENCE_FILTER_OPTIONS,
   isApplicationFollowUpOverdue,
   useJobFilters,
+  VERDICT_FILTER_OPTIONS,
+  WORK_TYPE_FILTER_OPTIONS,
   type FollowUpFilterValue,
   type StatusFilterCounts,
 } from "../hooks/use-job-filters"
@@ -25,6 +27,7 @@ import {
 import { isStaleJob } from "../services/job-staleness.service"
 import { BulkDeleteJobsDialog } from "./bulk-delete-jobs-dialog"
 import { CreateJobDialog } from "./create-job-dialog"
+import { JobDetailDrawer } from "./job-detail-drawer"
 import {
   JobApplicationCard,
   type JobApplicationCardData,
@@ -71,10 +74,16 @@ export function JobApplicationList({
     setFollowUpFilter,
     confidenceFilter,
     setConfidenceFilter,
+    workTypeFilter,
+    setWorkTypeFilter,
+    verdictFilter,
+    setVerdictFilter,
     staleFilter,
     setStaleFilter,
     sort,
     setSort,
+    resetJobFilters,
+    hasActiveJobFilters,
   } = useJobFilters(applications, today, initialFollowUpFilter, initialSort)
 
   // `useJobFilters` is typed against the base row and only ever returns members
@@ -88,6 +97,8 @@ export function JobApplicationList({
     statusFilter,
     followUpFilter,
     confidenceFilter,
+    workTypeFilter,
+    verdictFilter,
     staleFilter,
     sort,
   ])
@@ -101,6 +112,10 @@ export function JobApplicationList({
   // ticked on the page in front of them: it is dropped on a filter, sort or
   // page change, so nothing off screen can be deleted by accident.
   const [selectMode, setSelectMode] = useState(false)
+  // Track selected IDs with a stable ref so selection stays in sync with
+  // the live set without re-creating the state object per render.
+  const selectedIdsRef = useRef(selectedIds)
+  selectedIdsRef.current = selectedIds
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [selectionKey, setSelectionKey] = useState(filterKey)
@@ -123,6 +138,17 @@ export function JobApplicationList({
     })
   }
 
+  function usedLength(seed: Set<string>): number {
+    return seed.size
+  }
+
+  function clearFromSeed(seed: Set<string>, id: string): Set<string> {
+    if (seed.has(id)) {
+      seed.delete(id)
+    }
+    return seed
+  }
+
   function selectAllOnPage() {
     setSelectedIds(new Set(pageItems.map((application) => application.id)))
   }
@@ -138,8 +164,37 @@ export function JobApplicationList({
 
   // Bring the top of the list back into view only when the user has scrolled
   // past it; a pager click near the top leaves the window where it is.
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  // Persist selected IDs across navigates when remove-page is set, so the
+  // user's selection survives a back-forward navigation without re-checking.
+  const persistedSelectedIds = persistSelectedIds({
+    seed: selectedIdsRef.current,
+    preferOn: persistSelectedIdsParam,
+    fallbackKey: selectModeKey,
+    onClear: () => setSelectedIds(new Set()),
+  })
+  if (persistedSelectedIds && persistedSelectedIds !== selectedIds) {
+    setSelectedIds(persistedSelectedIds)
+  }
+  // Deep-linkable page cursor: `?page=3` restores the same slice on reload or
+  // back-navigation. Page 1 is the default and stays clean in the URL.
+  useEffect(() => {
+    const raw = searchParams.get("page")
+    const parsed = raw ? Number.parseInt(raw, 10) : 1
+    if (Number.isFinite(parsed) && parsed >= 1 && parsed !== page) {
+      setPage(parsed)
+    }
+    // Only on mount: page changes below write the param.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   function handlePageChange(nextPage: number) {
     setPage(nextPage)
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextPage <= 1) params.delete("page")
+    else params.set("page", String(nextPage))
+    const qs = params.toString()
+    window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname)
     setSelectedIds(new Set())
     const list = listRef.current
     if (list && list.getBoundingClientRect().top < 0) {
@@ -163,6 +218,7 @@ export function JobApplicationList({
   // Lifted so the empty state's CTA opens the very same dialog as the toolbar
   // trigger, instead of pointing at a button the user has to go find.
   const [createOpen, setCreateOpen] = useState(false)
+  const [previewApplication, setPreviewApplication] = useState<JobApplicationCardData | null>(null)
 
   return (
     <div className="space-y-4">
@@ -174,7 +230,7 @@ export function JobApplicationList({
           <Input
             id="job-search"
             className="basis-full sm:max-w-xs sm:basis-auto"
-            placeholder="Search company or title..."
+            placeholder="Search company, title, location, notes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -236,6 +292,36 @@ export function JobApplicationList({
               </option>
             ))}
           </Select>
+          <label htmlFor="job-work-filter" className="sr-only">
+            Filter by work mode
+          </label>
+          <Select
+            id="job-work-filter"
+            className="w-auto"
+            value={workTypeFilter}
+            onChange={(e) => setWorkTypeFilter(e.target.value as typeof workTypeFilter)}
+          >
+            {WORK_TYPE_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          <label htmlFor="job-fit-filter" className="sr-only">
+            Filter by fit
+          </label>
+          <Select
+            id="job-fit-filter"
+            className="w-auto"
+            value={verdictFilter}
+            onChange={(e) => setVerdictFilter(e.target.value as typeof verdictFilter)}
+          >
+            {VERDICT_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
           <label htmlFor="job-sort" className="sr-only">
             Sort
           </label>
@@ -262,6 +348,16 @@ export function JobApplicationList({
           >
             Select
           </Button>
+          {hasActiveJobFilters ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={resetJobFilters}
+            >
+              Clear filters
+            </Button>
+          ) : null}
         </div>
         <div className="sm:shrink-0">
           <CreateJobDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -332,7 +428,7 @@ export function JobApplicationList({
           <EmptyState
             icon={SearchX}
             title="No results"
-            description="Try adjusting your search, status, confidence, follow-up, or stale filter."
+            description="Try adjusting your search, status, confidence, work mode, fit, follow-up, or stale filter."
           />
         )
       ) : (
@@ -348,6 +444,7 @@ export function JobApplicationList({
                 usdPhpRate={usdPhpRate}
                 preferredCurrency={preferredCurrency}
                 today={today}
+                onPreview={setPreviewApplication}
                 selection={
                   selectMode
                     ? {
@@ -374,6 +471,11 @@ export function JobApplicationList({
         open={bulkDeleteOpen}
         onClose={() => setBulkDeleteOpen(false)}
         onDeleted={handleBulkDeleted}
+      />
+      <JobDetailDrawer
+        application={previewApplication}
+        open={previewApplication !== null}
+        onClose={() => setPreviewApplication(null)}
       />
     </div>
   )

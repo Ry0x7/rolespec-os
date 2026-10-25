@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react"
 import Link from "next/link"
 import { BellRing, CalendarClock, CalendarDays, CheckSquare } from "lucide-react"
 import { EmptyState } from "@/shared/components/empty-state"
@@ -40,7 +41,7 @@ const TYPE_CONFIG: Record<
   },
 }
 
-function TypeBadge({ type }: { type: AgendaItemType }) {
+const TypeBadge = memo(function TypeBadge({ type }: { type: AgendaItemType }) {
   const config = TYPE_CONFIG[type]
   return (
     <span
@@ -52,7 +53,7 @@ function TypeBadge({ type }: { type: AgendaItemType }) {
       {config.label}
     </span>
   )
-}
+})
 
 // Pinned to UTC and fed an anchor from `dayAnchor`, so the day an item is filed
 // under and the day its heading prints are decided in exactly one place.
@@ -89,7 +90,7 @@ const ROW_CLASS =
  * drop the whole-row link and put it on the title instead: a button inside an
  * anchor is neither valid nor clickable in the way the user means.
  */
-function AgendaRow({ item }: { item: AgendaItem }) {
+const AgendaRow = memo(function AgendaRow({ item }: { item: AgendaItem }) {
   const actions =
     item.type === "follow-up" && item.jobApplicationId ? (
       <QuickActionButtons
@@ -123,7 +124,7 @@ function AgendaRow({ item }: { item: AgendaItem }) {
   }
 
   return <PlainAgendaRow item={item} />
-}
+})
 
 /**
  * Follow-ups and interviews are Track work, so they land on Job Detail's Track
@@ -219,21 +220,23 @@ export function CalendarAgenda({ items }: CalendarAgendaProps) {
 
   // Anything already past is pulled out of the day grouping and stacked at the
   // top — a date heading in the past reads as history, not as a thing to do.
-  const overdueItems = items.filter((item) => item.overdue)
-  const scheduledItems = items.filter((item) => !item.overdue)
-
-  // Group chronologically-sorted items by calendar day (input is already sorted).
-  const groups: { key: string; date: Date; items: AgendaItem[] }[] = []
-  for (const item of scheduledItems) {
-    const anchor = dayAnchor(item)
-    const key = toCalendarDateString(anchor)
-    const last = groups[groups.length - 1]
-    if (last && last.key === key) {
-      last.items.push(item)
-    } else {
-      groups.push({ key, date: anchor, items: [item] })
+  // Memoized so re-renders from todo toggles don't regroup the whole agenda.
+  const { overdueItems, groups } = useMemo(() => {
+    const overdue = items.filter((item) => item.overdue)
+    const scheduled = items.filter((item) => !item.overdue)
+    const grouped: { key: string; date: Date; items: AgendaItem[] }[] = []
+    for (const item of scheduled) {
+      const anchor = dayAnchor(item)
+      const key = toCalendarDateString(anchor)
+      const last = grouped[grouped.length - 1]
+      if (last && last.key === key) {
+        last.items.push(item)
+      } else {
+        grouped.push({ key, date: anchor, items: [item] })
+      }
     }
-  }
+    return { overdueItems: overdue, groups: grouped }
+  }, [items])
 
   return (
     <div className="space-y-6">

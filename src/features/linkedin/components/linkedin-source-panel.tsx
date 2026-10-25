@@ -21,6 +21,10 @@ interface LinkedinSourcePanelProps {
   error: string | null
   onRate: (file: File | null) => void
   onAssist: (file: File | null) => void
+  /** One-click rate + suggestions. Absent on surfaces that only need one action. */
+  onRateAndAssist?: (file: File | null) => void
+  /** Name of the last successfully read export — reassurance a re-run reuses it. */
+  lastFileName?: string | null
   onError: (message: string | null) => void
   resumeOptions: LinkedinResumeOption[]
   selectedResumeId: string
@@ -38,6 +42,8 @@ export function LinkedinSourcePanel({
   error,
   onRate,
   onAssist,
+  onRateAndAssist,
+  lastFileName,
   onError,
   resumeOptions,
   selectedResumeId,
@@ -74,7 +80,7 @@ export function LinkedinSourcePanel({
         </div>
         <CardDescription>
           LinkedIn → your profile → Resources/More → Save to PDF, then drop the
-          export here.
+          export here. One file powers both the score and the rewrites.
         </CardDescription>
       </CardHeader>
 
@@ -215,15 +221,42 @@ export function LinkedinSourcePanel({
         </p>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      {lastFileName && !file && (
+        <p className="text-xs text-muted-foreground">
+          Last read: <span className="font-medium">{lastFileName}</span> —
+          drop the same export to re-run without hunting for it.
+        </p>
+      )}
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {onRateAndAssist && (
+          <Button
+            type="button"
+            loading={isPending || isAssisting}
+            disabled={!file || busy}
+            onClick={() => onRateAndAssist(file)}
+            className="w-full sm:w-auto"
+          >
+            {isPending || isAssisting ? (
+              "Working..."
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                Rate + suggestions in one click
+              </>
+            )}
+          </Button>
+        )}
+
         <Button
           type="button"
+          variant="secondary"
           loading={isPending}
           disabled={!file || busy}
           onClick={() => onRate(file)}
           className="w-full sm:w-auto"
         >
-          {isPending ? "Rating..." : "Rate profile"}
+          {isPending ? "Rating..." : "Rate only"}
         </Button>
 
         <Button
@@ -239,7 +272,7 @@ export function LinkedinSourcePanel({
           ) : (
             <>
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              Generate suggestions
+              Suggestions only
             </>
           )}
         </Button>

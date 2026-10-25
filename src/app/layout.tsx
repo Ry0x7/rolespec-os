@@ -8,6 +8,8 @@ import "./globals.css"
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
+  preload: true,
 })
 
 // Heading face (see `--font-display` in globals.css). Only the weights headings
@@ -16,11 +18,15 @@ const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
   subsets: ["latin"],
   weight: ["500", "600", "700"],
+  display: "swap",
+  preload: false,
 })
 
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  display: "swap",
+  preload: false,
 })
 
 export const metadata: Metadata = {

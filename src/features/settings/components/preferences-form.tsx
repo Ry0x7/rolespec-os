@@ -47,6 +47,25 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
     })
   }
 
+  /** Low-friction: toggles save instantly without waiting for the form submit. */
+  function handleInstantSave(patch: {
+    emailNotifications: boolean
+    preferredCurrency: PreferredCurrency
+  }) {
+    startTransition(async () => {
+      const result = await updatePreferences({
+        defaultAiInstructions: instructions,
+        ...patch,
+      })
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success("Saved")
+      router.refresh()
+    })
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
@@ -75,9 +94,11 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
           name="preferredCurrency"
           value={preferredCurrency}
           disabled={isPending}
-          onChange={(e) =>
-            setPreferredCurrency(e.target.value as PreferredCurrency)
-          }
+          onChange={(e) => {
+            const next = e.target.value as PreferredCurrency
+            setPreferredCurrency(next)
+            handleInstantSave({ emailNotifications, preferredCurrency: next })
+          }}
         >
           {CURRENCY_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -103,7 +124,11 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
           aria-checked={emailNotifications}
           aria-label="Email notifications"
           disabled={isPending}
-          onClick={() => setEmailNotifications((v) => !v)}
+          onClick={() => {
+            const next = !emailNotifications
+            setEmailNotifications(next)
+            handleInstantSave({ emailNotifications: next, preferredCurrency })
+          }}
           className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
             emailNotifications ? "bg-brand-600" : "bg-input"
           }`}
