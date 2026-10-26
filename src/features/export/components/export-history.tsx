@@ -36,8 +36,8 @@ export function ExportHistory({ resumeId }: ExportHistoryProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isDownloading, setIsDownloading] = useState(false)
 
+  // Reloads the list after an export; only ever called from event handlers.
   const refresh = useCallback(async () => {
-    setIsLoading(true)
     try {
       const result = await getExportHistory(resumeId)
       setEntries(result.data ?? [])
@@ -50,9 +50,28 @@ export function ExportHistory({ resumeId }: ExportHistoryProps) {
     }
   }, [resumeId])
 
+  // Kick-off only: the request starts here, but every state update lands in a
+  // promise callback — the effect body itself never sets state during commit.
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    let active = true
+    getExportHistory(resumeId)
+      .then((result) => {
+        if (!active) return
+        setEntries(result.data ?? [])
+        if (result.error) toast.error(result.error)
+      })
+      .catch(() => {
+        if (!active) return
+        setEntries([])
+        toast.error("Couldn't load export history.")
+      })
+      .finally(() => {
+        if (active) setIsLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [resumeId])
 
   async function downloadCurrent() {
     if (isDownloading) return

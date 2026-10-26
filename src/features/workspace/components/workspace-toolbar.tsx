@@ -41,16 +41,6 @@ export function WorkspaceToolbar({
   const [isPending, startTransition] = useTransition()
   const [bulkBusy, setBulkBusy] = useState(false)
   const query = useWorkspaceStore((s) => s.query)
-  // Local input state so typing never hits the zustand store (and its
-  // subscribers) per keystroke; the store syncs 250ms after the last key.
-  const [draftQuery, setDraftQuery] = useState(query)
-  useEffect(() => setDraftQuery(query), [query])
-  useEffect(() => {
-    if (draftQuery === query) return
-    const timer = setTimeout(() => setQuery(draftQuery), 250)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftQuery])
   const statuses = useWorkspaceStore((s) => s.statuses)
   const followUpOnly = useWorkspaceStore((s) => s.followUpOnly)
   const selectedIds = useWorkspaceStore((s) => s.selectedIds)
@@ -59,6 +49,20 @@ export function WorkspaceToolbar({
   const clearStatuses = useWorkspaceStore((s) => s.clearStatuses)
   const toggleFollowUpOnly = useWorkspaceStore((s) => s.toggleFollowUpOnly)
   const clearSelected = useWorkspaceStore((s) => s.clearSelected)
+
+  // Local input state so typing never hits the zustand store (and its
+  // subscribers) per keystroke; the store syncs 250ms after the last key.
+  // Nothing else writes the store query except `clearAll` below, which resets
+  // this draft too, so the draft never has to be mirrored back from the store.
+  const [draftQuery, setDraftQuery] = useState(query)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Compare against the live store, not the render-time `query`: the
+      // store may have been cleared while the debounce was pending.
+      if (useWorkspaceStore.getState().query !== draftQuery) setQuery(draftQuery)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [draftQuery, setQuery])
 
   const hasFilter =
     query.trim() !== "" || statuses.length > 0 || followUpOnly
