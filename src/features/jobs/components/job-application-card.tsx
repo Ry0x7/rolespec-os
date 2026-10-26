@@ -414,7 +414,6 @@ export const JobApplicationCard = memo(function JobApplicationCard({
             {showCoverLetter ? (
               <Link
                 href={coverLetterHref}
-                aria-label={coverLetterLabel}
                 className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-brand-600 hover:text-brand-500"
               >
                 {mostRecentCoverLetter ? "Cover letter" : "New letter"}

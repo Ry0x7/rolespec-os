@@ -208,19 +208,10 @@ interface CalendarAgendaProps {
 }
 
 export function CalendarAgenda({ items }: CalendarAgendaProps) {
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={CalendarDays}
-        title="Nothing scheduled"
-        description="Interview dates, deadlines, and todo due dates for the next 30 days will show up here."
-      />
-    )
-  }
-
   // Anything already past is pulled out of the day grouping and stacked at the
   // top — a date heading in the past reads as history, not as a thing to do.
   // Memoized so re-renders from todo toggles don't regroup the whole agenda.
+  // Hooks stay above the empty-state return so every render calls them in order.
   const { overdueItems, groups } = useMemo(() => {
     const overdue = items.filter((item) => item.overdue)
     const scheduled = items.filter((item) => !item.overdue)
@@ -237,6 +228,16 @@ export function CalendarAgenda({ items }: CalendarAgendaProps) {
     }
     return { overdueItems: overdue, groups: grouped }
   }, [items])
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={CalendarDays}
+        title="Nothing scheduled"
+        description="Interview dates, deadlines, and todo due dates for the next 30 days will show up here."
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">

@@ -384,7 +384,7 @@ export function useJobFilters(
   }, [pathname, query, observedQuery])
 
   const filteredApplications = useMemo(() => {
-    const q = debouncedQuery.toLowerCase().trim()
+    const q = searchQuery.toLowerCase().trim()
     const matching = applications.filter((app) => {
       const haystack = [
         app.job.companyName,
@@ -426,7 +426,7 @@ export function useJobFilters(
   }, [
     applications,
     today,
-    debouncedQuery,
+    searchQuery,
     statusFilter,
     followUpFilter,
     confidenceFilter,
