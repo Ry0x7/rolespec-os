@@ -256,7 +256,7 @@ export function LinkedinSourcePanel({
           onClick={() => onRate(file)}
           className="w-full sm:w-auto"
         >
-          {isPending ? "Rating..." : "Rate only"}
+          {isPending ? "Rating..." : "Rate profile (no suggestions)"}
         </Button>
 
         <Button
