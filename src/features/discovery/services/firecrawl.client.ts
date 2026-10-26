@@ -11,7 +11,12 @@
  * failures are never cached.
  */
 
-const FIRECRAWL_BASE = "https://api.firecrawl.dev/v1";
+function firecrawlBase(): string {
+  const raw = process.env.FIRECRAWL_BASE_URL?.trim().replace(/\/$/, "") || "https://api.firecrawl.dev";
+  // Accept either the host root (…firecrawl.dev) or a versioned root (…/v1)
+  // so the client agrees with `POST /api/jobs/scrape` and `.env.example`.
+  return raw.replace(/\/v1\/?$/, "") + "/v1";
+}
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 
@@ -116,7 +121,7 @@ export async function firecrawlSearch(
   const out: FirecrawlHit[] = [];
   try {
     for (let page = 1; page <= 2; page += 1) {
-      const response = await fetch(`${FIRECRAWL_BASE}/search`, {
+      const response = await fetch(`${firecrawlBase()}/search`, {
         method: "POST",
         signal,
         cache: "no-store",
@@ -159,7 +164,7 @@ export async function firecrawlScrape(
   if (cached) return cached;
 
   try {
-    const response = await fetch(`${FIRECRAWL_BASE}/scrape`, {
+    const response = await fetch(`${firecrawlBase()}/scrape`, {
       method: "POST",
       signal,
       cache: "no-store",
