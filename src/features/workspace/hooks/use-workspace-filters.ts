@@ -1,6 +1,6 @@
 "use client"
 
-import type { WorkspaceJobRow } from "../workspace-board"
+import type { WorkspaceJobRow } from "../components/workspace-board"
 import {
   FOLLOW_UP_STATUSES,
   isFollowUpDue,

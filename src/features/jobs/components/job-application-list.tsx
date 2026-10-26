@@ -112,10 +112,6 @@ export function JobApplicationList({
   // ticked on the page in front of them: it is dropped on a filter, sort or
   // page change, so nothing off screen can be deleted by accident.
   const [selectMode, setSelectMode] = useState(false)
-  // Track selected IDs with a stable ref so selection stays in sync with
-  // the live set without re-creating the state object per render.
-  const selectedIdsRef = useRef(selectedIds)
-  selectedIdsRef.current = selectedIds
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [selectionKey, setSelectionKey] = useState(filterKey)
@@ -138,17 +134,6 @@ export function JobApplicationList({
     })
   }
 
-  function usedLength(seed: Set<string>): number {
-    return seed.size
-  }
-
-  function clearFromSeed(seed: Set<string>, id: string): Set<string> {
-    if (seed.has(id)) {
-      seed.delete(id)
-    }
-    return seed
-  }
-
   function selectAllOnPage() {
     setSelectedIds(new Set(pageItems.map((application) => application.id)))
   }
@@ -166,17 +151,6 @@ export function JobApplicationList({
   // past it; a pager click near the top leaves the window where it is.
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  // Persist selected IDs across navigates when remove-page is set, so the
-  // user's selection survives a back-forward navigation without re-checking.
-  const persistedSelectedIds = persistSelectedIds({
-    seed: selectedIdsRef.current,
-    preferOn: persistSelectedIdsParam,
-    fallbackKey: selectModeKey,
-    onClear: () => setSelectedIds(new Set()),
-  })
-  if (persistedSelectedIds && persistedSelectedIds !== selectedIds) {
-    setSelectedIds(persistedSelectedIds)
-  }
   // Deep-linkable page cursor: `?page=3` restores the same slice on reload or
   // back-navigation. Page 1 is the default and stays clean in the URL.
   useEffect(() => {
