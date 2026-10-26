@@ -272,7 +272,7 @@ export function LinkedinSourcePanel({
           ) : (
             <>
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              Suggestions only
+              Generate suggestions
             </>
           )}
         </Button>
