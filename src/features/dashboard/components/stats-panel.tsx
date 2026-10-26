@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react"
 import Link from "next/link"
 import { FileText, ScanLine, Send } from "lucide-react"
 import { Card, CardHeader, CardTitle } from "@/shared/ui/card"
@@ -8,12 +9,13 @@ interface StatsPanelProps {
   applicationCount: number
 }
 
-export function StatsPanel({
+export const StatsPanel = memo(function StatsPanel({
   resumeCount,
   atsScannedCount,
   applicationCount,
 }: StatsPanelProps) {
-  const stats = [
+  const stats = useMemo(
+    () => [
     {
       label: "Resumes",
       value: resumeCount,
@@ -26,13 +28,15 @@ export function StatsPanel({
       icon: ScanLine,
       href: "/resumes",
     },
-    {
-      label: "Applications tracked",
-      value: applicationCount,
-      icon: Send,
-      href: "/jobs",
-    },
-  ]
+      {
+        label: "Applications tracked",
+        value: applicationCount,
+        icon: Send,
+        href: "/jobs",
+      },
+    ],
+    [resumeCount, atsScannedCount, applicationCount]
+  )
 
   return (
     <Card>
@@ -63,4 +67,4 @@ export function StatsPanel({
       </ul>
     </Card>
   )
-}
+})

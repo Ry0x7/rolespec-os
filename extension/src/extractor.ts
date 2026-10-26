@@ -18,6 +18,20 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
   const MAX_DESCRIPTION = 20000
   const MIN_SELECTION = 200
 
+  const queryCache = new Map<string, Element | null>()
+  const cachedQuery = (selector: string): Element | null => {
+    if (queryCache.has(selector)) return queryCache.get(selector) ?? null
+    let node: Element | null = null
+    try {
+      node = doc.querySelector(selector)
+    } catch {
+      node = null
+    }
+    if (queryCache.size > 120) queryCache.clear()
+    queryCache.set(selector, node)
+    return node
+  }
+
   const text = (value: unknown): string | undefined => {
     if (typeof value !== "string") return undefined
     const trimmed = value.replace(/\s+/g, " ").trim()
@@ -94,9 +108,9 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
    * the field stays blank rather than guessing.
    */
   const guessWorkType = (short: string, description: string): WorkType | undefined => {
-    const hybridPhrase = /hybrid (?:work|working|schedule|setup|set-up|model|arrangement|role|position)|(?:work|working) hybrid/i
-    const remotePhrase = /work from home|\bwfh\b|fully remote|100% remote|remote[- ]first|fully[- ]distributed/i
-    const onsitePhrase = /on-?site only|onsite only|office-?based|fully on-?site/i
+    const hybridPhrase = /hybrid(?:[- ](?:remote|work|working|schedule|setup|set-?up|model|arrangement|role|position|schedule))|(?:work|working) hybrid|hybrid\/remote|remote\/hybrid/i
+    const remotePhrase = /work from home|work (?:remotely|remote)|\bwfh\b|fully remote|100% remote|remote[- ]first|fully[- ]distributed|remote[- ]friendly|remote (?:ok|okay|allowed|option|available|possible)|location independence|work anywhere/i
+    const onsitePhrase = /on-?site only|onsite only|office-?based|fully on-?site|5 days in office|in-?office (?:only|required|role|position)|must be (?:on-?site|in office)/i
 
     if (/\bhybrid\b/i.test(short) || hybridPhrase.test(description)) return "HYBRID"
     if (/work from home|\bwfh\b|fully remote|\bremote\b/i.test(short)) return "REMOTE"
@@ -110,7 +124,16 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
     let num: number | undefined
     if (typeof value === "number") num = value
     else if (typeof value === "string") {
-      const cleaned = value.replace(/[^0-9.]/g, "")
+      const raw = value.trim()
+      const scaled = /^\$?\s*([0-9][0-9,.]*(?:\.[0-9]+)?)\s*([kKmM])\b/.exec(raw)
+      if (scaled) {
+        const base = Number(scaled[1].replace(/,/g, ""))
+        if (Number.isFinite(base) && base > 0) {
+          const mult = scaled[2].toLowerCase() === "m" ? 1000000 : 1000
+          return Math.round(base * mult)
+        }
+      }
+      const cleaned = raw.replace(/[^0-9.]/g, "")
       num = cleaned.length > 0 ? Number(cleaned) : undefined
     }
     if (num === undefined || !Number.isFinite(num) || num <= 0) return undefined
@@ -353,7 +376,7 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
   }
 
   const meta = (selector: string): string | undefined => {
-    const el = doc.querySelector(selector)
+    const el = cachedQuery(selector)
     return text(el?.getAttribute("content"))
   }
 
@@ -371,10 +394,10 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
    * as the text does.
    */
   const readMicrodataOrganization = (): string | undefined => {
-    const named = doc.querySelector('[itemprop="hiringOrganization"] [itemprop="name"]')
+    const named = cachedQuery('[itemprop="hiringOrganization"] [itemprop="name"]')
     const fromNamed = text(named?.getAttribute("content")) ?? elementText(named)
     if (fromNamed) return fromNamed
-    const org = doc.querySelector('[itemprop="hiringOrganization"]')
+    const org = cachedQuery('[itemprop="hiringOrganization"]')
     const fromOrg = text(org?.getAttribute("content")) ?? elementText(org)
     // The bare element wraps the whole employer block on some boards; only a
     // value short enough to be a name is one.
@@ -426,13 +449,13 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
     // parts gives the same place said once.
     const addressParts: string[] = []
     for (const prop of ["addressLocality", "addressRegion", "addressCountry"]) {
-      const part = elementText(doc.querySelector(`[itemprop="${prop}"]`))
+      const part = elementText(cachedQuery(`[itemprop="${prop}"]`))
       if (part && part.length <= 80 && !addressParts.includes(part)) addressParts.push(part)
     }
     if (addressParts.length > 0) return addressParts.join(", ").slice(0, 200)
 
     const itemprop = withoutLocationLabel(
-      elementText(doc.querySelector('[itemprop="jobLocation"]')) ?? ""
+      elementText(cachedQuery('[itemprop="jobLocation"]')) ?? ""
     )
     if (itemprop.length >= 2 && itemprop.length <= 200) return itemprop
 
@@ -514,6 +537,65 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
     if (deadline) result.deadline = deadline
   }
 
+  /**
+   * Board-specific DOM fallbacks for Greenhouse / Lever / Ashby / Workday, which
+   * publish thin or no JSON-LD. Runs before the generic heading split so a board
+   * layout wins over a guessed "Title - Company" split.
+   */
+  const readBoardDom = (): { title?: string; company?: string; description?: string } => {
+    const pick = (selectors: string[], max = 200): string | undefined => {
+      for (const selector of selectors) {
+        const node = cachedQuery(selector)
+        if (!node) continue
+        const value = elementText(node)
+        if (value && value.length >= 2 && value.length <= max) return value
+      }
+      return undefined
+    }
+    const title = pick([
+      '[data-automation-id="jobPostingHeader"]',
+      ".posting-headline h2",
+      ".app-title",
+      "h1",
+      '[class*="job-title" i]',
+    ])
+    const company = pick([
+      '[data-automation-id="company"]',
+      ".company-name",
+      '[class*="company-name" i]',
+      '[class*="company" i]',
+    ], 120)
+    const description = (() => {
+      const node = (() => {
+        for (const selector of [
+          '[data-automation-id="jobPostingDescription"]',
+          ".posting-page",
+          "#app-body",
+          '[class*="job-description" i]',
+          "main",
+        ]) {
+          const found = cachedQuery(selector)
+          if (found) return found
+        }
+        return null
+      })()
+      const value = elementText(node)
+      return value && value.length >= 80 ? value.slice(0, MAX_DESCRIPTION) : undefined
+    })()
+    return { ...(title ? { title } : {}), ...(company ? { company } : {}), ...(description ? { description } : {}) }
+  }
+
+  const boardDom = readBoardDom()
+  if (!result.jobTitle && boardDom.title && !looksLikeSeniorityBand(boardDom.title)) {
+    result.jobTitle = boardDom.title.slice(0, 200)
+  }
+  if (!result.companyName && boardDom.company && !looksLikeSeniorityBand(boardDom.company)) {
+    result.companyName = boardDom.company.slice(0, 200)
+  }
+  if (!result.jobDescription && boardDom.description) {
+    result.jobDescription = boardDom.description
+  }
+
   // --- Fallbacks for anything structured data did not provide -----------------
 
   const ogTitle = meta('meta[property="og:title"], meta[name="og:title"]')
@@ -528,8 +610,9 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
     heading: string | undefined
   ): { title?: string; company?: string } => {
     if (!heading) return {}
-    const parts = heading
-      .split(/\s+(?:-|\||–|—|·|at)\s+/i)
+    const cleaned = heading.replace(/\s*\[[^\]]*\]\s*/g, " ").replace(/\s+/g, " ").trim()
+    const parts = cleaned
+      .split(/\s+(?:-|\||–|—|·|•|»|\/\/|@|at)\s+/i)
       .map((part) => part.trim())
       .filter((part) => part.length > 0)
     if (parts.length === 0) return {}

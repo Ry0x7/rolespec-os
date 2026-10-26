@@ -48,6 +48,29 @@ export type SaveResult =
       message: string
     }
 
+const SAVE_TIMEOUT_MS = 20000
+const SAVE_MAX_ATTEMPTS = 3
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  attempts: number
+): Promise<Response> {
+  let lastError: unknown = null
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })
+    } catch (error) {
+      lastError = error
+      if (attempt < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 400 * 2 ** attempt))
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("fetch failed")
+}
+
 /**
  * POST /api/extension/jobs — the only network call the extension makes, and only
  * in response to the user pressing Save.
@@ -58,14 +81,19 @@ export async function postJob(
 ): Promise<SaveResult> {
   let response: Response
   try {
-    response = await fetch(`${settings.appUrl}/api/extension/jobs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.apiToken}`,
+    response = await fetchWithRetry(
+      `${settings.appUrl}/api/extension/jobs`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${settings.apiToken}`,
+        },
+        body: JSON.stringify(job),
       },
-      body: JSON.stringify(job),
-    })
+      SAVE_TIMEOUT_MS,
+      SAVE_MAX_ATTEMPTS
+    )
   } catch {
     return {
       ok: false,
@@ -672,15 +700,19 @@ export function parseQualifyResponse(value: unknown): { profileComplete: boolean
 export async function qualifyPostings(settings: Settings, postings: QualifyPosting[]): Promise<QualifyResult> {
   let response: Response
   try {
-    response = await fetch(`${settings.appUrl}/api/extension/qualify`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.apiToken}`,
+    response = await fetchWithRetry(
+      `${settings.appUrl}/api/extension/qualify`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${settings.apiToken}`,
+        },
+        body: JSON.stringify({ postings: postings.slice(0, MAX_QUALIFY_POSTINGS) }),
       },
-      body: JSON.stringify({ postings: postings.slice(0, MAX_QUALIFY_POSTINGS) }),
-      signal: AbortSignal.timeout(QUALIFY_TIMEOUT_MS),
-    })
+      QUALIFY_TIMEOUT_MS,
+      2
+    )
   } catch {
     return { ok: false, reason: "network" }
   }

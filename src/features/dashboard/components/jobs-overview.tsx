@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { memo, type ReactNode } from "react"
 import Link from "next/link"
 import {
   BellRing,
@@ -58,7 +58,7 @@ const EVENT_TYPE_CONFIG: Record<
   todo: { icon: ListChecks, className: "text-blue-400", label: "Task" },
 }
 
-function EventRow({ event, todayStart }: { event: UpcomingEvent; todayStart: Date }) {
+const EventRow = memo(function EventRow({ event, todayStart }: { event: UpcomingEvent; todayStart: Date }) {
   const days = calendarDaysBetween(todayStart, event.date)
   const { icon: Icon, className, label } = EVENT_TYPE_CONFIG[event.type]
   // Deadlines, follow-ups and todo due dates are calendar dates and must render
@@ -70,7 +70,7 @@ function EventRow({ event, todayStart }: { event: UpcomingEvent; todayStart: Dat
   return (
     <li className="flex items-center gap-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
-        <Icon className={`h-4 w-4 ${className}`} />
+        <Icon className={`h-4 w-4 ${className}`} aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
         <Link
@@ -93,13 +93,13 @@ function EventRow({ event, todayStart }: { event: UpcomingEvent; todayStart: Dat
       </div>
     </li>
   )
-}
+})
 
 /**
  * Every status with its count, including the empty ones — a fixed row is easier
  * to read at a glance than one that reshuffles as the pipeline changes.
  */
-function StatusStrip({ counts }: { counts: StatusCount[] }) {
+const StatusStrip = memo(function StatusStrip({ counts }: { counts: StatusCount[] }) {
   return (
     <ul className="grid grid-cols-4 gap-x-3 gap-y-2 sm:grid-cols-7">
       {counts.map(({ status, count }) => (
@@ -118,7 +118,7 @@ function StatusStrip({ counts }: { counts: StatusCount[] }) {
       ))}
     </ul>
   )
-}
+})
 
 export function JobsOverview({
   todayStart,
