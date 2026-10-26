@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
@@ -46,6 +46,56 @@ const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string }[] = [
 const TOTAL_STEPS = 4
 
 const DRAFT_KEY = "rolespec-onboarding-draft-v1"
+
+interface OnboardingDraft {
+  currentRole?: string
+  targetRole?: string
+  experienceLevel?: ExperienceLevel | ""
+  goalTarget?: string
+  goalPeriod?: GoalPeriod
+  step?: number
+}
+
+type DraftEdits = Partial<OnboardingDraft>
+
+/**
+ * The saved draft is external state, read through useSyncExternalStore: the
+ * server snapshot is `null` so the first client render matches the server
+ * markup, and the stored draft appears only after hydration.
+ */
+function readDraft(): string | null {
+  try {
+    return window.localStorage.getItem(DRAFT_KEY)
+  } catch {
+    return null
+  }
+}
+
+function subscribeToDraft(): () => void {
+  // The draft is only read on mount; this component is its sole writer, so
+  // there is nothing external to hear from.
+  return () => {}
+}
+
+function getEmptyDraft(): string | null {
+  return null
+}
+
+function parseDraft(raw: string | null): OnboardingDraft | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    return parsed && typeof parsed === "object" ? (parsed as OnboardingDraft) : null
+  } catch {
+    // Corrupt draft: ignore and continue with server values.
+    return null
+  }
+}
+
+/** Mount flag: false on the server and during hydration, true afterwards. */
+function subscribeToNothing(): () => void {
+  return () => {}
+}
 
 /** Smart defaults: seniors default to a lighter, higher-signal weekly goal. */
 function smartGoalFor(level: ExperienceLevel | ""): { target: string; period: GoalPeriod } {
@@ -93,47 +143,43 @@ export function OnboardingWizard({
 }: OnboardingWizardProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [step, setStep] = useState(1)
 
-  // Restore a locally saved draft once (server props win when non-empty).
-  const [hydrated, setHydrated] = useState(false)
-  const [currentRole, setCurrentRole] = useState(initialCurrentRole)
-  const [targetRole, setTargetRole] = useState(initialTargetRole)
-  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | "">(
-    initialExperienceLevel
-  )
+  // Draft values are derived, never copied into state: user edits live in
+  // `edits` layered over (server props → saved draft → smart defaults), so a
+  // restore needs no effect and the first client render stays server-shaped.
+  const hydrated = useSyncExternalStore(subscribeToNothing, () => true, () => false)
+  const rawDraft = useSyncExternalStore(subscribeToDraft, readDraft, getEmptyDraft)
+  const draft = useMemo(() => parseDraft(rawDraft), [rawDraft])
+  const [edits, setEdits] = useState<DraftEdits>({})
+
   const smart = smartGoalFor(initialExperienceLevel)
-  const [goalTarget, setGoalTarget] = useState(
-    initialGoalTarget ? String(initialGoalTarget) : smart.target
-  )
-  const [goalPeriod, setGoalPeriod] = useState<GoalPeriod>(initialGoalPeriod ?? smart.period)
+  const currentRole = edits.currentRole ?? (initialCurrentRole || draft?.currentRole || "")
+  const targetRole = edits.targetRole ?? (initialTargetRole || draft?.targetRole || "")
+  const experienceLevel =
+    edits.experienceLevel ?? (initialExperienceLevel || draft?.experienceLevel || "")
+  const goalTarget =
+    edits.goalTarget ??
+    (draft?.goalTarget || (initialGoalTarget ? String(initialGoalTarget) : smart.target))
+  const goalPeriod = edits.goalPeriod ?? draft?.goalPeriod ?? initialGoalPeriod ?? smart.period
+  const step =
+    edits.step ??
+    (draft?.step && draft.step >= 1 && draft.step <= TOTAL_STEPS ? draft.step : 1)
 
-  useEffect(() => {
-    if (hydrated) return
-    setHydrated(true)
-    try {
-      const raw = window.localStorage.getItem(DRAFT_KEY)
-      if (!raw) return
-      const draft = JSON.parse(raw) as Partial<{
-        currentRole: string
-        targetRole: string
-        experienceLevel: ExperienceLevel | ""
-        goalTarget: string
-        goalPeriod: GoalPeriod
-        step: number
-      }>
-      if (!initialCurrentRole && draft.currentRole) setCurrentRole(draft.currentRole)
-      if (!initialTargetRole && draft.targetRole) setTargetRole(draft.targetRole)
-      if (!initialExperienceLevel && draft.experienceLevel)
-        setExperienceLevel(draft.experienceLevel)
-      if (draft.goalTarget) setGoalTarget(draft.goalTarget)
-      if (draft.goalPeriod) setGoalPeriod(draft.goalPeriod)
-      if (draft.step && draft.step >= 1 && draft.step <= TOTAL_STEPS) setStep(draft.step)
-    } catch {
-      // Corrupt draft: ignore and continue with server values.
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  function setCurrentRole(next: string) {
+    setEdits((prev) => ({ ...prev, currentRole: next }))
+  }
+
+  function setTargetRole(next: string) {
+    setEdits((prev) => ({ ...prev, targetRole: next }))
+  }
+
+  function setGoalTarget(next: string) {
+    setEdits((prev) => ({ ...prev, goalTarget: next }))
+  }
+
+  function setGoalPeriod(next: GoalPeriod) {
+    setEdits((prev) => ({ ...prev, goalPeriod: next }))
+  }
 
   // Persist progress locally on every change so "finish later" resumes instantly.
   useEffect(() => {
@@ -166,7 +212,7 @@ export function OnboardingWizard({
   const [saveError, setSaveError] = useState<string | null>(null)
 
   function goTo(next: number) {
-    setStep(next)
+    setEdits((prev) => ({ ...prev, step: next }))
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
@@ -203,11 +249,14 @@ export function OnboardingWizard({
   }
 
   function handleLevelChange(next: ExperienceLevel | "") {
-    setExperienceLevel(next)
     // Smart default: only fill the goal when the user hasn't customised it.
     const smartNext = smartGoalFor(next)
-    setGoalTarget((prev) => (prev.trim() === "" ? smartNext.target : prev))
-    setGoalPeriod((prev) => prev ?? smartNext.period)
+    setEdits((prev) => ({
+      ...prev,
+      experienceLevel: next,
+      goalTarget: goalTarget.trim() === "" ? smartNext.target : goalTarget,
+      goalPeriod,
+    }))
   }
 
   function handleSaveAndTest() {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useSyncExternalStore, useState } from "react"
 import Link from "next/link"
 import { Briefcase, Plus, Target, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
@@ -29,16 +29,58 @@ interface GoalsTrackerProps {
 
 const STORAGE_KEY = "rolespec.planner.goals.v1"
 
-function loadGoals(): Goal[] {
+function parseGoals(raw: string | null): Goal[] {
+  if (!raw) return []
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
     const parsed = JSON.parse(raw) as Goal[]
     if (!Array.isArray(parsed)) return []
     return parsed.filter((g) => typeof g?.label === "string" && typeof g?.target === "number")
   } catch {
     return []
   }
+}
+
+/**
+ * Saved goals live in localStorage, read through `useSyncExternalStore`: the
+ * server snapshot is the empty list the server markup (and hydration) renders,
+ * the client snapshot is whatever is stored. Parsing is memoised by raw string
+ * so the snapshot stays referentially stable — a fresh array on every call
+ * would re-render forever.
+ */
+const EMPTY_GOALS: Goal[] = []
+let cachedRaw: string | null = null
+let cachedGoals: Goal[] = EMPTY_GOALS
+
+function getGoalsSnapshot(): Goal[] {
+  let raw: string | null = null
+  try {
+    raw = localStorage.getItem(STORAGE_KEY)
+  } catch {
+    raw = null
+  }
+  if (raw !== cachedRaw) {
+    cachedRaw = raw
+    cachedGoals = parseGoals(raw)
+  }
+  return cachedGoals
+}
+
+function getServerGoalsSnapshot(): Goal[] {
+  return EMPTY_GOALS
+}
+
+/** Every edit is local to this component, so there is nothing to subscribe to. */
+function subscribeNever(): () => void {
+  return () => {}
+}
+
+let goalSeq = 0
+
+/** Stable id per goal; the counter is only a fallback for old browsers. */
+function newGoalId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID()
+  goalSeq += 1
+  return `goal-${goalSeq}`
 }
 
 const SUGGESTIONS: Omit<Goal, "id">[] = [
@@ -53,31 +95,41 @@ const SUGGESTIONS: Omit<Goal, "id">[] = [
  * can hang off a tracked application so the planner ties back to the pipeline.
  */
 export function GoalsTracker({ jobOptions, openTodos, completedTodos }: GoalsTrackerProps) {
-  const [goals, setGoals] = useState<Goal[]>([])
+  const storedGoals = useSyncExternalStore(
+    subscribeNever,
+    getGoalsSnapshot,
+    getServerGoalsSnapshot
+  )
+  // Null until the first edit: the stored list shows through untouched, so
+  // mounting never copies storage into state (and never rewrites it).
+  const [editedGoals, setEditedGoals] = useState<Goal[] | null>(null)
+  const goals = editedGoals ?? storedGoals
   const [label, setLabel] = useState("")
   const [target, setTarget] = useState("5")
   const [jobId, setJobId] = useState("")
-  const [hydrated, setHydrated] = useState(false)
+
+  function updateGoals(update: (current: Goal[]) => Goal[]): void {
+    setEditedGoals((current) => update(current ?? storedGoals))
+  }
 
   useEffect(() => {
-    setGoals(loadGoals())
-    setHydrated(true)
-  }, [])
-
-  useEffect(() => {
-    if (!hydrated) return
     // Debounced persist: rapid +/- taps write once, avoiding a synchronous
     // localStorage write (and re-render churn) per click. No waterfall — the
-    // in-memory `goals` state updates instantly; only persistence is deferred.
+    // in-memory `goals` value updates instantly; only persistence is deferred.
     const timer = window.setTimeout(() => {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(goals))
+        const next = JSON.stringify(goals)
+        // Skip identical writes: the mount pass renders the empty server
+        // snapshot, and this guard keeps it from clobbering stored goals
+        // before the hydrated snapshot lands.
+        if (localStorage.getItem(STORAGE_KEY) === next) return
+        localStorage.setItem(STORAGE_KEY, next)
       } catch {
         // Private-mode storage can throw; goals just won't persist.
       }
     }, 250)
     return () => window.clearTimeout(timer)
-  }, [goals, hydrated])
+  }, [goals])
 
   const jobById = useMemo(() => new Map(jobOptions.map((j) => [j.id, j])), [jobOptions])
   const { totalTarget, totalCurrent } = useMemo(() => ({
@@ -92,8 +144,8 @@ export function GoalsTracker({ jobOptions, openTodos, completedTodos }: GoalsTra
       toast.error("Give the goal a name and a target above 0.")
       return
     }
-    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `goal-${Date.now()}`
-    setGoals((current) => [
+    const id = newGoalId()
+    updateGoals((current) => [
       ...current,
       {
         id,
@@ -112,7 +164,7 @@ export function GoalsTracker({ jobOptions, openTodos, completedTodos }: GoalsTra
   }
 
   function bump(id: string, delta: number) {
-    setGoals((current) =>
+    updateGoals((current) =>
       current.map((g) =>
         g.id === id ? { ...g, current: Math.max(0, Math.min(g.target + 2, g.current + delta)) } : g
       )
@@ -120,7 +172,7 @@ export function GoalsTracker({ jobOptions, openTodos, completedTodos }: GoalsTra
   }
 
   function remove(id: string) {
-    setGoals((current) => current.filter((g) => g.id !== id))
+    updateGoals((current) => current.filter((g) => g.id !== id))
   }
 
   return (
