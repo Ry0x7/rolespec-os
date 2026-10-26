@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  memo,
   useRef,
   useSyncExternalStore,
   type HTMLAttributes,
@@ -41,7 +42,7 @@ export interface DialogProps {
  * work; use `DialogHeader` / `DialogBody` / `DialogFooter` when the content can
  * outgrow the viewport, so only the body scrolls and the footer stays put.
  */
-export function Dialog({
+export const Dialog = memo(function Dialog({
   open,
   onClose,
   children,
@@ -51,7 +52,7 @@ export function Dialog({
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledBy,
 }: DialogProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
   // False during SSR and the first client render, true afterwards — the portal
   // target only exists in the browser.
   const mounted = useSyncExternalStore(subscribeToNothing, () => true, () => false)
@@ -97,7 +98,7 @@ export function Dialog({
     </div>,
     document.body
   )
-}
+})
 
 /**
  * The slots below cancel the panel's own padding on the axes they own, so a

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, Pencil, X, Check, StickyNote, Search } from "lucide-react"
 import { toast } from "sonner"
@@ -47,9 +47,11 @@ export function NotesList({ notes }: NotesListProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   const needle = query.trim().toLowerCase()
-  const filtered = needle
-    ? notes.filter((note) => note.content.toLowerCase().includes(needle))
-    : notes
+  const filtered = useMemo(
+    () =>
+      needle ? notes.filter((note) => note.content.toLowerCase().includes(needle)) : notes,
+    [needle, notes]
+  )
   // A new search goes back to page 1; a delete on the last page clamps.
   const paged = usePagedList(filtered, { pageSize: NOTES_PAGE_SIZE, resetKey: needle })
 

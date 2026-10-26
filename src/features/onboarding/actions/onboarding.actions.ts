@@ -21,6 +21,53 @@ function blankToUndefined(value: string | undefined) {
   return trimmed ? trimmed : undefined
 }
 
+/**
+ * Low-friction draft save: persists profile progress without marking
+ * onboarding complete, so the user can "Save & finish later" and resume
+ * where they left off. Never sets `onboardedAt`.
+ */
+export async function saveOnboardingDraft(input: CompleteOnboardingInput) {
+  const session = await auth()
+  if (!session?.user?.id) return { error: "Unauthorized" }
+
+  const parsed = completeOnboardingSchema.safeParse({
+    ...input,
+    currentRole: blankToUndefined(input.currentRole),
+    targetRole: blankToUndefined(input.targetRole),
+  })
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" }
+  }
+
+  const { currentRole, targetRole, experienceLevel, applicationGoalTarget, applicationGoalPeriod } =
+    parsed.data
+
+  try {
+    await prisma.playerProfile.upsert({
+      where: { userId: session.user.id },
+      create: {
+        userId: session.user.id,
+        ...(currentRole !== undefined && { currentRole }),
+        ...(targetRole !== undefined && { targetRole }),
+        ...(experienceLevel !== undefined && { experienceLevel }),
+        ...(applicationGoalTarget !== undefined && { applicationGoalTarget }),
+        ...(applicationGoalPeriod !== undefined && { applicationGoalPeriod }),
+      },
+      update: {
+        ...(currentRole !== undefined && { currentRole }),
+        ...(targetRole !== undefined && { targetRole }),
+        ...(experienceLevel !== undefined && { experienceLevel }),
+        ...(applicationGoalTarget !== undefined && { applicationGoalTarget }),
+        ...(applicationGoalPeriod !== undefined && { applicationGoalPeriod }),
+      },
+    })
+    revalidatePath("/onboarding")
+    return { success: true as const }
+  } catch {
+    return { error: "Something went wrong. Please try again." }
+  }
+}
+
 export async function completeOnboarding(input: CompleteOnboardingInput) {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }

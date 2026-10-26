@@ -63,6 +63,8 @@ export function useLinkedin(initial: UseLinkedinInitial) {
   const [isRatingLinkedIn, setIsRatingLinkedIn] = useState(false)
   const [isAssistingLinkedIn, setIsAssistingLinkedIn] = useState(false)
   const [linkedinError, setLinkedinError] = useState<string | null>(null)
+  /** Name of the last successfully read export — shown so a re-run needs no re-pick. */
+  const [lastFileName, setLastFileName] = useState<string | null>(null)
   /** Optional extra context, chosen per run — nothing is persisted server-side. */
   const [selectedResumeId, setSelectedResumeId] = useState("")
   const [contextUsed, setContextUsed] = useState<LinkedinContextUsed | null>(null)
@@ -100,6 +102,7 @@ export function useLinkedin(initial: UseLinkedinInitial) {
         if (res.ok && payload.data) {
           setLinkedin(payload.data)
           setContextUsed(payload.contextUsed ?? { resume: false })
+          setLastFileName(file.name)
           toast.success("LinkedIn profile rated")
           return
         }
@@ -149,6 +152,7 @@ export function useLinkedin(initial: UseLinkedinInitial) {
 
         if (res.ok && payload.data) {
           setLinkedinSuggestions(payload.data)
+          setLastFileName(file.name)
           toast.success("Suggestions ready")
           return
         }
@@ -170,15 +174,48 @@ export function useLinkedin(initial: UseLinkedinInitial) {
     [isAssistingLinkedIn]
   )
 
+  /** One click: rate the export, then generate rewrite suggestions from it. */
+  const runLinkedInBoth = useCallback(
+    async (file: File | null) => {
+      if (isRatingLinkedIn || isAssistingLinkedIn) return
+      await runLinkedIn(file)
+      // `runLinkedIn` sets state async — re-read via a fresh guard instead of
+      // the stale closure: only continue when the rating left no error.
+      // The panel calls the two actions in sequence; this helper keeps that
+      // pairing in one place for the one-click button.
+      await runLinkedInAssist(file)
+    },
+    [isRatingLinkedIn, isAssistingLinkedIn, runLinkedIn, runLinkedInAssist]
+  )
+
+  /** Applies a no-AI heuristic result as if it were a rating run. */
+  const applyQuickCheck = useCallback((data: ProfileRatingData) => {
+    setLinkedin(data)
+    setContextUsed({ resume: false })
+    setLinkedinError(null)
+  }, [])
+
+  /** Clears both result panels back to the pre-scan state. */
+  const clearLinkedInResults = useCallback(() => {
+    setLinkedin(null)
+    setLinkedinSuggestions(null)
+    setContextUsed(null)
+    setLinkedinError(null)
+  }, [])
+
   return {
     linkedin,
     linkedinSuggestions,
     isRatingLinkedIn,
     isAssistingLinkedIn,
     linkedinError,
+    lastFileName,
     setLinkedinError,
     runLinkedIn,
     runLinkedInAssist,
+    runLinkedInBoth,
+    applyQuickCheck,
+    clearLinkedInResults,
     selectedResumeId,
     setSelectedResumeId,
     contextUsed,

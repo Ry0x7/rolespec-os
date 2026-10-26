@@ -7,7 +7,27 @@ import type { ResumeCustomization } from "../types/customization"
  * classes so an arbitrary accent hex works without generating classes at
  * runtime — dynamic Tailwind class names never make it into the compiled CSS.
  */
-export type TemplateVariant = "MINIMAL" | "MODERN" | "HARVARD" | "CORPORATE"
+export type TemplateVariant =
+  | "MINIMAL"
+  | "MODERN"
+  | "HARVARD"
+  | "CORPORATE"
+  | "EXECUTIVE"
+  | "CREATIVE"
+  | "TECH"
+  | "ELEGANT"
+
+/** Every variant the editor, preview and export layers accept. */
+export const TEMPLATE_VARIANTS: TemplateVariant[] = [
+  "MINIMAL",
+  "MODERN",
+  "HARVARD",
+  "CORPORATE",
+  "EXECUTIVE",
+  "CREATIVE",
+  "TECH",
+  "ELEGANT",
+]
 
 /**
  * Structural (not colour) differences between the four templates. The preview
@@ -30,6 +50,10 @@ const TEMPLATE_LAYOUTS: Record<TemplateVariant, TemplateLayout> = {
   MODERN: { header: "accent-bar", heading: "accent-bar", skills: "pills", entry: "accent-role" },
   HARVARD: { header: "centered", heading: "rule", skills: "lines", entry: "academic" },
   CORPORATE: { header: "banner", heading: "chip", skills: "grid", entry: "structured" },
+  EXECUTIVE: { header: "centered", heading: "chip", skills: "lines", entry: "structured" },
+  CREATIVE: { header: "accent-bar", heading: "accent-bar", skills: "pills", entry: "accent-role" },
+  TECH: { header: "banner", heading: "accent-bar", skills: "grid", entry: "single-line" },
+  ELEGANT: { header: "left", heading: "rule", skills: "inline", entry: "academic" },
 }
 
 export interface TemplateStyles {
@@ -206,6 +230,108 @@ export const TEMPLATE_STYLES: Record<string, TemplateBase> = {
     compact: {
       heading: `font-bold uppercase tracking-widest border-b pb-0.5 ${HEADING_COLOR_CLASS} ${BORDER_COLOR_CLASS}`,
       name: `font-bold uppercase tracking-wide ${NAME_CLASS_SUFFIX}`,
+      paddingPx: 28,
+      gapPx: 12,
+      fontSizePx: 10.5,
+      headingSizePx: 10,
+      nameSizePx: 18,
+      ...COMPACT_SPACING,
+    },
+  },
+  EXECUTIVE: {
+    fontClass: "font-serif",
+    colors: {
+      name: "#1c1917",
+      heading: "#92400e",
+      border: "#d6d3d1",
+      muted: "#57534e",
+      headingBg: "#fafaf9",
+    },
+    normal: {
+      heading: `font-bold uppercase tracking-widest px-2 py-1 ${HEADING_COLOR_CLASS} bg-[color:var(--resume-heading-bg)]`,
+      name: `font-bold tracking-tight ${NAME_CLASS_SUFFIX}`,
+      paddingPx: 36,
+      gapPx: 18,
+      fontSizePx: 11,
+      headingSizePx: 11,
+      nameSizePx: 22,
+      ...NORMAL_SPACING,
+    },
+    compact: {
+      heading: `font-bold uppercase tracking-widest px-2 py-0.5 ${HEADING_COLOR_CLASS} bg-[color:var(--resume-heading-bg)]`,
+      name: `font-bold tracking-tight ${NAME_CLASS_SUFFIX}`,
+      paddingPx: 26,
+      gapPx: 12,
+      fontSizePx: 10.5,
+      headingSizePx: 10,
+      nameSizePx: 19,
+      ...COMPACT_SPACING,
+    },
+  },
+  CREATIVE: {
+    fontClass: "font-sans",
+    colors: { name: "#4c1d95", heading: "#7c3aed", border: "#ddd6fe", muted: "#6d28d9" },
+    normal: {
+      heading: `flex items-center gap-2 font-bold uppercase tracking-wide ${HEADING_COLOR_CLASS}`,
+      name: `font-bold tracking-tight ${NAME_CLASS_SUFFIX}`,
+      paddingPx: 32,
+      gapPx: 20,
+      fontSizePx: 11,
+      headingSizePx: 12,
+      nameSizePx: 24,
+      ...NORMAL_SPACING,
+    },
+    compact: {
+      heading: `flex items-center gap-2 font-bold uppercase tracking-wide ${HEADING_COLOR_CLASS}`,
+      name: `font-bold tracking-tight ${NAME_CLASS_SUFFIX}`,
+      paddingPx: 24,
+      gapPx: 12,
+      fontSizePx: 10.5,
+      headingSizePx: 10,
+      nameSizePx: 20,
+      ...COMPACT_SPACING,
+    },
+  },
+  TECH: {
+    fontClass: "font-sans",
+    colors: { name: "#0f172a", heading: "#0e7490", border: "#a5f3fc", muted: "#0e7490" },
+    normal: {
+      heading: `flex items-center gap-2 font-bold uppercase tracking-wide ${HEADING_COLOR_CLASS}`,
+      name: `font-bold tracking-tight ${NAME_CLASS_SUFFIX}`,
+      paddingPx: 28,
+      gapPx: 18,
+      fontSizePx: 10.5,
+      headingSizePx: 11,
+      nameSizePx: 20,
+      ...NORMAL_SPACING,
+    },
+    compact: {
+      heading: `flex items-center gap-2 font-bold uppercase tracking-wide ${HEADING_COLOR_CLASS}`,
+      name: `font-bold tracking-tight ${NAME_CLASS_SUFFIX}`,
+      paddingPx: 22,
+      gapPx: 10,
+      fontSizePx: 10,
+      headingSizePx: 10,
+      nameSizePx: 18,
+      ...COMPACT_SPACING,
+    },
+  },
+  ELEGANT: {
+    fontClass: "font-serif",
+    colors: { name: "#3f3f46", heading: "#52525b", border: "#e4e4e7", muted: "#71717a" },
+    normal: {
+      heading: `font-bold uppercase tracking-widest border-b pb-1 ${HEADING_COLOR_CLASS} ${BORDER_COLOR_CLASS}`,
+      name: `font-bold tracking-tight ${NAME_CLASS_SUFFIX}`,
+      paddingPx: 40,
+      gapPx: 18,
+      fontSizePx: 11,
+      headingSizePx: 11,
+      nameSizePx: 21,
+      ...NORMAL_SPACING,
+    },
+    compact: {
+      heading: `font-bold uppercase tracking-widest border-b pb-0.5 ${HEADING_COLOR_CLASS} ${BORDER_COLOR_CLASS}`,
+      name: `font-bold tracking-tight ${NAME_CLASS_SUFFIX}`,
       paddingPx: 28,
       gapPx: 12,
       fontSizePx: 10.5,

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { memo, useMemo } from "react"
 import { cn } from "@/shared/lib/utils"
 import { LogoMark } from "@/features/marketing/components/logo-mark"
 import { navigationGroups, footerNavigation } from "@/config/navigation"
@@ -26,7 +27,7 @@ function getActiveHref(pathname: string): string | null {
   return active
 }
 
-function NavLink({
+const NavLink = memo(function NavLink({
   href,
   label,
   icon: Icon,
@@ -61,12 +62,12 @@ function NavLink({
       {label}
     </Link>
   )
-}
+})
 
 /** Sidebar contents, shared by the fixed desktop rail and the mobile drawer. */
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export const SidebarNav = memo(function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  const activeHref = getActiveHref(pathname)
+  const activeHref = useMemo(() => getActiveHref(pathname), [pathname])
 
   return (
     <>
@@ -104,6 +105,9 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="shrink-0 space-y-1 border-t border-border px-3 py-4">
+        <p className="hidden px-2 pb-2 text-[11px] text-muted-foreground lg:block">
+          Press <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">⌘K</kbd> for quick actions · <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">?</kbd> for shortcuts
+        </p>
         {footerNavigation.map((item) => (
           <NavLink
             key={item.href}
@@ -117,12 +121,12 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       </div>
     </>
   )
-}
+})
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-[var(--z-sidebar)] hidden h-screen w-60 flex-col border-r border-border bg-sidebar lg:flex">
       <SidebarNav />
     </aside>
   )
-}
+})

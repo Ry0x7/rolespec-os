@@ -10,14 +10,26 @@ import { useResumeStore, type ResumeData, type LastExport } from "../hooks/use-r
 import { useAutosave } from "../hooks/use-autosave"
 import { useUnsavedGuard } from "../hooks/use-unsaved-guard"
 import { getJobDescriptionForResume } from "../actions/get-job-description"
+import dynamic from "next/dynamic"
 import { SectionPanel } from "./section-panel"
 import { type JobOption } from "./job-target-panel"
-import { JobTargetDrawer } from "./job-target-drawer"
 import { ResumePreview } from "./resume-preview"
-import { ResumePreviewSheet } from "./resume-preview-sheet"
-import { ATSDrawer } from "./ats-drawer"
-import { EnhanceDrawer } from "./enhance-drawer"
 import { EditorHeader } from "./editor-header"
+
+// AI inspectors + mobile sheet load on demand so the first paint ships only
+// the editing pane + preview. Each is client-only and opens via
+// `openInspector`, so a placeholder-free dynamic import never shifts layout.
+const JobTargetDrawer = dynamic(() => import("./job-target-drawer").then((m) => m.JobTargetDrawer), {
+  ssr: false,
+})
+const ATSDrawer = dynamic(() => import("./ats-drawer").then((m) => m.ATSDrawer), { ssr: false })
+const EnhanceDrawer = dynamic(() => import("./enhance-drawer").then((m) => m.EnhanceDrawer), {
+  ssr: false,
+})
+const ResumePreviewSheet = dynamic(
+  () => import("./resume-preview-sheet").then((m) => m.ResumePreviewSheet),
+  { ssr: false }
+)
 
 /**
  * Tailwind's default `xl` breakpoint — keep in sync with the `xl:` classes below.
@@ -131,6 +143,19 @@ export function ResumeEditor({
   // from here instead.
   const { performSave } = useAutosave()
   useUnsavedGuard()
+
+  // Ctrl/Cmd+S saves without leaving the keyboard — browsers would otherwise
+  // open the Save-page dialog and the keystroke would be lost.
+  useEffect(() => {
+    function handleSaveShortcut(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault()
+        performSave()
+      }
+    }
+    window.addEventListener("keydown", handleSaveShortcut)
+    return () => window.removeEventListener("keydown", handleSaveShortcut)
+  }, [performSave])
 
   // Single source of truth for where `ResumePreview` mounts: the inline pane
   // at `xl` and up, the sheet below it — never both, so there is only ever

@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { cookies } from "next/headers"
 import { MAX_TZ_OFFSET_MINUTES, TZ_OFFSET_COOKIE, calendarDayStart } from "@/shared/lib/dates"
 
@@ -22,10 +23,10 @@ export async function getUserDayStart(now: Date = new Date()): Promise<Date> {
  * missing, nonsense or out-of-range reads as 0 (UTC). For code that compares a
  * real instant against the user's day, since `getUserDayStart` is only a label.
  */
-export async function getUserTzOffsetMinutes(): Promise<number> {
+export const getUserTzOffsetMinutes = cache(async (): Promise<number> => {
   const raw = (await cookies()).get(TZ_OFFSET_COOKIE)?.value
   const offsetMinutes = raw === undefined ? 0 : Number(raw)
   return Number.isFinite(offsetMinutes) && Math.abs(offsetMinutes) <= MAX_TZ_OFFSET_MINUTES
     ? offsetMinutes
     : 0
-}
+})

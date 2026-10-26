@@ -1,5 +1,6 @@
 "use client"
 
+import { memo, useState } from "react"
 import { useDraggable, useDroppable } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
 import { cn } from "@/shared/lib/utils"
@@ -26,7 +27,15 @@ const STATUS_DOT: Record<ApplicationStatus, string> = {
 // Intentionally no `touch-none` on the card: the TouchSensor delay constraint
 // lets a swipe scroll the board, and dnd-kit applies `touch-action: none` to the
 // DragOverlay once a drag actually starts.
-function DraggableCard({ job }: { job: WorkspaceJobRow }) {
+function DraggableCard({
+  job,
+  selected,
+  onToggleSelect,
+}: {
+  job: WorkspaceJobRow
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: job.id })
 
@@ -38,19 +47,29 @@ function DraggableCard({ job }: { job: WorkspaceJobRow }) {
       {...listeners}
       {...attributes}
     >
-      <KanbanCard job={job} />
+      <KanbanCard job={job} selected={selected} onToggleSelect={onToggleSelect} />
     </div>
   )
 }
 
-export function KanbanColumn({
+/** Initial rows per column; beyond this a Show more button windows the rest. */
+export const KANBAN_COLUMN_PAGE_SIZE = 30
+
+export const KanbanColumn = memo(function KanbanColumn({
   status,
   jobs,
+  selectedIds,
+  onToggleSelect,
 }: {
   status: ApplicationStatus
   jobs: WorkspaceJobRow[]
+  selectedIds?: string[]
+  onToggleSelect?: (id: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
+  const [expanded, setExpanded] = useState(false)
+  const visibleJobs = expanded ? jobs : jobs.slice(0, KANBAN_COLUMN_PAGE_SIZE)
+  const hiddenCount = jobs.length - visibleJobs.length
 
   return (
     <div
@@ -78,9 +97,36 @@ export function KanbanColumn({
             Drop here
           </p>
         ) : (
-          jobs.map((job) => <DraggableCard key={job.id} job={job} />)
+          <>
+            {visibleJobs.map((job) => (
+              <DraggableCard
+                key={job.id}
+                job={job}
+                selected={selectedIds?.includes(job.id)}
+                onToggleSelect={onToggleSelect}
+              />
+            ))}
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="rounded-md border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Show {hiddenCount} more
+              </button>
+            )}
+            {expanded && jobs.length > KANBAN_COLUMN_PAGE_SIZE && (
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Show less
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
   )
-}
+})

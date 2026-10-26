@@ -18,6 +18,8 @@ export type JobSortValue =
   | "CONFIDENCE"
   | "SAVED_NEWEST"
   | "SAVED_OLDEST"
+  | "DEADLINE"
+  | "MATCH_SCORE"
 
 /** `/jobs?sort=recent` — a non-default value the page honours. */
 export const RECENT_SORT_PARAM = "recent"
@@ -31,11 +33,19 @@ export const SAVED_NEWEST_SORT_PARAM = "saved-newest"
 /** `/jobs?sort=saved-oldest` — oldest saves first, the order a clean-up pass reads. */
 export const SAVED_OLDEST_SORT_PARAM = "saved-oldest"
 
+/** `/jobs?sort=deadline` — closest deadline first, rows without one last. */
+export const DEADLINE_SORT_PARAM = "deadline"
+
+/** `/jobs?sort=match` — highest stored match score first. */
+export const MATCH_SORT_PARAM = "match"
+
 export function parseJobSortParam(param: string | undefined): JobSortValue {
   if (param === RECENT_SORT_PARAM) return "RECENT"
   if (param === CONFIDENCE_SORT_PARAM) return "CONFIDENCE"
   if (param === SAVED_NEWEST_SORT_PARAM) return "SAVED_NEWEST"
   if (param === SAVED_OLDEST_SORT_PARAM) return "SAVED_OLDEST"
+  if (param === DEADLINE_SORT_PARAM) return "DEADLINE"
+  if (param === MATCH_SORT_PARAM) return "MATCH_SCORE"
   return "NEEDS_ACTION"
 }
 
@@ -43,6 +53,8 @@ export const JOB_SORT_OPTIONS: { value: JobSortValue; label: string }[] = [
   { value: "NEEDS_ACTION", label: "Needs action" },
   { value: "RECENT", label: "Recently updated" },
   { value: "CONFIDENCE", label: "Confidence" },
+  { value: "DEADLINE", label: "Deadline" },
+  { value: "MATCH_SCORE", label: "Match score" },
   { value: "SAVED_NEWEST", label: "Newest saved" },
   { value: "SAVED_OLDEST", label: "Oldest saved" },
 ]
@@ -65,6 +77,10 @@ export interface JobSortable {
   nextStep: { urgency: number }
   /** Only read by the "Confidence" order; a row without one ranks as UNKNOWN. */
   confidence?: { level: OpportunityConfidenceLevel }
+  /** Optional calendar deadline (`Job.deadline`); absent sorts last under Deadline. */
+  deadline?: Date | null
+  /** Optional stored resume-match score (0–100); absent ranks as -1 under Match. */
+  matchScore?: number | null
 }
 
 /** A new array, ordered. Never mutates the input. */
@@ -79,6 +95,36 @@ export function sortJobRows<T extends JobSortable>(rows: T[], sort: JobSortValue
       const rankA = CONFIDENCE_RANK[a.confidence?.level ?? "UNKNOWN"]
       const rankB = CONFIDENCE_RANK[b.confidence?.level ?? "UNKNOWN"]
       if (rankA !== rankB) return rankA - rankB
+    }
+    if (sort === "DEADLINE") {
+      const aNested = (a as { job?: { deadline?: Date | null } }).job?.deadline ?? a.deadline
+      const bNested = (b as { job?: { deadline?: Date | null } }).job?.deadline ?? b.deadline
+      const aTime = aNested ? new Date(aNested).getTime() : Number.POSITIVE_INFINITY
+      const bTime = bNested ? new Date(bNested).getTime() : Number.POSITIVE_INFINITY
+      if (aTime !== bTime) return aTime - bTime
+    }
+    if (sort === "MATCH_SCORE") {
+      const aScore =
+        typeof a.matchScore === "number"
+          ? a.matchScore
+          : (a as { verdict?: string | null }).verdict === "STRONG"
+            ? 75
+            : (a as { verdict?: string | null }).verdict === "WORTH_A_LOOK"
+              ? 50
+              : (a as { verdict?: string | null }).verdict === "WEAK"
+                ? 25
+                : -1
+      const bScore =
+        typeof b.matchScore === "number"
+          ? b.matchScore
+          : (b as { verdict?: string | null }).verdict === "STRONG"
+            ? 75
+            : (b as { verdict?: string | null }).verdict === "WORTH_A_LOOK"
+              ? 50
+              : (b as { verdict?: string | null }).verdict === "WEAK"
+                ? 25
+                : -1
+      if (aScore !== bScore) return bScore - aScore
     }
     // Ties within a confidence level fall back to the default "Needs action" order.
     if (

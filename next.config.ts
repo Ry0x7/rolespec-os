@@ -76,6 +76,11 @@ function securityHeaders() {
 }
 
 const nextConfig: NextConfig = {
+  compress: true,
+  poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ["lucide-react", "framer-motion", "@tanstack/react-query"],
+  },
   // Desktop builds use their own output tree. A `next dev` server in the same
   // checkout owns `.next`, and mixing the two produced a standalone bundle whose
   // manifests referenced dev chunks that the production server could not serve.

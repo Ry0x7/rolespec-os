@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  memo,
   useRef,
   useSyncExternalStore,
   type HTMLAttributes,
@@ -72,7 +73,7 @@ export interface DrawerProps {
  * Use `DrawerHeader` / `DrawerBody` / `DrawerFooter` when content can outgrow
  * the panel, so only the body scrolls and the header/footer stay put.
  */
-export function Drawer({
+export const Drawer = memo(function Drawer({
   open,
   onClose,
   children,
@@ -83,7 +84,7 @@ export function Drawer({
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledBy,
 }: DrawerProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
   // False during SSR and the first client render, true afterwards — the portal
   // target only exists in the browser.
   const mounted = useSyncExternalStore(subscribeToNothing, () => true, () => false)
@@ -149,7 +150,7 @@ export function Drawer({
     </AnimatePresence>,
     document.body
   )
-}
+})
 
 /**
  * The slots below cancel the panel's own padding on the axes they own, so a
