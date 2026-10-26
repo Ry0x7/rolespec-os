@@ -97,13 +97,16 @@ describe("ResumeEditor - compact Job Target summary", () => {
     ).toBeTruthy()
   })
 
-  it("opens the drawer from the Change button and Escape closes it", () => {
+  it("opens the drawer from the Change button and Escape closes it", async () => {
     render(<ResumeEditor resume={makeResume()} />)
 
     expect(useResumeStore.getState().openInspector).toBeNull()
     fireEvent.click(screen.getByLabelText("Change job target"))
     expect(useResumeStore.getState().openInspector).toBe("job")
-    expect(screen.getByLabelText("Job target")).toBeTruthy()
+    // The drawer is a `next/dynamic` chunk (ssr: false) so it lands a tick
+    // after the click; findBy* waits for that instead of requiring a
+    // synchronous import.
+    expect(await screen.findByLabelText("Job target")).toBeTruthy()
 
     fireEvent.keyDown(document, { key: "Escape" })
     expect(useResumeStore.getState().openInspector).toBeNull()
