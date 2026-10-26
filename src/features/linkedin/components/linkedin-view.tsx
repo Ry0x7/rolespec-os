@@ -15,7 +15,8 @@ import {
   LinkedinResultsEmpty,
   LinkedinResultsSkeleton,
   LinkedinSuggestions,
-} from "./linkedin-findings"import { LinkedinQuickCheck } from "./linkedin-quick-check"
+} from "./linkedin-findings"
+import { LinkedinQuickCheck } from "./linkedin-quick-check"
 import { LinkedinSourcePanel,
   type LinkedinResumeOption,
 } from "./linkedin-source-panel"

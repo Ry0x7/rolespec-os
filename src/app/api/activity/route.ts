@@ -74,7 +74,7 @@ export async function GET(req: Request) {
       jobApplicationId: t.jobApplicationId,
       dueDate: t.dueDate,
       source: "todo" as const,
-    }),
+    })),
     },
     { headers: { "Cache-Control": "private, max-age=10, s-maxage=0" } }
   )

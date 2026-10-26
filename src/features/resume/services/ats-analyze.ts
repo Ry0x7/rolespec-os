@@ -226,7 +226,7 @@ export async function analyzeResumeATS(
         : "If a job description is provided: identify important keywords, technologies, certifications, and qualifications from it that are missing from the resume and include them in missingKeywords. If no job description is provided, return an empty missingKeywords array.",
     ].join("\n"),
     prompt: promptParts.join("\n\n"),
-    }))
+    })
     generated = object as import("zod").infer<typeof atsAnalysisSchema>
   } catch (err) {
     // No AI key / daily limit: score offline from stored sections only.
