@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -51,9 +51,13 @@ const collisionDetection: CollisionDetection = (args) => {
 export function KanbanBoard({
   jobs,
   today,
+  selectedIds,
+  onToggleSelect,
 }: {
   jobs: WorkspaceJobRow[]
   today: Date
+  selectedIds?: string[]
+  onToggleSelect?: (id: string) => void
 }) {
   const router = useRouter()
   const [items, setItems] = useState(jobs)
@@ -83,6 +87,15 @@ export function KanbanBoard({
   )
 
   const activeJob = activeId ? items.find((j) => j.id === activeId) ?? null : null
+  const showSelection = selectedIds !== undefined && onToggleSelect !== undefined
+  // Group once per items change so seven columns don't each re-filter on every
+  // keystroke or selection toggle.
+  const jobsByStatus = useMemo(() => {
+    const map = new Map<ApplicationStatus, WorkspaceJobRow[]>()
+    for (const status of COLUMN_ORDER) map.set(status, [])
+    for (const job of items) map.get(job.status)?.push(job)
+    return map
+  }, [items])
 
   // Edge fades: only shown on the side that actually has columns off-screen, so
   // a half-width panel visibly hints there is more board to the right.
@@ -179,7 +192,13 @@ export function KanbanBoard({
   // so the server and the first client render agree.
   const overlay = (
     <DragOverlay>
-      {activeJob ? <KanbanCard job={activeJob} /> : null}
+      {activeJob ? (
+        <KanbanCard
+          job={activeJob}
+          selected={selectedIds?.includes(activeJob.id)}
+          onToggleSelect={showSelection ? onToggleSelect : undefined}
+        />
+      ) : null}
     </DragOverlay>
   )
 
@@ -201,13 +220,21 @@ export function KanbanBoard({
               ref={scrollerRef}
               className="flex gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:h-1.5"
             >
-              {COLUMN_ORDER.map((status) => (
-                <KanbanColumn
-                  key={status}
-                  status={status}
-                  jobs={items.filter((j) => j.status === status)}
-                />
-              ))}
+              {items.length === 0 ? (
+                <p className="w-full px-2 py-8 text-center text-sm text-muted-foreground">
+                  No applications match the current search or filters.
+                </p>
+              ) : (
+                COLUMN_ORDER.map((status) => (
+                  <KanbanColumn
+                    key={status}
+                    status={status}
+                    jobs={jobsByStatus.get(status) ?? []}
+                    selectedIds={showSelection ? selectedIds : undefined}
+                    onToggleSelect={showSelection ? onToggleSelect : undefined}
+                  />
+                ))
+              )}
             </div>
             <div
               aria-hidden

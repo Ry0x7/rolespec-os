@@ -22,6 +22,10 @@ const TEMPLATES = [
   { value: "MODERN", label: "Modern" },
   { value: "HARVARD", label: "Harvard" },
   { value: "CORPORATE", label: "Corporate" },
+  { value: "EXECUTIVE", label: "Executive" },
+  { value: "CREATIVE", label: "Creative" },
+  { value: "TECH", label: "Tech" },
+  { value: "ELEGANT", label: "Elegant" },
 ] as const
 
 /**
@@ -197,12 +201,23 @@ export function ResumePreview() {
     setMeasured((prev) => (sameMeasured(prev, next) ? prev : next))
   }, [containerEl, styles.headingGapPx])
 
+  // ResizeObserver can fire dozens of times per frame while fonts load or the
+  // pane resizes — coalesce into one rAF so `measureLayout` (DOM reads +
+  // `setMeasured` with its `sameMeasured` bail-out) runs at most once per
+  // frame and pagination never recomputes mid-burst.
   useEffect(() => {
     if (!contentEl && !containerEl) return
-    const ro = new ResizeObserver(() => measureLayout())
+    let raf = 0
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => measureLayout())
+    })
     if (contentEl) ro.observe(contentEl)
     if (containerEl) ro.observe(containerEl)
-    return () => ro.disconnect()
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+    }
   }, [contentEl, containerEl, measureLayout])
 
   // Certifications only fold into another section when a visible Skills section

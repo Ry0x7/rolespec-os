@@ -267,6 +267,114 @@ const TEMPLATE_IDENTITY: Record<TemplateVariant, TemplateIdentity> = {
       paddingVertical: 4,
     },
   },
+
+  EXECUTIVE: {
+    layout: { header: "centered", heading: "chip", skills: "lines", entry: "structured" },
+    fontFamily: "Times-Roman",
+    boldFontFamily: "Times-Bold",
+    colors: {
+      heading: "#92400e",
+      border: "#d6d3d1",
+      accent: "#57534e",
+      body: "#374151",
+      muted: META_TEXT,
+      strong: STRONG_TEXT,
+      org: ORG_TEXT,
+      headingBg: "#fafaf9",
+    },
+    name: {
+      fontWeight: 700,
+      letterSpacing: -0.5,
+    },
+    heading: {
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: 1.1,
+      paddingBottom: 0,
+      borderBottomWidth: 0,
+      paddingHorizontal: 6,
+      paddingVertical: 4,
+    },
+  },
+
+  CREATIVE: {
+    layout: { header: "accent-bar", heading: "accent-bar", skills: "chips", entry: "accent-role" },
+    fontFamily: "Inter",
+    boldFontFamily: "Inter-Bold",
+    colors: {
+      heading: "#7c3aed",
+      border: "#ddd6fe",
+      accent: "#6d28d9",
+      body: "#374151",
+      muted: META_TEXT,
+      strong: STRONG_TEXT,
+      org: ORG_TEXT,
+    },
+    name: {
+      fontWeight: 700,
+      letterSpacing: -0.6,
+    },
+    heading: {
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: 0.3,
+      paddingBottom: 2,
+      borderBottomWidth: 0,
+    },
+  },
+
+  TECH: {
+    layout: { header: "banner", heading: "accent-bar", skills: "grid", entry: "single-line" },
+    fontFamily: "Inter",
+    boldFontFamily: "Inter-Bold",
+    colors: {
+      heading: "#0e7490",
+      border: "#a5f3fc",
+      accent: "#0e7490",
+      body: "#374151",
+      muted: META_TEXT,
+      strong: STRONG_TEXT,
+      org: ORG_TEXT,
+    },
+    name: {
+      fontWeight: 700,
+      letterSpacing: -0.5,
+    },
+    heading: {
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: 0.3,
+      paddingBottom: 2,
+      borderBottomWidth: 0,
+    },
+  },
+
+  ELEGANT: {
+    layout: { header: "left", heading: "rule", skills: "inline", entry: "academic" },
+    fontFamily: "Times-Roman",
+    boldFontFamily: "Times-Bold",
+    colors: {
+      heading: "#52525b",
+      border: "#e4e4e7",
+      accent: "#71717a",
+      body: "#374151",
+      muted: META_TEXT,
+      strong: STRONG_TEXT,
+      org: ORG_TEXT,
+    },
+    name: {
+      fontWeight: 700,
+      letterSpacing: -0.5,
+    },
+    heading: {
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: 1.2,
+      paddingBottom: 4,
+      paddingBottomCompact: 2,
+      borderBottomWidth: 1,
+    },
+  },
 }
 
 /**
@@ -331,4 +439,8 @@ export const TEMPLATE_PDF_STYLES: Record<string, TemplateStyleConfig> = {
   MODERN: buildPdfConfig("MODERN"),
   HARVARD: buildPdfConfig("HARVARD"),
   CORPORATE: buildPdfConfig("CORPORATE"),
+  EXECUTIVE: buildPdfConfig("EXECUTIVE"),
+  CREATIVE: buildPdfConfig("CREATIVE"),
+  TECH: buildPdfConfig("TECH"),
+  ELEGANT: buildPdfConfig("ELEGANT"),
 }

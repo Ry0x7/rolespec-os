@@ -225,7 +225,7 @@ export function TargetRolesCard({ targetRoles, roleFamilies }: TargetRolesCardPr
               {paged.pageItems.map((role) => (
                 <div
                   key={role.id}
-                  className="flex items-start gap-3 rounded-lg border border-border bg-card p-3"
+                  className="group flex items-start gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/20"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{role.title}</p>

@@ -80,17 +80,26 @@ describe("useAutosave", () => {
     expect(useResumeStore.getState().lastSavedAt).toBeInstanceOf(Date)
   })
 
-  it("does not save before the delay elapses", () => {
+  it("does not save before the delay elapses", async () => {
     renderHook(() => useAutosave())
 
     act(() => {
       useResumeStore.getState().updateSectionItem("section-1", "item-1", { text: "Edited" })
     })
+    // The debounce is 2500ms: one millisecond short must stay silent.
     act(() => {
-      vi.advanceTimersByTime(7999)
+      vi.advanceTimersByTime(2499)
     })
 
     expect(mockedSaveResume).not.toHaveBeenCalled()
+
+    // Crossing the boundary is what arms the save — the assertion above only
+    // means something if the very next tick does fire it.
+    await act(async () => {
+      vi.advanceTimersByTime(1)
+    })
+
+    expect(mockedSaveResume).toHaveBeenCalledTimes(1)
   })
 
   it("flushes a pending save exactly once when the editor unmounts", async () => {
@@ -99,7 +108,7 @@ describe("useAutosave", () => {
     act(() => {
       useResumeStore.getState().updateSectionItem("section-1", "item-1", { text: "Typed then left" })
     })
-    // Client-side nav happens well before the 8s debounce fires.
+    // Client-side nav happens well before the 2.5s debounce fires.
     act(() => {
       vi.advanceTimersByTime(1500)
     })

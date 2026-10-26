@@ -360,3 +360,41 @@ textarea {
 #search-status {
   margin-top: 10px;
 }
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.conn-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--muted);
+  display: inline-block;
+}
+
+.conn-dot[data-state="on"] {
+  background: var(--ok);
+}
+
+.conn-dot[data-state="off"] {
+  background: var(--danger);
+}
+
+.shortcut-hint {
+  text-align: center;
+}
+
+.shortcut-hint kbd {
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  font-size: 10px;
+}
+
+#pending {
+  margin-bottom: 10px;
+}

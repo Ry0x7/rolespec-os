@@ -12,4 +12,11 @@ export const PDF_TEMPLATES: Record<string, ComponentType<TemplateProps>> = {
   MODERN: ModernTemplate,
   HARVARD: HarvardTemplate,
   CORPORATE: CorporateTemplate,
+  // New variants reuse the closest layout renderer. The active PDF config
+  // (via AsyncLocalStorage) still carries the variant's own colors/spacing,
+  // so export matches the preview without duplicating renderer code.
+  EXECUTIVE: CorporateTemplate,
+  CREATIVE: ModernTemplate,
+  TECH: ModernTemplate,
+  ELEGANT: MinimalTemplate,
 }

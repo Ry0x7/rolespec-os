@@ -5,7 +5,10 @@ import { useResumeStore } from "./use-resume-store"
 import { saveResume } from "../actions/save"
 import { toast } from "sonner"
 
-const AUTOSAVE_DELAY = 8000
+const AUTOSAVE_DELAY = 2500
+/** One retry after a failed save instead of going silent until the next edit. */
+const ERROR_RETRY_DELAY = 5000
+let lastRetryAt = 0
 
 /**
  * In-flight guard at module scope rather than in a ref: the unmount flush below
@@ -59,7 +62,14 @@ async function saveFromStore() {
     }
   } catch {
     useResumeStore.getState().setSaveStatus("error")
-    toast.error("Failed to save")
+    toast.error("Failed to save — will retry once")
+    const now = Date.now()
+    if (now - lastRetryAt > 30000) {
+      lastRetryAt = now
+      setTimeout(() => {
+        if (useResumeStore.getState().isDirty) void saveFromStore()
+      }, ERROR_RETRY_DELAY)
+    }
   } finally {
     isSaving = false
     if (saveRequested && useResumeStore.getState().isDirty) {
@@ -102,7 +112,16 @@ export function useAutosave() {
   // await it, and `saveFromStore` reports its own result through the store.
   // Empty deps so this cleanup runs on unmount only, not on every re-arm.
   useEffect(() => {
+    function flushOnHide() {
+      if (document.visibilityState === "hidden" && useResumeStore.getState().isDirty) {
+        void saveFromStore()
+      }
+    }
+    document.addEventListener("visibilitychange", flushOnHide)
+    window.addEventListener("pagehide", flushOnHide)
     return () => {
+      document.removeEventListener("visibilitychange", flushOnHide)
+      window.removeEventListener("pagehide", flushOnHide)
       if (!useResumeStore.getState().isDirty) return
       saveFromStore()
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { Button } from "@/shared/ui/button"
 
 export const UPCOMING_VISIBLE_LIMIT = 6
@@ -19,7 +19,10 @@ export function UpcomingEventsList({
 }) {
   const [expanded, setExpanded] = useState(false)
   const overflow = rows.length > limit
-  const visible = expanded || !overflow ? rows : rows.slice(0, limit)
+  const visible = useMemo(
+    () => (expanded || !overflow ? rows : rows.slice(0, limit)),
+    [expanded, overflow, rows, limit]
+  )
 
   return (
     <div className="space-y-3">

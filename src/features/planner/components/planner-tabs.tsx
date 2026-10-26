@@ -1,20 +1,22 @@
 "use client"
 
 import { useRef, useState, type KeyboardEvent } from "react"
-import { ListTodo, StickyNote, CalendarDays } from "lucide-react"
+import { ListTodo, StickyNote, CalendarDays, Target } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { TodoList } from "./todo-list"
 import { NotesList } from "./notes-list"
 import { CalendarAgenda } from "./calendar-agenda"
+import { GoalsTracker } from "./goals-tracker"
 import type { AgendaItem } from "../services/calendar.service"
 import type { JobLinkOption, NoteRow, TodoRow } from "../types"
 
-type Tab = "todos" | "notes" | "calendar"
+type Tab = "todos" | "notes" | "calendar" | "goals"
 
 const TABS: { id: Tab; label: string; icon: typeof ListTodo }[] = [
   { id: "todos", label: "Todos", icon: ListTodo },
   { id: "notes", label: "Notes", icon: StickyNote },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
+  { id: "goals", label: "Goals", icon: Target },
 ]
 
 interface PlannerTabsProps {
@@ -106,6 +108,13 @@ export function PlannerTabs({ todos, notes, agenda, jobOptions, today }: Planner
         {tab === "todos" && <TodoList todos={todos} jobOptions={jobOptions} today={today} />}
         {tab === "notes" && <NotesList notes={notes} />}
         {tab === "calendar" && <CalendarAgenda items={agenda} />}
+        {tab === "goals" && (
+          <GoalsTracker
+            jobOptions={jobOptions}
+            openTodos={todos.filter((t) => !t.done).length}
+            completedTodos={todos.filter((t) => t.done).length}
+          />
+        )}
       </div>
     </div>
   )

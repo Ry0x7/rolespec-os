@@ -105,6 +105,14 @@ export function UserAiKeyForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+        <p className="font-medium text-foreground">AI is optional — bring your own key</p>
+        <p>
+          Everything works without AI: text resume import, editing, application
+          tracking and job discovery. AI adds structuring, tailoring, matching
+          and drafting when a provider is connected.
+        </p>
+      </div>
       <div className="space-y-2">
         <Label htmlFor="user-ai-provider">Provider</Label>
         <Select

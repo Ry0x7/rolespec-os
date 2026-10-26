@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest"
 
 import {
   CONFIDENCE_SORT_PARAM,
+  DEADLINE_SORT_PARAM,
   JOB_SORT_OPTIONS,
+  MATCH_SORT_PARAM,
   RECENT_SORT_PARAM,
   SAVED_NEWEST_SORT_PARAM,
   SAVED_OLDEST_SORT_PARAM,
@@ -46,6 +48,8 @@ describe("parseJobSortParam", () => {
     expect(parseJobSortParam(CONFIDENCE_SORT_PARAM)).toBe("CONFIDENCE")
     expect(parseJobSortParam(SAVED_NEWEST_SORT_PARAM)).toBe("SAVED_NEWEST")
     expect(parseJobSortParam(SAVED_OLDEST_SORT_PARAM)).toBe("SAVED_OLDEST")
+    expect(parseJobSortParam(DEADLINE_SORT_PARAM)).toBe("DEADLINE")
+    expect(parseJobSortParam(MATCH_SORT_PARAM)).toBe("MATCH_SCORE")
     expect(parseJobSortParam("saved-newest")).toBe("SAVED_NEWEST")
     expect(parseJobSortParam("saved-oldest")).toBe("SAVED_OLDEST")
   })
@@ -64,9 +68,13 @@ describe("parseJobSortParam", () => {
       "NEEDS_ACTION",
       "RECENT",
       "CONFIDENCE",
+      "DEADLINE",
+      "MATCH_SCORE",
       "SAVED_NEWEST",
       "SAVED_OLDEST",
     ])
+    expect(JOB_SORT_OPTIONS.find((o) => o.value === "DEADLINE")?.label).toBe("Deadline")
+    expect(JOB_SORT_OPTIONS.find((o) => o.value === "MATCH_SCORE")?.label).toBe("Match score")
     expect(JOB_SORT_OPTIONS.find((o) => o.value === "SAVED_NEWEST")?.label).toBe("Newest saved")
     expect(JOB_SORT_OPTIONS.find((o) => o.value === "SAVED_OLDEST")?.label).toBe("Oldest saved")
   })

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { memo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { FileText, Pencil, Trash2 } from "lucide-react"
@@ -103,18 +103,22 @@ interface JobApplicationCardProps {
     checked: boolean
     onCheckedChange: (checked: boolean) => void
   }
+  /** Opens the quick-view drawer instead of navigating. Optional so tests stay green. */
+  onPreview?: (application: JobApplicationCardData) => void
 }
 
-export function JobApplicationCard({
+export const JobApplicationCard = memo(function JobApplicationCard({
   application,
   usdPhpRate,
   preferredCurrency,
   today,
   selection,
+  onPreview,
 }: JobApplicationCardProps) {
   const router = useRouter()
   const [showEdit, setShowEdit] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const prefetchDetail = () => router.prefetch(`/jobs/${application.id}`)
 
   // Null when the salary is already in the user's display currency, in which
   // case the muted line is skipped entirely rather than rendered empty.
@@ -198,6 +202,7 @@ export function JobApplicationCard({
     <>
       <Card
         variant="interactive"
+        onMouseEnter={prefetchDetail}
         className={cn(
           "group relative flex h-full flex-col gap-3",
           // The variant only transitions colours; transform is added here so the
@@ -256,6 +261,18 @@ export function JobApplicationCard({
           </div>
 
           <div className="relative z-10 -mr-2 -mt-2 flex shrink-0 items-center gap-0.5">
+            {onPreview ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-10 w-10"
+                aria-label={`Quick view ${job.companyName}`}
+                title="Quick view"
+                onClick={() => onPreview(application)}
+              >
+                <span aria-hidden="true" className="text-base leading-none">◐</span>
+              </Button>
+            ) : null}
             {showCoverLetter ? (
               <Link
                 href={coverLetterHref}
@@ -378,6 +395,31 @@ export function JobApplicationCard({
           <span className="w-full truncate text-muted-foreground/80">
             {application.provenance}
           </span>
+          {/* Lifecycle entry points: one click to tailor, match, or cover letter. */}
+          <span className="relative z-10 flex w-full flex-wrap items-center gap-1.5 pt-1">
+            <Link
+              href={`/jobs/${application.id}#prepare`}
+              aria-label={`Tailor resume for ${job.companyName}`}
+              className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-brand-600 hover:text-brand-500"
+            >
+              Tailor resume
+            </Link>
+            <Link
+              href={`/jobs/${application.id}#prepare`}
+              aria-label={`Check match for ${job.companyName}`}
+              className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-brand-600 hover:text-brand-500"
+            >
+              Match score
+            </Link>
+            {showCoverLetter ? (
+              <Link
+                href={coverLetterHref}
+                className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-brand-600 hover:text-brand-500"
+              >
+                {mostRecentCoverLetter ? "Cover letter" : "New letter"}
+              </Link>
+            ) : null}
+          </span>
         </div>
 
         <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/60 pt-2.5 text-xs text-muted-foreground">
@@ -424,4 +466,4 @@ export function JobApplicationCard({
       ) : null}
     </>
   )
-}
+})

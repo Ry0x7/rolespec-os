@@ -136,7 +136,9 @@ export function AiSetupPanel({
         <p className="text-sm text-muted-foreground">
           Pick what you already have. RoleSpec uses AI for resume tailoring, ATS
           analysis, job matching and outreach, but you can change this later in
-          Settings.
+          Settings. Onboarding works fully offline — every AI step has a manual
+          path, and AI buttons stay visible but disabled with an explanation
+          until a provider is connected.
         </p>
       </div>
 
@@ -344,8 +346,8 @@ export function AiSetupPanel({
           {pending ? "Testing the connection..." : "Save and test connection"}
         </Button>
         <p className="text-xs text-muted-foreground">
-          This sends one very small request to the provider and uses one AI
-          request from your daily limit.
+          One click saves and tests — the result appears right below, no extra
+          step. Uses one tiny request from your daily limit.
         </p>
       </div>
 

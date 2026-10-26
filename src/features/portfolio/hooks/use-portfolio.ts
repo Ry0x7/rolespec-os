@@ -25,6 +25,24 @@ export interface UsePortfolioInitial {
   portfolio: ProfileRatingData | null
 }
 
+const LAST_URL_KEY = "rolespec:last-portfolio-url"
+
+/** Adds https:// when the user typed a bare domain — the #1 retype driver. */
+export function normalizePortfolioUrl(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return trimmed
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
+function readLastUrl(): string | null {
+  try {
+    return localStorage.getItem(LAST_URL_KEY)
+  } catch {
+    return null
+  }
+}
+
 export function usePortfolio(initial: UsePortfolioInitial) {
 
   const [portfolio, setPortfolio] = useState<ProfileRatingData | null>(
@@ -32,12 +50,15 @@ export function usePortfolio(initial: UsePortfolioInitial) {
   )
   const [isRatingPortfolio, setIsRatingPortfolio] = useState(false)
   const [portfolioError, setPortfolioError] = useState<string | null>(null)
+  const [lastUrl, setLastUrl] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : readLastUrl()
+  )
 
   const runPortfolio = useCallback(
     async (url: string) => {
       if (isRatingPortfolio) return
-      const trimmed = url.trim()
-      if (!trimmed) {
+      const normalized = normalizePortfolioUrl(url)
+      if (!normalized) {
         setPortfolioError("Enter your portfolio URL to run a rating.")
         return
       }
@@ -46,7 +67,13 @@ export function usePortfolio(initial: UsePortfolioInitial) {
       setPortfolioError(null)
 
       try {
-        const result = await ratePortfolio(trimmed)
+        const result = await ratePortfolio(normalized)
+        try {
+          localStorage.setItem(LAST_URL_KEY, normalized)
+        } catch {
+          // Private-mode storage failure must not break the rating.
+        }
+        setLastUrl(normalized)
 
         if (result.data) {
           setPortfolio(result.data)
@@ -71,11 +98,19 @@ export function usePortfolio(initial: UsePortfolioInitial) {
     [isRatingPortfolio]
   )
 
+  /** Clears the current rating back to the input state. */
+  const clearPortfolio = useCallback(() => {
+    setPortfolio(null)
+    setPortfolioError(null)
+  }, [])
+
   return {
     portfolio,
     isRatingPortfolio,
     portfolioError,
+    lastUrl,
     setPortfolioError,
     runPortfolio,
+    clearPortfolio,
   }
 }

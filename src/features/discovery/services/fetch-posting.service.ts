@@ -571,6 +571,33 @@ function externalIdFor(url: string): string {
 const HTML_CONTENT_TYPES = ["text/html", "application/xhtml+xml"]
 
 /**
+ * Firecrawl fallback for add-by-URL: when the direct fetch is blocked or the
+ * page is client-rendered with no readable posting, try the Firecrawl scrape
+ * API (markdown first). Null when unconfigured or when the scrape produced
+ * nothing mappable — the caller then returns the original failure. No AI.
+ */
+async function tryFirecrawlFallback(
+  rawUrl: string,
+  signal: AbortSignal
+): Promise<PostingFetchResult | null> {
+  try {
+    const { firecrawlScrape } = await import("./firecrawl.client");
+    const text = await firecrawlScrape(rawUrl, signal);
+    if (!text) return null;
+    const parsed = parsePostingUrl(rawUrl);
+    if ("ok" in parsed) return null;
+    const result = extractPostingFromHtml(text, parsed.url);
+    if (!result.ok) return null;
+    log.info("Add by URL: Firecrawl fallback produced a posting", {
+      extractionMethod: result.extractionMethod,
+    });
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetches one public posting and runs it through `normalizePosting`.
  *
  * A URL that is recognisably a Greenhouse, Lever or Ashby posting is read from
@@ -599,7 +626,11 @@ export async function fetchPostingFromUrl(
   }
 
   const page = await fetchPostingPage(rawUrl, signal, mark)
-  if (!page.ok) return page
+  if (!page.ok) {
+    const fallback = await tryFirecrawlFallback(rawUrl, signal)
+    if (fallback) return fallback
+    return page
+  }
 
   if (page.kind === "ats-api") {
     log.debug("fetchPostingFromUrl timing", {
@@ -611,7 +642,11 @@ export async function fetchPostingFromUrl(
   }
 
   const result = extractPostingFromHtml(page.html, page.finalUrl)
-  if (!result.ok) return result
+  if (!result.ok) {
+    const fallback = await tryFirecrawlFallback(rawUrl, signal)
+    if (fallback) return fallback
+    return result
+  }
   mark("extractionMs")
   log.debug("fetchPostingFromUrl timing", {
     ...marks,

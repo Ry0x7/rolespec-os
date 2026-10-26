@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { memo, type ReactNode } from "react"
 import { cn } from "@/shared/lib/utils"
 
 interface PageShellProps {
@@ -18,10 +18,12 @@ interface PageShellProps {
  * The one documented exception is the resume editor (`/resumes/[id]`), a
  * full-bleed split-pane working surface — see the note on that page.
  */
-export function PageShell({ children, className }: PageShellProps) {
+export const PageShell = memo(function PageShell({ children, className }: PageShellProps) {
   return (
-    <div className={cn("mx-auto w-full max-w-6xl space-y-6", className)}>
+    // `content-visibility: auto` lets long pages skip offscreen layout work;
+    // `contain-intrinsic-size` reserves space so scrollbars do not jump.
+    <div className={cn("mx-auto w-full max-w-6xl space-y-6", className)} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 1200px" }}>
       {children}
     </div>
   )
-}
+})

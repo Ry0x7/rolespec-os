@@ -17,6 +17,15 @@ import type { ProfileSectionNavItem } from "../lib/section-completeness"
  * The active pill follows the reader via `useScrollSpy`, the same band and
  * pick rule the Job Detail nav uses.
  */
+const SECTION_HINTS: Record<string, string> = {
+  contact: "1",
+  preferences: "2",
+  "target-roles": "T",
+  "linkedin-import": "I",
+  evidence: "E",
+  capabilities: "C",
+}
+
 export function ProfileSectionNav({ items }: { items: ProfileSectionNavItem[] }) {
   const { activeId, setActiveId } = useScrollSpy(items.map((item) => item.key))
 
@@ -63,6 +72,11 @@ export function ProfileSectionNav({ items }: { items: ProfileSectionNavItem[] })
               </span>
             )}
             {item.label}
+            {SECTION_HINTS[item.key] && (
+              <kbd className="hidden rounded border border-border/60 bg-muted px-1 font-mono text-[10px] opacity-60 lg:inline">
+                {SECTION_HINTS[item.key]}
+              </kbd>
+            )}
           </a>
         )
       })}

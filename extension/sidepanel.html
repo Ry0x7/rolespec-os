@@ -8,8 +8,16 @@
   <body class="sidepanel">
     <header class="header">
       <h1>Clip to RoleSpec</h1>
-      <a id="open-options" class="link" href="#">Options</a>
+      <span class="header-meta">
+        <span id="connection-dot" class="conn-dot" title="Checking connection…" aria-label="Connection status"></span>
+        <a id="open-options" class="link" href="#">Options</a>
+      </span>
     </header>
+
+    <div id="pending" class="notice notice-warn" hidden>
+      <p id="pending-text" class="setup-text"></p>
+      <button id="pending-retry" class="button button-quiet button-mini" type="button">Retry now</button>
+    </div>
 
     <div id="setup" class="notice notice-warn" hidden>
       <p id="setup-text" class="setup-text">Connect this clipper to RoleSpec before saving jobs.</p>
@@ -171,6 +179,7 @@
         <p id="clip-requirements" class="hint" hidden></p>
 
         <button id="save" class="button" type="submit">Save to RoleSpec</button>
+        <p class="hint shortcut-hint">Tip: <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>S</kbd> saves, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> clips the page.</p>
         <button id="clip-another" class="button button-quiet" type="button" hidden>
           Clip another job
         </button>

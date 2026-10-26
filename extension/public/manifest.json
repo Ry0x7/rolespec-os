@@ -17,6 +17,22 @@
   "action": {
     "default_title": "Clip this job to RoleSpec"
   },
+  "commands": {
+    "clip-job": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Clip this job to RoleSpec"
+    },
+    "quick-save": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Alt+S"
+      },
+      "description": "Save the current clip to RoleSpec"
+    }
+  },
   "background": {
     "service_worker": "assets/background.js",
     "type": "module"

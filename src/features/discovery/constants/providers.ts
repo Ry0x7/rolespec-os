@@ -19,6 +19,7 @@ export const PROVIDER_LABELS: Record<string, string> = {
   onlinejobsph: "OnlineJobs.ph",
   /** A posting the user pasted the URL of, read straight off the page. */
   web: "Added by URL",
+  firecrawl: "Firecrawl",
 }
 
 /** Falls back to the raw id, so an unlabelled provider still renders. */

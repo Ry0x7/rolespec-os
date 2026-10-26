@@ -9,6 +9,8 @@ import { ContactsForm } from "@/features/career-profile/components/contacts-form
 import { EvidenceCard } from "@/features/career-profile/components/evidence-card"
 import { ImportLinkedinCard } from "@/features/career-profile/components/import-linkedin-card"
 import { PreferencesForm } from "@/features/career-profile/components/preferences-form"
+import { ProfileDataTransfer } from "@/features/career-profile/components/profile-data-transfer"
+import { ProfileQuickActions } from "@/features/career-profile/components/profile-quick-actions"
 import { ProfileSectionNav } from "@/features/career-profile/components/profile-section-nav"
 import { CareerSetupWizard } from "@/features/career-profile/components/setup/career-setup-wizard"
 import { TargetRolesCard } from "@/features/career-profile/components/target-roles-card"
@@ -112,6 +114,10 @@ export default async function CareerProfilePage({
           Guided setup
         </Link>
       </div>
+
+      <ProfileQuickActions />
+
+      <ProfileDataTransfer evidence={profile.evidence} capabilities={profile.capabilities} />
 
       <ProfileSectionNav items={sectionItems} />
 

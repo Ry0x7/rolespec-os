@@ -13,16 +13,23 @@ interface PortfolioRatingCardProps {
   result: ProfileRatingData | null
   isPending: boolean
   error: string | null
+  /** Last rated URL, remembered on this device — pre-fills the field. */
+  initialUrl?: string | null
   onRate: (url: string) => void
+  onClear?: () => void
 }
 
 export function PortfolioRatingCard({
   result,
   isPending,
   error,
+  initialUrl,
   onRate,
+  onClear,
 }: PortfolioRatingCardProps) {
-  const [url, setUrl] = useState(result?.sourceUrl ?? "")
+  const [url, setUrl] = useState(
+    result?.sourceUrl ?? initialUrl ?? ""
+  )
 
   return (
     <Card className="space-y-4">
@@ -68,14 +75,29 @@ export function PortfolioRatingCard({
           </p>
         )}
 
-        <Button
-          type="submit"
-          loading={isPending}
-          disabled={isPending}
-          className="w-full sm:w-auto"
-        >
-          {isPending ? "Rating..." : "Rate portfolio"}
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="submit"
+            loading={isPending}
+            disabled={isPending}
+            className="w-full sm:w-auto"
+          >
+            {isPending ? "Rating..." : result ? "Re-rate portfolio" : "Rate portfolio"}
+          </Button>
+          {result && onClear && !isPending && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setUrl("")
+                onClear()
+              }}
+            >
+              Clear & start over
+            </Button>
+          )}
+        </div>
       </form>
 
       <div className="border-t border-border pt-4">

@@ -4,7 +4,9 @@ export const createResumeSchema = z.object({
   title: z.string().min(1, "Title is required").max(100),
   targetRole: z.string().max(100).optional(),
   targetCompany: z.string().max(100).optional(),
-  template: z.enum(["MINIMAL", "MODERN", "HARVARD", "CORPORATE"]).default("MINIMAL"),
+  template: z
+    .enum(["MINIMAL", "MODERN", "HARVARD", "CORPORATE", "EXECUTIVE", "CREATIVE", "TECH", "ELEGANT"])
+    .default("MINIMAL"),
 })
 
 export const createRoleFamilyResumeSchema = z.object({
@@ -23,7 +25,9 @@ export const updateResumeSchema = z.object({
   title: z.string().min(1).max(100).optional(),
   targetRole: z.string().max(100).optional(),
   targetCompany: z.string().max(100).optional(),
-  template: z.enum(["MINIMAL", "MODERN", "HARVARD", "CORPORATE"]).optional(),
+  template: z
+    .enum(["MINIMAL", "MODERN", "HARVARD", "CORPORATE", "EXECUTIVE", "CREATIVE", "TECH", "ELEGANT"])
+    .optional(),
   status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]).optional(),
 })
 

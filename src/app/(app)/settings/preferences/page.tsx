@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/shared/ui/card"
 import { PreferencesForm } from "@/features/settings/components/preferences-form"
+import { QuickToggles } from "@/features/settings/components/quick-toggles"
 import { parsePreferences } from "@/features/settings/schemas/preferences.schema"
 
 export default async function SettingsPreferencesPage() {
@@ -27,7 +28,8 @@ export default async function SettingsPreferencesPage() {
         <CardTitle>Preferences</CardTitle>
         <CardDescription>Defaults applied to your workflow.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-6">
+        <QuickToggles preferences={parsePreferences(user.preferences)} />
         <PreferencesForm preferences={parsePreferences(user.preferences)} />
       </CardContent>
     </Card>

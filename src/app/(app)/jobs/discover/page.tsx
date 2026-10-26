@@ -38,6 +38,7 @@ export default async function DiscoverJobsPage() {
         <p className="text-sm text-muted-foreground">
           Postings found from the target roles in your Career Profile. Save the
           ones worth tracking — nothing is applied to for you.
+          {process.env.FIRECRAWL_API_KEY ? " Firecrawl web search is on." : " Add FIRECRAWL_API_KEY for deeper web coverage."}
         </p>
       </div>
 

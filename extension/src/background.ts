@@ -205,7 +205,11 @@ async function handleQualify(raw: unknown): Promise<QualifyReply> {
   if (misses.length === 0) return { ok: true, profileComplete: true, results: hits }
 
   const missing = new Set(misses)
-  const result = await qualifyPostings(settings, postings.filter((posting) => missing.has(posting.key)))
+  let result = await qualifyPostings(settings, postings.filter((posting) => missing.has(posting.key)))
+  if (!result.ok && result.reason === "network") {
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    result = await qualifyPostings(settings, postings.filter((posting) => missing.has(posting.key)))
+  }
   if (!result.ok) return { ok: false, reason: result.reason }
   if (!result.profileComplete) return { ok: true, profileComplete: false, results: [] }
 
@@ -231,6 +235,39 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && SETTINGS_STORAGE_KEY in changes) {
     void chrome.storage.session.remove(BADGE_CACHE_KEY)
+  }
+})
+
+function openPanelForCommand(tab?: chrome.tabs.Tab): void {
+  const target =
+    tab?.id !== undefined ? { tabId: tab.id } : tab?.windowId !== undefined ? { windowId: tab.windowId } : undefined
+  if (!target) return
+  void chrome.sidePanel.open(target).catch((error: unknown) => {
+    console.error("[rolespec] sidePanel.open failed", error)
+  })
+  // Give the panel a beat to boot, then nudge it to read the page. A cold-open
+  // panel misses the first send, so the message is retried once by broadcastMenuClick.
+  setTimeout(() => {
+    broadcastMenuClick({
+      type: CONTEXT_MENU_MESSAGE,
+      clickId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      menuId: "clip-job",
+      tabId: tab?.id,
+      windowId: tab?.windowId,
+    })
+  }, 350)
+}
+
+chrome.commands?.onCommand.addListener((command, tab) => {
+  if (command !== "clip-job" && command !== "quick-save") return
+  openPanelForCommand(tab)
+  if (command === "quick-save") {
+    // The panel listens for this to submit the form without another click.
+    setTimeout(() => {
+      void chrome.runtime
+        .sendMessage({ type: "rolespec:quick-save", tabId: tab?.id, windowId: tab?.windowId })
+        .catch(() => undefined)
+    }, 450)
   }
 })
 

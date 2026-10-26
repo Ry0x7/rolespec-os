@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, Link2, ListTodo } from "lucide-react"
 import { toast } from "sonner"
@@ -120,14 +120,18 @@ export function TodoList({ todos, jobOptions, today }: TodoListProps) {
     }
   }
 
-  const rows = todos
-    .filter((t) => !deletedIds[t.id])
-    .map((t) => {
-      const override = overrides[t.id]
-      return override && override.base === t.done ? { ...t, done: override.value } : t
-    })
-  const active = rows.filter((t) => !t.done)
-  const completed = rows.filter((t) => t.done)
+  const rows = useMemo(
+    () =>
+      todos
+        .filter((t) => !deletedIds[t.id])
+        .map((t) => {
+          const override = overrides[t.id]
+          return override && override.base === t.done ? { ...t, done: override.value } : t
+        }),
+    [todos, deletedIds, overrides]
+  )
+  const active = useMemo(() => rows.filter((t) => !t.done), [rows])
+  const completed = useMemo(() => rows.filter((t) => t.done), [rows])
   const overdue = active.filter((t) => isTodoOverdue(t, today))
   const notOverdue = active.filter((t) => !isTodoOverdue(t, today))
   const counts: Record<TodoFilter, number> = {

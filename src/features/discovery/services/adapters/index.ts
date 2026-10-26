@@ -1,4 +1,5 @@
 import type { SourceAdapter } from "../../types"
+import { firecrawlAdapter } from "./firecrawl.adapter"
 import { arbeitnowAdapter } from "./arbeitnow.adapter"
 import { ashbyAdapter } from "./ashby.adapter"
 import { bamboohrAdapter } from "./bamboohr.adapter"
@@ -26,4 +27,5 @@ export const SOURCE_ADAPTERS: readonly SourceAdapter[] = [
   bamboohrAdapter,
   freshteamAdapter,
   workdayAdapter,
+  firecrawlAdapter,
 ]

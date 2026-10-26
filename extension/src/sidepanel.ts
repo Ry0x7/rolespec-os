@@ -1,3 +1,4 @@
+import { loadPendingClips, pendingLabel, queuePendingClip, removePendingClip } from "./offline-queue"
 import { fetchResumes, fetchSearchLinks, generateColdEmail, generateEmailReply, postJob } from "./api"
 import type { GroundingSummary, SignatureFinding } from "./api"
 import { signInWithRoleSpec } from "./connect"
@@ -372,6 +373,19 @@ function updateCounter() {
   descriptionCount.classList.toggle("over", length >= MAX_DESCRIPTION_LENGTH)
 }
 
+function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  return ((...args: Parameters<T>) => {
+    clearTimeout(timer)
+    timer = setTimeout(() => fn(...args), ms)
+  }) as T
+}
+
+const updateCounterDebounced = debounce(updateCounter, 120)
+const updateAboutCounterDebounced = debounce(updateAboutCounter, 120)
+const updateReceivedCounterDebounced = debounce(updateReceivedCounter, 120)
+const refreshBadgeEnableDebounced = debounce(() => void refreshBadgeEnable(), 250)
+
 function openOptions(event: Event) {
   event.preventDefault()
   chrome.runtime.openOptionsPage()
@@ -490,7 +504,13 @@ async function extractFromActiveTab(options: { clearFirst: boolean }): Promise<E
     if (options.clearFirst) clearForm()
     prefill({ ...extracted, jobLink: tab.url ?? extracted.jobLink })
     if (!extracted.companyName || !extracted.jobTitle) {
-      showNote("Could not read every field from this page — check company and title before saving.")
+      const { detectBoardFromUrl } = await import("./board-detectors")
+      const board = detectBoardFromUrl(tab.url ?? null)
+      showNote(
+        board === "generic"
+          ? "Could not read every field from this page — check company and title before saving."
+          : `Partial read — check company and title before saving.`,
+      )
     } else {
       clearNote()
     }
@@ -1435,7 +1455,87 @@ async function onSubmit(event: SubmitEvent) {
     setup.hidden = false
     return
   }
+  if (result.kind === "network") {
+    const pending = await queuePendingClip(job)
+    showStatus("warn", `${result.message} Saved offline — will retry (${pending.length} queued).`)
+    void refreshPendingBanner()
+    return
+  }
   showStatus("error", result.message)
+}
+
+async function refreshPendingBanner() {
+  const banner = document.getElementById("pending")
+  const label = document.getElementById("pending-text")
+  if (!banner || !label) return
+  const pending = await loadPendingClips()
+  if (pending.length === 0) {
+    banner.hidden = true
+    return
+  }
+  label.textContent = `${pendingLabel(pending.length)}. Reconnect and press Retry.`
+  banner.hidden = false
+}
+
+async function retryPendingClips() {
+  const pending = await loadPendingClips()
+  if (pending.length === 0) return
+  for (let i = pending.length - 1; i >= 0; i--) {
+    const job = pending[i]
+    if (!job) continue
+    const result = await postJob(settings, job)
+    if (result.ok) await removePendingClip(i)
+    else break
+  }
+  await refreshPendingBanner()
+  showStatus("info", "Retried queued clips.")
+}
+
+async function refreshConnectionHealth() {
+  const dot = document.getElementById("connection-dot")
+  if (!dot) return
+  const paint = (state: string, title: string) => {
+    dot.setAttribute("data-state", state)
+    dot.setAttribute("title", title)
+  }
+  paint("checking", "Checking connection…")
+  if (!hasCredentials(settings)) {
+    paint("off", "Not connected — set App URL")
+    return
+  }
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 5000)
+    const response = await fetch(`${settings.appUrl}/api/health`, { signal: controller.signal })
+    clearTimeout(timer)
+    paint(response.ok ? "on" : "off", response.ok ? "Connected to RoleSpec" : "RoleSpec unreachable")
+  } catch {
+    paint("off", "RoleSpec unreachable — clips will queue offline")
+  }
+}
+
+function watchQuickSave() {
+  document.addEventListener("keydown", (event) => {
+    const mod = event.ctrlKey || event.metaKey
+    if (!mod || event.key.toLowerCase() !== "s") return
+    const active = document.activeElement?.tagName
+    void active
+    event.preventDefault()
+    if (mode !== "clip") return
+    if (event.shiftKey) {
+      void reExtractForClick()
+      return
+    }
+    if (!saveButton.hidden && !saveButton.disabled) void onSubmit(new SubmitEvent("submit"))
+  })
+  chrome.runtime.onMessage.addListener((message: unknown) => {
+    const payload = message as { type?: unknown } | null
+    if (payload?.type === "rolespec:quick-save") {
+      if (mode === "clip" && !saveButton.hidden && !saveButton.disabled) {
+        void onSubmit(new SubmitEvent("submit"))
+      }
+    }
+  })
 }
 
 async function onClipAnother() {
@@ -1542,19 +1642,19 @@ function watchSitePermissions() {
 function watchActiveTab() {
   chrome.tabs.onActivated.addListener((info) => {
     if (panelWindowId !== undefined && info.windowId !== panelWindowId) return
-    void refreshBadgeEnable()
+    refreshBadgeEnableDebounced()
     void onActiveTabChanged()
   })
   chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
     if (changeInfo.status !== "complete" || !tab.active) return
     if (panelWindowId !== undefined && tab.windowId !== panelWindowId) return
-    void refreshBadgeEnable()
+    refreshBadgeEnableDebounced()
     void onActiveTabChanged()
   })
 }
 
 async function init() {
-  descriptionInput.addEventListener("input", updateCounter)
+  descriptionInput.addEventListener("input", updateCounterDebounced)
   optionsLink.addEventListener("click", openOptions)
   setupLink.addEventListener("click", openOptions)
   setupSignInButton.addEventListener("click", () => void onSetupSignIn())
@@ -1575,7 +1675,7 @@ async function init() {
   searchTab.addEventListener("click", () => setMode("search"))
   refreshSearchButton.addEventListener("click", () => void loadSearchLinks())
   messageTypeSelect.addEventListener("change", syncGenerateButtonLabel)
-  personAboutInput.addEventListener("input", updateAboutCounter)
+  personAboutInput.addEventListener("input", updateAboutCounterDebounced)
   readProfileButton.addEventListener("click", () => void readProfileFromPage())
   emailForm.addEventListener("submit", (event) => void onGenerateEmail(event))
   copySubjectButton.addEventListener(
@@ -1587,7 +1687,7 @@ async function init() {
     () => void copyToClipboard(copyBodyButton, emailBodyOutput.value),
   )
   receivedEmailInput.addEventListener("input", () => {
-    updateReceivedCounter()
+    updateReceivedCounterDebounced()
     syncReplyButtonLabel()
   })
   replyPriorThreadInput.addEventListener("input", updatePriorThreadCounter)
@@ -1619,6 +1719,11 @@ async function init() {
   watchSitePermissions()
   void refreshBadgeEnable()
 
+  watchQuickSave()
+  void refreshConnectionHealth()
+  void refreshPendingBanner()
+  document.getElementById("pending-retry")?.addEventListener("click", () => void retryPendingClips())
+  setInterval(() => void refreshConnectionHealth(), 60000)
   await extractNow({ clearFirst: false, retryOnBlocked: true })
 }
 
