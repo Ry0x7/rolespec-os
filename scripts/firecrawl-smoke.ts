@@ -4,7 +4,7 @@
 // is set). The whole job-discovery flow depends on scrape URLs, so this is
 // the lowest-effort end-to-end guard for the feature, not a unit test of the
 // client module.
-import { readFileSync, writeFileSync } from "node:fs"
+import { writeFileSync } from "node:fs"
 import { request } from "node:http"
 
 const DEST = "firecrawl-smoke-output.json"

@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react"
+import { useMemo } from "react"
 import Link from "next/link"
 import { ArrowRight, BellRing, CalendarClock, ListTodo } from "lucide-react"
 

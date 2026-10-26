@@ -1,6 +1,6 @@
 import { logger } from "@/shared/lib/logger";
 import { providerLabel } from "../../constants/providers";
-import type { DiscoveryQuery, RawPosting, SourceAdapter } from "../../types";
+import type { RawPosting, SourceAdapter } from "../../types";
 import { firecrawlSearch, mapWithConcurrency } from "../firecrawl.client";
 
 /**

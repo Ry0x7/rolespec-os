@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react"
+import { useMemo } from "react"
 import { Flame, Target } from "lucide-react"
 import { Card } from "@/shared/ui/card"
 import { Progress } from "@/shared/ui/progress"
