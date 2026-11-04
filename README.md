@@ -121,6 +121,17 @@ that a listing is fraudulent.
 Use a separate private instance per person. Do not publish your personal workspace as a live demo;
 use screenshots or a recording with sample data for a portfolio showcase.
 
+## Development credits
+
+RoleSpec OS is developed and maintained by [Ry0x7](https://github.com/Ry0x7).
+[Claude Code](https://claude.com/product/claude-code) is acknowledged as an
+AI-assisted development tool used in the project. Code decisions, review, and
+maintenance remain the responsibility of the human maintainer. This credit
+does not imply that Claude Code is an independent GitHub contributor or that
+Anthropic endorses the project.
+
+Human contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Project documentation
 
 - [Architecture and invariants](docs/ARCHITECTURE.md)
