@@ -12,7 +12,7 @@ import { listApiTokens } from "@/features/settings/services/api-token"
 
 export default async function SettingsApiPage() {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const apiTokens = await listApiTokens(session.user.id)
 

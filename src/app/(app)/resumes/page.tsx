@@ -17,7 +17,7 @@ export default async function ResumesPage({
   searchParams: Promise<{ tailorJobId?: string }>
 }) {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   const { tailorJobId } = await searchParams
 

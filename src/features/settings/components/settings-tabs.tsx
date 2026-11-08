@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useRef } from "react"
 import { cn } from "@/shared/lib/utils"
 import { getActiveTabHref, settingsTabGroups } from "../constants/tabs"
 
@@ -12,10 +13,19 @@ import { getActiveTabHref, settingsTabGroups } from "../constants/tabs"
  * Desktop gets a sticky column; below lg the same tabs collapse into one
  * horizontally scrollable pill row above the content.
  */
-export function SettingsTabs({ isAdmin = false }: { isAdmin?: boolean } = {}) {
+export function SettingsTabs() {
   const pathname = usePathname()
   const activeHref = getActiveTabHref(pathname)
-  const groups = settingsTabGroups.filter((group) => !group.adminOnly || isAdmin)
+  const activeRef = useRef<HTMLAnchorElement>(null)
+  const groups = settingsTabGroups
+
+  // Seven tabs do not fit a phone, so the row scrolls. Scroll the active pill
+  // into view on every route change; otherwise arriving on /settings/ai leaves
+  // its own tab offscreen and the row reads as if it has only three items.
+  useEffect(() => {
+    // jsdom (unit tests) has no scrollIntoView; browsers always do.
+    activeRef.current?.scrollIntoView?.({ block: "nearest", inline: "center", behavior: "auto" })
+  }, [pathname])
 
   return (
     <>
@@ -72,6 +82,7 @@ export function SettingsTabs({ isAdmin = false }: { isAdmin?: boolean } = {}) {
               return (
                 <li key={item.href}>
                   <Link
+                    ref={active ? activeRef : undefined}
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(

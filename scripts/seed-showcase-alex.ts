@@ -1,17 +1,17 @@
 import "dotenv/config"
 import { prisma } from "@/shared/lib/prisma"
 
-const DEV_ADMIN_EMAIL = "dev-admin@rolespec.local"
+const SEED_OWNER_EMAIL = "owner@rolespec.local"
 
 async function main() {
   console.log("Seeding showcase dummy data for Alex Morgan...")
 
   const user = await prisma.user.findUnique({
-    where: { email: DEV_ADMIN_EMAIL },
+    where: { email: SEED_OWNER_EMAIL },
   })
 
   if (!user) {
-    throw new Error(`User ${DEV_ADMIN_EMAIL} not found. Run seed-dev-admin.ts first.`)
+    throw new Error(`User ${SEED_OWNER_EMAIL} not found. Run prisma/seed.ts first.`)
   }
 
   // 1. Update user profile name

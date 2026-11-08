@@ -8,6 +8,8 @@ import { CapabilitiesCard } from "@/features/career-profile/components/capabilit
 import { ContactsForm } from "@/features/career-profile/components/contacts-form"
 import { EvidenceCard } from "@/features/career-profile/components/evidence-card"
 import { ImportLinkedinCard } from "@/features/career-profile/components/import-linkedin-card"
+import { ImportResumeCard } from "@/features/career-profile/components/import-resume-card"
+import { ImportWebSourcesCard } from "@/features/career-profile/components/import-web-sources-card"
 import { PreferencesForm } from "@/features/career-profile/components/preferences-form"
 import { ProfileDataTransfer } from "@/features/career-profile/components/profile-data-transfer"
 import { ProfileQuickActions } from "@/features/career-profile/components/profile-quick-actions"
@@ -19,6 +21,14 @@ import {
   summarizeSectionCompleteness,
 } from "@/features/career-profile/lib/section-completeness"
 import { loadCareerProfile } from "@/features/career-profile/services/career-profile.service"
+import { listImportableResumes } from "@/features/career-profile/services/import-resume.service"
+
+/** Only an http(s) address recorded by an importer is offered as a source link. */
+function evidenceSourceUrl(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null
+  const value = (metadata as Record<string, unknown>).sourceUrl
+  return typeof value === "string" && /^https?:\/\//i.test(value) ? value : null
+}
 
 /** `searchParams` is a promise in Next.js 16. */
 export default async function CareerProfilePage({
@@ -27,11 +37,14 @@ export default async function CareerProfilePage({
   searchParams: Promise<{ setup?: string }>
 }) {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   // Everything below is read through the session user's own profile id — there
   // is no route parameter to tamper with.
-  const profile = await loadCareerProfile(session.user.id)
+  const [profile, importableResumes] = await Promise.all([
+    loadCareerProfile(session.user.id),
+    listImportableResumes(session.user.id),
+  ])
   const { setup } = await searchParams
 
   // A profile that says nothing about direction has never been filled in, so
@@ -184,10 +197,21 @@ export default async function CareerProfilePage({
 
       {/*
         Directly above the Evidence card: an import's whole output lands there
-        as rows to confirm, so the upload sits next to the thing it fills.
+        as rows to confirm, so the imports sit next to the thing they fill.
       */}
+      <div id="resume-import" className="scroll-mt-28">
+        <ImportResumeCard resumes={importableResumes} />
+      </div>
+
       <div id="linkedin-import" className="scroll-mt-28">
         <ImportLinkedinCard />
+      </div>
+
+      <div id="web-import" className="scroll-mt-28">
+        <ImportWebSourcesCard
+          githubUrl={profile.githubUrl}
+          websiteUrl={profile.websiteUrl}
+        />
       </div>
 
       <div id="evidence" className="scroll-mt-28">
@@ -203,6 +227,7 @@ export default async function CareerProfilePage({
             outcome: item.outcome,
             startDate: item.startDate,
             endDate: item.endDate,
+            sourceUrl: evidenceSourceUrl(item.metadata),
           }))}
         />
       </div>

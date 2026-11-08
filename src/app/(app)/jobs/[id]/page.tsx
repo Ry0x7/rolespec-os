@@ -40,6 +40,8 @@ import { describeJobProvenance } from "@/features/jobs/services/job-provenance.s
 import { isTerminalStatus } from "@/features/jobs/services/outcome.service"
 import { OutcomePanel } from "@/features/jobs/components/outcome-panel"
 import { JobTasksPanel } from "@/features/jobs/components/job-tasks-panel"
+import { ApplicationStatusTimeline } from "@/features/jobs/components/application-status-timeline"
+import { getApplicationStatusHistory } from "@/features/jobs/services/application-status.service"
 import {
   WORK_TYPE_LABELS,
   formatSalary,
@@ -89,7 +91,7 @@ function stringList(value: unknown): string[] {
 
 export default async function JobApplicationDetailPage({ params }: Props) {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const { id } = await params
 
@@ -97,7 +99,8 @@ export default async function JobApplicationDetailPage({ params }: Props) {
   // mean the same thing on every surface.
   const todayStart = await getUserDayStart()
 
-  const [row, resumes, usdPhpRate, user, resumeSourceOptions, tasks] = await Promise.all([
+  const [row, resumes, usdPhpRate, user, resumeSourceOptions, tasks, statusHistory] =
+    await Promise.all([
     prisma.jobApplication.findUnique({
       where: { id, userId: session.user.id },
       select: {
@@ -193,6 +196,8 @@ export default async function JobApplicationDetailPage({ params }: Props) {
       orderBy: [{ done: "asc" }, { dueDate: "asc" }],
       select: { id: true, title: true, done: true, dueDate: true },
     }),
+    // Scoped to the same owner as `row`; a foreign id returns no events.
+    getApplicationStatusHistory(session.user.id, id),
   ])
 
   if (!row) notFound()
@@ -833,6 +838,16 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           </CardContent>
         </Card>
         )}
+
+        {/*
+          How the application moved through the pipeline, between the current
+          facts and the tasks still open. The header badge says where it is; this
+          says how it got there.
+        */}
+        <ApplicationStatusTimeline
+          events={statusHistory.events}
+          trackingStartedAt={application.createdAt}
+        />
 
         {/*
           The job's own tasks, between the facts of the application and how it

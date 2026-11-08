@@ -2,15 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>RoleSpec Job Clipper — Options</title>
+    <title>RoleSpec OS Job Clipper — Options</title>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body class="options">
     <main class="panel">
-      <h1>RoleSpec Job Clipper</h1>
+      <h1>RoleSpec OS Job Clipper</h1>
       <p class="hint">
-        The clipper posts jobs to your RoleSpec instance. Sign in below and the token is
-        created and stored for you.
+        The clipper posts jobs to your RoleSpec OS workspace. Connect it below and the
+        token is created and stored for you.
       </p>
 
       <form id="form" class="form">
@@ -20,8 +20,8 @@
           <small class="hint">Trailing slashes are removed automatically.</small>
         </label>
 
-        <button id="sign-in" class="button" type="button">Sign in to RoleSpec</button>
-        <p class="hint">Opens RoleSpec in a Chrome sign-in window and saves the token here.</p>
+        <button id="sign-in" class="button" type="button">Connect RoleSpec OS</button>
+        <p class="hint">Opens RoleSpec OS in a Chrome window and saves the token here.</p>
 
         <p id="status" class="notice" hidden></p>
 
@@ -33,7 +33,7 @@
             <button id="toggle-token" class="button button-quiet" type="button" aria-pressed="false">Show</button>
           </span>
           <small class="hint">
-            Only needed if sign-in cannot run: create a token in RoleSpec under
+            Only needed if the connect flow cannot run: create a token in RoleSpec OS under
             <strong>Settings &rarr; API access</strong> and paste it here.
           </small>
         </label>

@@ -19,7 +19,11 @@ describe("resume import without AI", () => {
     const result = await parseResumeFile(new Uint8Array(docx),
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "user-1")
     expect(generateObjectTracked).not.toHaveBeenCalled()
-    expect(result.importedSections).toContainEqual({ title: "Experience", content: "Built the note engine" })
+    // Recognized headings become editable typed sections, not CUSTOM blobs.
+    expect(result.experience).toEqual([
+      expect.objectContaining({ bullets: ["Built the note engine"] }),
+    ])
+    expect(result.importedSections?.map((section) => section.title)).not.toContain("Experience")
   })
 
   it("imports a real text PDF without a provider, preserving its sections and wording", async () => {
@@ -34,10 +38,16 @@ describe("resume import without AI", () => {
     })
 
     expect(generateObjectTracked).not.toHaveBeenCalled()
-    expect(result.importedSections).toEqual(expect.arrayContaining([
-      expect.objectContaining({ title: "Experience", content: expect.stringContaining("Built the note engine") }),
-      expect.objectContaining({ title: "Skills", content: expect.stringContaining("TypeScript, Go") }),
-    ]))
+    expect(result.experience).toEqual([
+      expect.objectContaining({
+        role: "Analytical Engines Ltd",
+        bullets: ["Built the note engine"],
+      }),
+    ])
+    expect(result.skills?.flatMap((entry) => entry.skills ?? [])).toEqual([
+      "TypeScript",
+      "Go",
+    ])
     expect(JSON.stringify(result)).toContain("ada@example.com")
   }, 15_000)
 })

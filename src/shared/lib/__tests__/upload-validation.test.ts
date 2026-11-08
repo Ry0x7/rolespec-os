@@ -206,13 +206,22 @@ describe("checkZipSanity", () => {
 describe("sanitizeUploadTitle", () => {
   it("strips only the last extension", () => {
     expect(sanitizeUploadTitle("Ada Lovelace Resume.pdf")).toBe("Ada Lovelace Resume")
-    expect(sanitizeUploadTitle("resume.v2.final.docx")).toBe("resume.v2.final")
+    expect(sanitizeUploadTitle("resume.v2.final.docx")).toBe("Resume V2 Final")
+  })
+
+  it("turns a slug into a readable title without flattening acronyms", () => {
+    expect(sanitizeUploadTitle("avery-quinn-resume.docx")).toBe("Avery Quinn Resume")
+    expect(sanitizeUploadTitle("my_resume_2026.pdf")).toBe("My Resume 2026")
+    expect(sanitizeUploadTitle("ICU Registered Nurse Resume.pdf")).toBe(
+      "ICU Registered Nurse Resume"
+    )
+    expect(sanitizeUploadTitle("McKinsey Application.pdf")).toBe("McKinsey Application")
   })
 
   it("removes control characters and collapses whitespace", () => {
-    expect(sanitizeUploadTitle("a\u0000b\u001fc\u007fd.pdf")).toBe("a b c d")
-    expect(sanitizeUploadTitle("  spaced   out  .pdf")).toBe("spaced out")
-    expect(sanitizeUploadTitle("line\nbreak.pdf")).toBe("line break")
+    expect(sanitizeUploadTitle("a\u0000b\u001fc\u007fd.pdf")).toBe("A B C D")
+    expect(sanitizeUploadTitle("  spaced   out  .pdf")).toBe("Spaced Out")
+    expect(sanitizeUploadTitle("line\nbreak.pdf")).toBe("Line Break")
   })
 
   it("caps the length at 120 characters", () => {

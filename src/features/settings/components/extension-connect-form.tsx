@@ -8,7 +8,7 @@ import { Button, buttonVariants } from "@/shared/ui/button"
 import { connectExtensionAction } from "../actions/extension-connect.actions"
 
 /**
- * Consent step for the browser extension's sign-in flow.
+ * Consent step for the browser extension's connection flow.
  *
  * On success the action throws a redirect to the extension's `chromiumapp.org`
  * URL, so nothing is returned and this component never re-renders; anything that

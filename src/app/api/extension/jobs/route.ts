@@ -46,7 +46,7 @@ import {
  * Authenticated with a personal API token (`Authorization: Bearer rspec_…`)
  * rather than the session cookie: the extension's fetch originates from
  * `chrome-extension://…`, which is a different origin and carries no cookie.
- * `/api/extension` is whitelisted in `src/proxy.ts` for the same reason.
+ * The token replaces the session cookie for the same reason.
  *
  * Jobs land as INTERESTED. `dateApplied` is not stamped here — that happens on
  * the transition to APPLIED, through the jobs server actions.

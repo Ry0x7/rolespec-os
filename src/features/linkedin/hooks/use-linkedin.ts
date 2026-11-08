@@ -9,7 +9,7 @@ import type { LinkedinSuggestionData } from "../services/linkedin.service"
 
 /** Inline copy for the `POST /api/linkedin/rating` error codes. */
 export const LINKEDIN_ERROR_MESSAGES: Record<string, string> = {
-  UNAUTHORIZED: "Your session expired — sign in again to run a rating.",
+  UNAUTHORIZED: "Your access expired — unlock the workspace and try again.",
   INVALID_BODY: "That upload couldn't be read. Try again.",
   NO_FILE: "Choose your LinkedIn PDF export first.",
   INVALID_TYPE: "Only PDF files are supported — use LinkedIn's “Save to PDF” export.",

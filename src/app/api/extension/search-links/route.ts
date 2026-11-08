@@ -16,7 +16,7 @@ import {
  *
  * Same envelope as `GET /api/extension/resumes`: personal API token in an
  * `Authorization: Bearer rspec_…` header, CORS reflected to extension origins
- * only, and `/api/extension` whitelisted in `src/proxy.ts`.
+ * only.
  *
  * Read-only and AI-free: the links are built exactly as `/jobs/discover` builds
  * them, from the user's own Career Profile (active target roles, confirmed

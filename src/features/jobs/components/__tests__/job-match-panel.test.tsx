@@ -1,14 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 
-const { mockUseSession, mockUpdate, mockAnalyze, mockToastError } = vi.hoisted(() => ({
-  mockUseSession: vi.fn(),
-  mockUpdate: vi.fn(),
+const { mockAnalyze, mockToastError } = vi.hoisted(() => ({
   mockAnalyze: vi.fn(),
   mockToastError: vi.fn(),
 }))
 
-vi.mock("next-auth/react", () => ({ useSession: mockUseSession }))
 vi.mock("sonner", () => ({ toast: { error: mockToastError } }))
 vi.mock("../../actions/job-match.actions", () => ({ analyzeJobMatch: mockAnalyze }))
 
@@ -31,8 +28,6 @@ function renderPanel() {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockUpdate.mockResolvedValue({})
-  mockUseSession.mockReturnValue({ update: mockUpdate })
 })
 
 afterEach(cleanup)

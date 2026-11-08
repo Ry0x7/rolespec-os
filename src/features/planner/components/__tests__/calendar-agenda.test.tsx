@@ -21,7 +21,7 @@ vi.mock("../../actions/todo.actions", () => ({
 }))
 
 // The follow-up row now carries the shared quick-action buttons, which reach
-// two server-action modules; unmocked they drag `next-auth` into jsdom.
+// two server-action modules; unmocked they drag database code into jsdom.
 vi.mock("@/features/jobs/actions/job-application.actions", () => ({
   clearJobApplicationFollowUp: vi.fn(),
   scheduleJobApplicationFollowUp: vi.fn(),

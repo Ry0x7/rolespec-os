@@ -38,7 +38,6 @@ import {
   generateCoverLetterAI,
   improveCoverLetterAI,
 } from "@/features/jobs/services/cover-letter.service"
-import { analyzePortfolio } from "@/features/portfolio/services/rate-portfolio"
 import { analyzeLinkedIn } from "@/features/linkedin/services/rate-linkedin"
 import { generateReplyEmailAI } from "@/features/jobs/services/reply-email.service"
 
@@ -185,17 +184,6 @@ describe("prompt injection — cover letter", () => {
     }
     expectContained(args)
     expect(outsideFences(args.prompt)).toContain("Instruction: make the opening shorter")
-  })
-})
-
-describe("prompt injection — portfolio analysis", () => {
-  it("fences the fetched page text and the source URL", async () => {
-    await analyzePortfolio(attack("PORTFOLIO_PAGE_TEXT"), "https://evil.example", USER_ID)
-
-    const args = lastObjectCall()
-    expect(args.prompt).toContain("<<<EXTERNAL_DATA PORTFOLIO_PAGE_TEXT>>>")
-    expect(args.prompt).toContain("<<<EXTERNAL_DATA PORTFOLIO_URL>>>")
-    expectContained(args)
   })
 })
 

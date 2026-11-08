@@ -13,14 +13,8 @@ const log = logger("rate-limit")
 
 /** Buckets in use today. Plain strings are accepted; these keep spelling honest. */
 export const RATE_LIMIT_BUCKETS = {
-  SIGN_IN: "auth:sign-in",
-  /** Same window as SIGN_IN but keyed on the client IP, to cap email spraying. */
-  SIGN_IN_IP: "auth:sign-in-ip",
-  SIGN_UP: "auth:sign-up",
-  /** Reset requests, keyed on the submitted address — each one sends mail. */
-  PASSWORD_RESET_REQUEST: "auth:password-reset-request",
-  /** Same window keyed on the client IP, to cap walking a list of addresses. */
-  PASSWORD_RESET_REQUEST_IP: "auth:password-reset-request-ip",
+  /** Public owner-key attempts, keyed on the client IP. */
+  OWNER_UNLOCK: "auth:owner-unlock",
   RESUME_PARSE: "resume:parse",
   /** Creating a job-tailored resume copy — one AI call per run. */
   AI_RESUME_TAILOR: "resume:tailor",
@@ -55,10 +49,10 @@ export const RATE_LIMIT_BUCKETS = {
   AI_RESUME_ENHANCE: "ai:resume-enhance",
   /** LinkedIn profile suggestions, keyed on the user id. */
   AI_LINKEDIN: "ai:linkedin",
-  /** Portfolio analysis, keyed on the user id. */
-  AI_PORTFOLIO: "ai:portfolio",
   /** LinkedIn PDF → career-profile import, keyed on the user id. */
   CAREER_IMPORT: "career:import",
+  /** Opt-in GitHub / portfolio scan, keyed on the user id. */
+  CAREER_WEB_IMPORT: "career:web-import",
   /** One-click enhance of a career-profile field, keyed on the user id. */
   AI_PROFILE_ENHANCE: "ai:profile-enhance",
   /** Polish pass run while creating a master resume, keyed on the user id. */

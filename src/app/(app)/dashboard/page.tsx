@@ -14,15 +14,28 @@ import {
 } from "@/features/dashboard/components/ai-key-banner"
 import { getJobsDashboardStats } from "@/features/jobs/services/dashboard-stats.service"
 import { getDashboardAttention } from "@/features/jobs/services/dashboard-attention.service"
-import { getUserAiKeyStatus } from "@/features/settings/services/user-ai-settings.service"
+import { assertAiConfigUsable, getEffectiveAiConfigForUser } from "@/shared/lib/ai-provider"
 import { PageShell } from "@/shared/components/page-shell"
 import { getUserDayStart, getUserTzOffsetMinutes } from "@/shared/lib/user-day"
 
+/** True when an AI call would pass its own preflight right now. */
+async function hasUsableAiConfig(userId: string): Promise<boolean> {
+  try {
+    await assertAiConfigUsable(await getEffectiveAiConfigForUser(userId))
+    return true
+  } catch {
+    return false
+  }
+}
+
 export default async function DashboardPage() {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
-  const isAdmin = session.user.role === "ADMIN"
+  // The single owner is always "admin", but that no longer says anything about
+  // which AI credentials are usable. Resolve the effective config so the banner
+  // reflects a real provider/key, not the old role shortcut.
+  const aiUsable = await hasUsableAiConfig(session.user.id)
 
   // Framed on the user's calendar day, not the server's: a stamp made at 07:00
   // in UTC+8 belongs to "today" on their clock, not yesterday's UTC. Resolved
@@ -37,7 +50,6 @@ export default async function DashboardPage() {
     jobCount,
     jobStats,
     attention,
-    aiKey,
   ] = await Promise.all([
       // The exact inverse of `needsSetup` on /career-profile, so the checkmark
       // and that page's guided-setup redirect can never disagree. The old
@@ -63,8 +75,6 @@ export default async function DashboardPage() {
       prisma.jobApplication.count({ where: { userId: session.user.id } }),
       getJobsDashboardStats(session.user.id, todayStart),
       getDashboardAttention(session.user.id, todayStart, tzOffsetMinutes),
-      // Admins fall back to the deployment credentials, so skip the lookup.
-      isAdmin ? null : getUserAiKeyStatus(session.user.id),
     ])
 
   const hasCareerProfile = Boolean(
@@ -103,10 +113,7 @@ export default async function DashboardPage() {
     topFollowUpDaysOverdue: attention.overdueFollowUps[0]?.daysOverdue,
   })
 
-  const showAiKeyBanner = shouldShowAiKeyBanner({
-    role: session.user.role,
-    hasUsableKey: aiKey?.configured ?? true,
-  })
+  const showAiKeyBanner = shouldShowAiKeyBanner({ hasUsableKey: aiUsable })
 
   return (
     <PageShell>

@@ -1,4 +1,4 @@
-name: Deploy RoleSpec showcase
+name: Deploy RoleSpec OS showcase
 
 on:
   workflow_dispatch:

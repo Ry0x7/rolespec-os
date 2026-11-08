@@ -81,11 +81,11 @@ export function MarketingNav() {
       ))}
       <li className="sm:hidden">
         <Link
-          href="/sign-in"
+          href="/dashboard"
           onClick={() => setOpen(false)}
           className="flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          Sign in
+          Open workspace
         </Link>
       </li>
     </ul>
@@ -122,22 +122,10 @@ export function MarketingNav() {
 
         <div className="flex items-center gap-2">
           <Link
-            href="/sign-in"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "sm" }),
-              "min-h-11 hidden sm:inline-flex"
-            )}
+            href="/dashboard"
+            className={cn(buttonVariants({ size: "sm" }), "min-h-11 px-3 sm:px-4")}
           >
-            Sign in
-          </Link>
-          <Link
-            href="/sign-up"
-            className={cn(
-              buttonVariants({ size: "sm" }),
-              "min-h-11 px-3 sm:px-4"
-            )}
-          >
-            Create account
+            Open workspace
           </Link>
           <Button
             ref={triggerRef}

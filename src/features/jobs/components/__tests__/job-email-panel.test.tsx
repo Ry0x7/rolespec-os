@@ -2,8 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 
 const {
-  mockUseSession,
-  mockUpdate,
   mockGenerateApplication,
   mockGenerateCold,
   mockGenerateReply,
@@ -11,8 +9,6 @@ const {
   mockToastSuccess,
   mockPush,
 } = vi.hoisted(() => ({
-  mockUseSession: vi.fn(),
-  mockUpdate: vi.fn(),
   mockGenerateApplication: vi.fn(),
   mockGenerateCold: vi.fn(),
   mockGenerateReply: vi.fn(),
@@ -21,7 +17,6 @@ const {
   mockPush: vi.fn(),
 }))
 
-vi.mock("next-auth/react", () => ({ useSession: mockUseSession }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }))
 vi.mock("sonner", () => ({
   toast: { error: mockToastError, success: mockToastSuccess },
@@ -48,8 +43,6 @@ function renderPanel() {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockUpdate.mockResolvedValue({})
-  mockUseSession.mockReturnValue({ update: mockUpdate })
 })
 
 afterEach(cleanup)

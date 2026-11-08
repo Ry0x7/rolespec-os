@@ -167,13 +167,23 @@ describe("verifyApiToken", () => {
     await expect(verifyApiToken(generateApiToken())).resolves.toBeNull()
   })
 
-  it.each(["", "abc123", "Bearer rspec_x", "rspec", "rspec_"])(
+  it.each(["", "abc123", "local", "Bearer rspec_x", "rspec", "rspec_"])(
     "rejects %o without touching the database",
     async (raw) => {
       await expect(verifyApiToken(raw)).resolves.toBeNull()
       expect(mockPrisma.apiToken.findUnique).not.toHaveBeenCalled()
     }
   )
+
+  it("never falls back to the owner for an anonymous or legacy sentinel", async () => {
+    // Regression: a self-hosted convenience fallback used to resolve `local`
+    // (and an empty header) to the owner. `/api/extension/*` treats this return
+    // value as authenticated, so that fallback was an unauthenticated owner
+    // bypass on every token-protected route.
+    await expect(verifyApiToken("local")).resolves.toBeNull()
+    await expect(verifyApiToken("")).resolves.toBeNull()
+    expect(mockPrisma.apiToken.findUnique).not.toHaveBeenCalled()
+  })
 
   it("stamps lastUsedAt for a valid token", async () => {
     mockPrisma.apiToken.findUnique.mockResolvedValue({

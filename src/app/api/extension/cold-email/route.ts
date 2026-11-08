@@ -19,8 +19,7 @@ import {
  *
  * Same envelope as `POST /api/extension/jobs`: personal API token in an
  * `Authorization: Bearer rspec_…` header (the extension's origin carries no
- * session cookie), CORS reflected to extension origins only, and `/api/extension`
- * whitelisted in `src/proxy.ts`.
+ * session cookie) and CORS reflected to extension origins only.
  *
  * Unlike the jobs route this one calls the model. Nothing is persisted — the
  * draft is returned to the extension and forgotten.

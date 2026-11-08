@@ -12,8 +12,8 @@ import { prisma } from "@/shared/lib/prisma"
  * 2. **Nothing that belongs to someone else.** Only rows owned by this user are
  *    included; nothing about any other user.
  *
- * The password hash is never exported. It is not useful to the user and handing it
- * out turns a downloaded file into an offline cracking target.
+ * No credentials are exported. The workspace has no account password, and API
+ * tokens are stored only as hashes, which are deliberately omitted.
  */
 
 export interface UserDataExport {
@@ -24,6 +24,8 @@ export interface UserDataExport {
   resumes: unknown[]
   atsAnalyses: unknown[]
   exports: unknown[]
+  careerProfile: Record<string, unknown> | null
+  jobs: unknown[]
   jobApplications: unknown[]
   coverLetters: unknown[]
   todos: unknown[]
@@ -44,14 +46,25 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
       preferences: true,
       createdAt: true,
       updatedAt: true,
-      // password, passwordChangedAt and sessionVersion are deliberately absent:
-      // credentials material that is not useful to the user.
       profile: true,
-      accounts: {
-        // The provider linkage is the user's own data; the OAuth tokens are not
-        // theirs to re-use and would be a live credential in a downloaded file.
-        select: { provider: true, providerAccountId: true, type: true },
+      // The canonical career source, with the evidence and capability joins that
+      // explain each fact. Without it the export would miss the data the
+      // Career Profile surface is built on.
+      careerProfile: {
+        include: {
+          roleFamilies: true,
+          targetRoles: { orderBy: [{ active: "desc" }, { priority: "asc" }] },
+          evidence: {
+            include: { capabilityLinks: true },
+            orderBy: { createdAt: "asc" },
+          },
+          capabilities: {
+            include: { evidenceLinks: true },
+            orderBy: { name: "asc" },
+          },
+        },
       },
+      jobs: true,
       resumes: {
         include: {
           sections: { include: { items: { orderBy: { order: "asc" } } }, orderBy: { order: "asc" } },
@@ -62,7 +75,7 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
       // The posting itself lives on `job` now — applications created since the
       // Job/Application split no longer mirror it, so without the relation the
       // export would carry an application with no company, title or description.
-      jobApplications: { include: { job: true } },
+      jobApplications: { include: { job: true, statusEvents: { orderBy: { createdAt: "asc" } } } },
       coverLetters: true,
       todos: true,
       notes: true,
@@ -75,6 +88,8 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
 
   const {
     profile,
+    careerProfile,
+    jobs,
     resumes,
     atsAnalyses,
     resumeExports,
@@ -93,6 +108,8 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     format: 1,
     account,
     profile,
+    careerProfile,
+    jobs,
     resumes,
     atsAnalyses,
     exports: resumeExports,

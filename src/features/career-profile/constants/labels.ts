@@ -32,6 +32,8 @@ export const EVIDENCE_SOURCE_LABELS: Record<CareerEvidenceSource, string> = {
   USER_ENTERED: "You entered this",
   RESUME_IMPORT_CANDIDATE: "From a resume",
   LINKEDIN_IMPORT_CANDIDATE: "From LinkedIn",
+  GITHUB_IMPORT_CANDIDATE: "From GitHub",
+  PORTFOLIO_IMPORT_CANDIDATE: "From your website",
 }
 
 export const EVIDENCE_STATUS_LABELS: Record<CareerEvidenceStatus, string> = {

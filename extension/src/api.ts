@@ -1,3 +1,4 @@
+import type { ProfileFacts } from "./autofill-core"
 import { parseJobRisk } from "./job-risk"
 import {
   parseConfidence,
@@ -366,7 +367,7 @@ async function postDraft(
     return {
       ok: false,
       kind: "unauthorized",
-      message: serverError ?? "Token rejected. Sign in to RoleSpec again.",
+      message: serverError ?? "Token rejected. Reconnect the extension in options.",
     }
   }
   if (response.status === 429) {
@@ -485,7 +486,105 @@ export async function fetchResumes(settings: Settings): Promise<ResumeListResult
     return {
       ok: false,
       kind: "unauthorized",
-      message: serverError ?? "Token rejected. Sign in to RoleSpec again.",
+      message: serverError ?? "Token rejected. Reconnect the extension in options.",
+    }
+  }
+  if (response.status === 429) {
+    return {
+      ok: false,
+      kind: "rate_limited",
+      message: serverError ?? "Too many requests. Wait a minute and try again.",
+    }
+  }
+  return {
+    ok: false,
+    kind: "unknown",
+    message: serverError ?? `Unexpected response from RoleSpec (${response.status}).`,
+  }
+}
+
+export type ProfileResult =
+  | { ok: true; profile: ProfileFacts }
+  | {
+      ok: false
+      kind: "unauthorized" | "rate_limited" | "network" | "unknown"
+      message: string
+    }
+
+/** No model call behind the profile read, so it shares the picker's short budget. */
+const PROFILE_TIMEOUT_MS = 10000
+
+function str(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+/** Reads the profile payload defensively; every unknown key is ignored. */
+export function parseProfileFacts(value: unknown): ProfileFacts {
+  if (typeof value !== "object" || value === null) return {}
+  const row = value as Record<string, unknown>
+  const profile: ProfileFacts = {
+    fullName: str(row.fullName),
+    email: str(row.email),
+    phone: str(row.phone),
+    location: str(row.location),
+    linkedinUrl: str(row.linkedinUrl),
+    githubUrl: str(row.githubUrl),
+    websiteUrl: str(row.websiteUrl),
+    currentRole: str(row.currentRole),
+    targetRole: str(row.targetRole),
+    workAuthorization: str(row.workAuthorization),
+    salaryMin: numberOrNull(row.salaryMin),
+    salaryMax: numberOrNull(row.salaryMax),
+    salaryCurrency: str(row.salaryCurrency),
+  }
+  if (typeof row.requiresSponsorship === "boolean") {
+    profile.requiresSponsorship = row.requiresSponsorship
+  } else {
+    profile.requiresSponsorship = null
+  }
+  return profile
+}
+
+/**
+ * GET /api/extension/profile — the contact and preference facts the autofill
+ * planner may read. It contains no resume text, no job history and no secrets.
+ */
+export async function fetchProfile(settings: Settings): Promise<ProfileResult> {
+  let response: Response
+  try {
+    response = await fetch(`${settings.appUrl}/api/extension/profile`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${settings.apiToken}` },
+      signal: AbortSignal.timeout(PROFILE_TIMEOUT_MS),
+    })
+  } catch {
+    return {
+      ok: false,
+      kind: "network",
+      message: `Could not reach ${settings.appUrl} to load your profile.`,
+    }
+  }
+
+  let data: Record<string, unknown> = {}
+  try {
+    data = (await response.json()) as Record<string, unknown>
+  } catch {
+    data = {}
+  }
+  const serverError = str(data.error) ?? undefined
+
+  if (response.ok) {
+    return { ok: true, profile: parseProfileFacts(data.profile) }
+  }
+  if (response.status === 401) {
+    return {
+      ok: false,
+      kind: "unauthorized",
+      message: serverError ?? "Token rejected. Reconnect the extension in options.",
     }
   }
   if (response.status === 429) {
@@ -610,7 +709,7 @@ export async function fetchSearchLinks(settings: Settings): Promise<SearchLinksR
     return {
       ok: false,
       kind: "unauthorized",
-      message: serverError ?? "Token rejected. Sign in to RoleSpec again.",
+      message: serverError ?? "Token rejected. Reconnect the extension in options.",
     }
   }
   if (response.status === 429) {

@@ -25,7 +25,7 @@ export default async function JobsPage({
   searchParams: Promise<{ filter?: string; sort?: string }>
 }) {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   // `/jobs?filter=follow-up-due` is where the dashboard's follow-up next action
   // points, so the list opens already narrowed to what is overdue.

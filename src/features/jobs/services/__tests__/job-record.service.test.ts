@@ -8,11 +8,13 @@ const { mockPrisma } = vi.hoisted(() => ({
     jobApplication: {
       create: vi.fn(),
       update: vi.fn(),
+      findUnique: vi.fn(),
       delete: vi.fn(),
       count: vi.fn(),
       findMany: vi.fn(),
       deleteMany: vi.fn(),
     },
+    applicationStatusEvent: { create: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
@@ -139,6 +141,7 @@ describe("createJobApplicationWithJob", () => {
     mockPrisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(mockPrisma))
     mockPrisma.job.create.mockResolvedValue({ id: "job-row-1" })
     mockPrisma.jobApplication.create.mockResolvedValue({ id: "app-1" })
+    mockPrisma.applicationStatusEvent.create.mockResolvedValue({})
   })
 
   it("writes the posting first and links the application to it", async () => {
@@ -252,8 +255,14 @@ describe("updateJobApplicationWithJob", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPrisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(mockPrisma))
-    mockPrisma.jobApplication.update.mockResolvedValue({ jobId: "job-row-1" })
+    mockPrisma.jobApplication.findUnique.mockResolvedValue({
+      status: ApplicationStatus.INTERESTED,
+    })
+    mockPrisma.jobApplication.update.mockResolvedValue({
+      jobId: "job-row-1",
+    })
     mockPrisma.job.update.mockResolvedValue({})
+    mockPrisma.applicationStatusEvent.create.mockResolvedValue({})
   })
 
   it("updates the application and its posting in one transaction, scoped to the user", async () => {
@@ -332,8 +341,36 @@ describe("updateJobApplicationWithJob", () => {
     expect(mockPrisma.job.update).not.toHaveBeenCalled()
   })
 
+  it("records a history row when the edit form moves the status", async () => {
+    await updateJobApplicationWithJob(
+      { id: "app-1", userId: "user-1" },
+      { status: ApplicationStatus.APPLIED, outcomeNote: "Sent through the site." }
+    )
+
+    expect(mockPrisma.applicationStatusEvent.create).toHaveBeenCalledWith({
+      data: {
+        jobApplicationId: "app-1",
+        fromStatus: ApplicationStatus.INTERESTED,
+        toStatus: ApplicationStatus.APPLIED,
+        note: "Sent through the site.",
+        source: "USER",
+      },
+    })
+  })
+
+  it("leaves history alone when the edit re-saves the same status", async () => {
+    await updateJobApplicationWithJob(
+      { id: "app-1", userId: "user-1" },
+      { status: ApplicationStatus.INTERESTED }
+    )
+
+    expect(mockPrisma.applicationStatusEvent.create).not.toHaveBeenCalled()
+  })
+
   it("writes the posting the application actually points at, not one derived from its id", async () => {
-    mockPrisma.jobApplication.update.mockResolvedValue({ jobId: "shared-job-9" })
+    mockPrisma.jobApplication.update.mockResolvedValue({
+      jobId: "shared-job-9",
+    })
 
     await updateJobApplicationWithJob(
       { id: "app-1", userId: "user-1" },
@@ -508,6 +545,7 @@ describe("findExistingJob", () => {
     mockPrisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(mockPrisma))
     mockPrisma.job.create.mockResolvedValue({ id: "job-row-1" })
     mockPrisma.jobApplication.create.mockResolvedValue({ id: "app-1" })
+    mockPrisma.applicationStatusEvent.create.mockResolvedValue({})
   })
 
   it("matches on canonical URL, raw link and provider id, scoped to the user", async () => {
@@ -573,6 +611,7 @@ describe("createJobApplicationWithJob under the unique posting key", () => {
     mockPrisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(mockPrisma))
     mockPrisma.job.create.mockResolvedValue({ id: "job-row-1" })
     mockPrisma.jobApplication.create.mockResolvedValue({ id: "app-1" })
+    mockPrisma.applicationStatusEvent.create.mockResolvedValue({})
   })
 
   it("resolves a lost race onto the winner's application instead of failing", async () => {

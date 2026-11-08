@@ -159,15 +159,27 @@ const MAX_UPLOAD_TITLE_LENGTH = 120
 
 /**
  * Turns an upload's file name into something safe to store as a title: last
- * extension dropped, control characters removed, whitespace collapsed, capped.
+ * extension dropped, separators turned into spaces, lower-case words
+ * capitalized, control characters removed, whitespace collapsed, capped.
  * Returns "" when nothing usable is left, so callers keep their own fallback.
+ *
+ * A raw file name is a poor first screen for an imported resume: without this,
+ * `avery-quinn-resume.docx` becomes the lowercase slug "avery-quinn-resume" in
+ * the editor header. Only words that start lower-case are touched, so acronyms
+ * and deliberate mixed case ("ICU", "McKinsey") survive unchanged.
  */
 export function sanitizeUploadTitle(name: string): string {
   const withoutExtension = name.replace(/\.[^/.]+$/, "")
   const cleaned = withoutExtension
+    .replace(/[_\-.]+/g, " ")
     .replace(/[\u0000-\u001f\u007f]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
 
-  return cleaned.slice(0, MAX_UPLOAD_TITLE_LENGTH).trim()
+  const humanized = cleaned.replace(
+    /(^|\s)([a-z])/g,
+    (_match, space: string, letter: string) => `${space}${letter.toUpperCase()}`
+  )
+
+  return humanized.slice(0, MAX_UPLOAD_TITLE_LENGTH).trim()
 }

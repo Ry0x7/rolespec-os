@@ -15,6 +15,7 @@ const {
     jobApplication: { create: vi.fn() },
     interviewQuestion: { createMany: vi.fn() },
     job: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
+    applicationStatusEvent: { create: vi.fn() },
     careerProfile: { findUnique: vi.fn() },
     user: { findUnique: vi.fn() },
     $transaction: vi.fn(),
@@ -135,6 +136,7 @@ beforeEach(() => {
   })
   mockPrisma.job.findFirst.mockResolvedValue(null)
   mockPrisma.jobApplication.create.mockResolvedValue({ id: "job-1" })
+  mockPrisma.applicationStatusEvent.create.mockResolvedValue({ id: "event-1" })
   mockPrisma.job.updateMany.mockResolvedValue({ count: 1 })
   mockPrisma.careerProfile.findUnique.mockResolvedValue({
     locations: [],

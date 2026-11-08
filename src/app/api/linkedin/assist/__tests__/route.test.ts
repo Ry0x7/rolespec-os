@@ -54,8 +54,11 @@ const suggestions = {
   quickWins: ["Set a custom URL"],
 }
 
-/** The route only forwards the Request to the (mocked) upload helper. */
-const request = {} as Request
+/**
+ * A real Request: the route checks same-origin (no Origin header reads as
+ * same-origin) before forwarding it to the mocked upload helper.
+ */
+const request = new Request("http://localhost/api/linkedin/assist", { method: "POST" })
 
 beforeEach(() => {
   vi.clearAllMocks()

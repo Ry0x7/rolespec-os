@@ -12,7 +12,7 @@ interface Props {
 
 export default async function NewCoverLetterPage({ searchParams }: Props) {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const { jobId } = await searchParams
 

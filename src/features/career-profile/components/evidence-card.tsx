@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { BadgeCheck, FileStack, Pencil, Plus, Sparkles, Trash2 } from "lucide-react"
+import { BadgeCheck, ExternalLink, FileStack, Pencil, Plus, Sparkles, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/shared/ui/badge"
 import { Button } from "@/shared/ui/button"
@@ -416,6 +416,17 @@ export function EvidenceCard({ evidence }: { evidence: EvidenceRow[] }) {
                                 {" – "}
                                 {item.endDate ? formatDate(item.endDate) : "present"}
                               </span>
+                            )}
+                            {item.sourceUrl && (
+                              <a
+                                href={item.sourceUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="inline-flex items-center gap-1 text-brand-400 hover:underline"
+                              >
+                                Source
+                                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                              </a>
                             )}
                           </div>
                           {item.details && (

@@ -62,6 +62,8 @@ export interface EvidenceRow {
   outcome: string | null
   startDate: Date | null
   endDate: Date | null
+  /** Public page this candidate came from, when the source recorded one. */
+  sourceUrl?: string | null
 }
 
 export interface CapabilityLinkRow {

@@ -5,7 +5,7 @@ import { z } from "zod"
 import { auth } from "@/features/auth/config"
 import { logger } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
-import { onboardingSchema } from "@/features/auth/schemas"
+import { onboardingSchema } from "../schemas/onboarding.schema"
 
 const log = logger("onboarding-actions")
 

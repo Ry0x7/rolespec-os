@@ -25,7 +25,7 @@ export async function addResumeSection(
   title?: string
 ): Promise<{ id: string; error?: string }> {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   // Archived (soft-deleted) resumes are treated as gone, same as a foreign id.
   const resume = await prisma.resume.findUnique({
@@ -76,7 +76,7 @@ export async function removeResumeSection(
   sectionId: string
 ): Promise<{ error?: string }> {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   const section = await prisma.resumeSection.findUnique({
     where: { id: sectionId },
@@ -117,7 +117,7 @@ export async function reorderResumeSections(
   orderedIds: string[]
 ): Promise<{ error?: string }> {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   // Archived (soft-deleted) resumes are treated as gone, same as a foreign id.
   const resume = await prisma.resume.findUnique({

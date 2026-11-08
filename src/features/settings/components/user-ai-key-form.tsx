@@ -40,17 +40,33 @@ const KEY_PLACEHOLDER: Partial<Record<UserAiProvider, string>> = {
 export function UserAiKeyForm({
   status,
   openCodeModels = [],
+  fallbackProvider,
+  fallbackModel,
 }: {
   status: UserAiKeyFormValues
   /** Only free models the installed OpenCode CLI reports, probed on the server. */
   openCodeModels?: UserAiModelOption[]
+  /**
+   * The provider and model the next AI call would use when no per-user override
+   * exists. Seeding the form with this keeps its selection and the "Active"
+   * badge on the settings page from naming two different providers.
+   */
+  fallbackProvider?: UserAiProvider
+  fallbackModel?: string | null
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const usableFallback =
+    fallbackProvider &&
+    (fallbackProvider !== "opencode-cli" || openCodeModels.length > 0)
+      ? fallbackProvider
+      : undefined
   const [provider, setProvider] = useState<UserAiProvider>(
-    status.provider ?? USER_AI_PROVIDERS[0]
+    status.provider ?? usableFallback ?? USER_AI_PROVIDERS[0]
   )
-  const [model, setModel] = useState(status.model ?? "")
+  const [model, setModel] = useState(
+    status.model ?? (status.provider ? "" : fallbackModel ?? "")
+  )
 
   const meta = AI_PROVIDER_META[provider]
   const isLocalProvider = meta.localOnly

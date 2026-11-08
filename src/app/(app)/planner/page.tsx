@@ -8,7 +8,7 @@ import { getUserDayStart } from "@/shared/lib/user-day"
 
 export default async function PlannerPage() {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const userId = session.user.id
   // The user's calendar day, shared by the agenda and the todo list's Overdue

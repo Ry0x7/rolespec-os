@@ -4,10 +4,10 @@
  * costing a session of hand-typing into the UI.
  *
  * Usage: npx tsx scripts/seed-qa-grounding-fixture.ts
- * Env:   DEV_ADMIN_PASSWORD (default "dev-admin-local-1234") — the password of
- *        the extra NAMELESS user this script creates. Run
- *        `npx tsx scripts/seed-dev-admin.ts` first; the NAMED scenario hangs off
- *        that account.
+ * Env:   none — the fixture writes directly against the seeded owner row and
+ *        creates the extra NAMELESS user it needs. Run
+ *        `npx tsx prisma/seed.ts` first; the NAMED scenario hangs off that
+ *        account.
  *
  * Two scenarios, because the two components under test need different inputs:
  *
@@ -38,10 +38,9 @@
  * empty on these fixtures. That is expected and out of scope here.
  */
 import "dotenv/config"
-import bcrypt from "bcryptjs"
 import { prisma } from "@/shared/lib/prisma"
 
-const DEV_ADMIN_EMAIL = "dev-admin@rolespec.local"
+const SEED_OWNER_EMAIL = "owner@rolespec.local"
 const NAMELESS_EMAIL = "dev-qa-nameless@rolespec.local"
 
 const NAMED_RESUME_ID = "qa_grounding_resume_named"
@@ -263,12 +262,12 @@ async function main() {
   }
 
   const admin = await prisma.user.findUnique({
-    where: { email: DEV_ADMIN_EMAIL },
+    where: { email: SEED_OWNER_EMAIL },
     select: { id: true, name: true },
   })
   if (!admin) {
     throw new Error(
-      `No ${DEV_ADMIN_EMAIL} user. Run \`npx tsx scripts/seed-dev-admin.ts\` first.`
+      `No ${SEED_OWNER_EMAIL} user. Run \`npx tsx scripts/prisma/seed.ts\` first.`
     )
   }
 
@@ -287,15 +286,12 @@ async function main() {
   await seedJob({ id: NAMED_JOB_ID, userId: admin.id, jobTitle: "Senior Backend Engineer" })
 
   // --- NAMELESS ----------------------------------------------------------
-  const password = process.env.DEV_ADMIN_PASSWORD ?? "dev-admin-local-1234"
-  const hashedPassword = await bcrypt.hash(password, 12)
-
   const nameless = await prisma.user.upsert({
     where: { email: NAMELESS_EMAIL },
     // `name: null` is the whole point — with a name here the resume's missing
     // one would be papered over and the nameless prompt path never runs.
-    create: { email: NAMELESS_EMAIL, name: null, password: hashedPassword, role: "ADMIN" },
-    update: { name: null, password: hashedPassword, role: "ADMIN" },
+    create: { email: NAMELESS_EMAIL, name: null, role: "ADMIN" },
+    update: { name: null, role: "ADMIN" },
     select: { id: true, email: true },
   })
   await prisma.playerProfile.upsert({
@@ -319,11 +315,11 @@ async function main() {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100"
 
   console.log("Seeded QA grounding/signature fixtures.\n")
-  console.log("NAMED     sign in as: %s", DEV_ADMIN_EMAIL)
+  console.log("NAMED     sign in as: %s", SEED_OWNER_EMAIL)
   console.log("          resume:     %s (contact fullName = Marisol Reyes)", NAMED_RESUME_ID)
   console.log("          job:        %s/jobs/%s", base, NAMED_JOB_ID)
   console.log("")
-  console.log("NAMELESS  sign in as: %s (password = DEV_ADMIN_PASSWORD)", nameless.email)
+  console.log("NAMELESS  fixture user: %s", nameless.email)
   console.log("          resume:     %s (no contact fullName, User.name is null)", NAMELESS_RESUME_ID)
   console.log("          job:        %s/jobs/%s", base, NAMELESS_JOB_ID)
   console.log("")

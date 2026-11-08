@@ -22,7 +22,7 @@
  * workplace), so scanning the whole draft for a wrong name reports false
  * failures.
  *
- * The account is `GROUNDING_CHECK_USER_ID`, else the `DEV_ADMIN_EMAIL` user,
+ * The account is `GROUNDING_CHECK_USER_ID`, else the `SEED_OWNER_EMAIL` user,
  * else the first ADMIN. Each live call appends one `ai_usage_events` row to it
  * and spends that account's provider credit.
  */
@@ -314,7 +314,7 @@ async function resolveUserId(): Promise<string> {
   const fromEnv = process.env.GROUNDING_CHECK_USER_ID?.trim()
   if (fromEnv) return fromEnv
 
-  const devAdminEmail = process.env.DEV_ADMIN_EMAIL?.trim()
+  const devAdminEmail = process.env.SEED_OWNER_EMAIL?.trim()
   if (devAdminEmail) {
     const user = await prisma.user.findUnique({
       where: { email: devAdminEmail },
@@ -330,7 +330,7 @@ async function resolveUserId(): Promise<string> {
   })
   if (!admin) {
     throw new Error(
-      "No account to run as. Set GROUNDING_CHECK_USER_ID, or seed an admin with scripts/seed-dev-admin.ts."
+      "No account to run as. Set GROUNDING_CHECK_USER_ID, or seed an admin with scripts/prisma/seed.ts."
     )
   }
   return admin.id

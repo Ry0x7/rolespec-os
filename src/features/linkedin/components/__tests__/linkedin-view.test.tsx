@@ -5,13 +5,9 @@ import type { ProfileRatingData } from "@/shared/lib/rating/rating.service"
 import type { RatingBenchmark } from "@/shared/lib/rating/schemas"
 import { installMotionTestEnv } from "./motion-test-env"
 
-const update = vi.fn()
 const toastError = vi.fn()
 const toastSuccess = vi.fn()
 
-vi.mock("next-auth/react", () => ({
-  useSession: () => ({ update: (...args: unknown[]) => update(...args) }),
-}))
 vi.mock("sonner", () => ({
   toast: {
     error: (...args: unknown[]) => toastError(...args),

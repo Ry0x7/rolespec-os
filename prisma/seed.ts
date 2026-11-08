@@ -1,122 +1,56 @@
 import "dotenv/config"
 import { PrismaClient } from "../src/generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
-import bcrypt from "bcryptjs"
-
 const adapter = new PrismaPg(process.env.DATABASE_URL!)
 const prisma = new PrismaClient({ adapter })
 
-const DEMO_ADMIN_EMAIL = "admin@rolespec.dev"
-const DEMO_PASSWORD = "demo1234"
+const DEFAULT_OWNER_EMAIL = "owner@rolespec.local"
+const OWNER_EMAIL = process.env.SEED_OWNER_EMAIL?.trim() || DEFAULT_OWNER_EMAIL
+const OWNER_NAME = process.env.SEED_OWNER_NAME?.trim() || "RoleSpec Owner"
 
 const isProduction = process.env.NODE_ENV === "production"
 
 /**
- * Seeds the admin account.
+ * Seeds the single owner row. There is no password and no demo login: access is
+ * decided by ROLSPEC_ACCESS_MODE, not by a credential.
  *
- * `SEED_ADMIN_EMAIL` + `SEED_ADMIN_PASSWORD` create a real admin with a password
- * that is not in the repo. Without them the well-known demo admin is created
- * only outside production — seeding a published password into a production
- * database is how "demo" credentials become an incident.
- *
- * Returns null when no admin was created.
+ * Re-running the seed is safe; it updates the owner and never duplicates rows.
+ * Development additionally gets one sample résumé so the editor has something
+ * to open, but production only gets the owner.
  */
-async function seedAdmin(): Promise<{ id: string } | null> {
-  const email = process.env.SEED_ADMIN_EMAIL
-  const rawPassword = process.env.SEED_ADMIN_PASSWORD
-
-  if (email && rawPassword) {
-    const password = await bcrypt.hash(rawPassword, 12)
-    const admin = await prisma.user.upsert({
-      where: { email },
-      update: { password, role: "ADMIN" },
-      create: {
-        email,
-        name: "Admin",
-        password,
-        role: "ADMIN",
-        emailVerified: new Date(),
-      },
-    })
-    console.log(`✓ Seeded admin from SEED_ADMIN_EMAIL: ${email}`)
-    return admin
-  }
-
-  if (isProduction) {
-    console.log(
-      "⚠ Skipped admin seed: NODE_ENV=production and SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD are not set."
-    )
-    console.log("  Set both to create an admin, or promote an existing user manually.")
-    return null
-  }
-
-  const password = await bcrypt.hash(DEMO_PASSWORD, 12)
-  const admin = await prisma.user.upsert({
-    where: { email: DEMO_ADMIN_EMAIL },
-    update: { password, role: "ADMIN" },
+async function seedOwner(): Promise<{ id: string }> {
+  const owner = await prisma.user.upsert({
+    where: { email: OWNER_EMAIL },
+    update: { role: "ADMIN", status: "ACTIVE", name: OWNER_NAME },
     create: {
-      email: DEMO_ADMIN_EMAIL,
-      name: "Admin Demo",
-      password,
+      email: OWNER_EMAIL,
+      name: OWNER_NAME,
       role: "ADMIN",
-      emailVerified: new Date(),
+      status: "ACTIVE",
     },
   })
-  console.log(`✓ Seeded demo admin: ${DEMO_ADMIN_EMAIL} / ${DEMO_PASSWORD}`)
-  return admin
+
+  await prisma.playerProfile.upsert({
+    where: { userId: owner.id },
+    update: {},
+    create: isProduction
+      ? { userId: owner.id }
+      : {
+          userId: owner.id,
+          currentRole: "Registered Nurse",
+          targetRole: "Nurse Manager",
+          experienceLevel: "SENIOR",
+        },
+  })
+
+  console.log(`✓ Seeded owner: ${OWNER_EMAIL}`)
+  return owner
 }
 
 async function main() {
-  // ── Admin Account ─────────────────────────────────────────────────────────
-  const admin = await seedAdmin()
+  const admin = await seedOwner()
 
-  if (admin) {
-    await prisma.playerProfile.upsert({
-      where: { userId: admin.id },
-      update: {},
-      create: isProduction
-        ? { userId: admin.id }
-        : {
-            userId: admin.id,
-            currentRole: "Registered Nurse",
-            targetRole: "Nurse Manager",
-            experienceLevel: "SENIOR",
-            onboardedAt: new Date(),
-          },
-    })
-  }
-
-  // ── Regular Test Account ──────────────────────────────────────────────────
-  // Same reasoning as the demo admin: a hardcoded password never goes to prod.
-  if (!isProduction) {
-    const password = await bcrypt.hash(DEMO_PASSWORD, 12)
-    const user = await prisma.user.upsert({
-      where: { email: "user@rolespec.dev" },
-      update: { password },
-      create: {
-        email: "user@rolespec.dev",
-        name: "Test User",
-        password,
-        role: "USER",
-        emailVerified: new Date(),
-      },
-    })
-
-    await prisma.playerProfile.upsert({
-      where: { userId: user.id },
-      update: {},
-      create: {
-        userId: user.id,
-        currentRole: "Teaching Assistant",
-        targetRole: "Elementary Teacher",
-        experienceLevel: "JUNIOR",
-        onboardedAt: new Date(),
-      },
-    })
-    console.log("✓ Seeded demo user: user@rolespec.dev / demo1234 (USER role)")
-  }
-
-  // ── Sample Resume for Admin ───────────────────────────────────────────────
+  // ── Sample résumé (development only) ──────────────────────────────────────
   const existingResume = admin
     ? await prisma.resume.findFirst({
         where: { userId: admin.id, title: "ICU Registered Nurse Resume" },
@@ -143,11 +77,11 @@ async function main() {
                   {
                     order: 0,
                     content: {
-                      fullName: "Admin Demo",
-                      email: "admin@rolespec.dev",
+                      fullName: "RoleSpec Owner",
+                      email: "owner@rolespec.local",
                       phone: "+1 555-000-1234",
                       location: "Portland, OR",
-                      linkedin: "linkedin.com/in/admindemo",
+                      linkedin: "",
                       github: "",
                     },
                   },

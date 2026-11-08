@@ -24,6 +24,18 @@ describe("extractJobTerms", () => {
     expect(terms).toContain("node.js")
   })
 
+  it("keeps two-letter title terms when the caller asks for them", () => {
+    expect(extractJobTerms("QA Automation Engineer", { minLength: 2 })).toEqual([
+      "qa",
+      "automation",
+      "engineer",
+    ])
+    expect(extractJobTerms("QA Automation Engineer")).toEqual([
+      "automation",
+      "engineer",
+    ])
+  })
+
   it("drops bare numbers, short noise tokens and common posting prose", () => {
     expect(extractJobTerms("5 years in a team, we offer 401k on day 1")).toEqual([
       "offer",

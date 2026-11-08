@@ -7,10 +7,6 @@ import { MAX_ENHANCE_JOB_DESCRIPTION_LENGTH } from "../../constants/enhance"
 
 vi.mock("../../actions/enhance", () => ({ enhanceResumeFromATS: vi.fn() }))
 
-vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: null, status: "authenticated", update: vi.fn() }),
-}))
-
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
 }))

@@ -8,10 +8,6 @@ vi.mock("../../actions/analyze-ats", () => ({
   analyzeATS: vi.fn(),
 }))
 
-vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: null, status: "authenticated", update: vi.fn() }),
-}))
-
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }))

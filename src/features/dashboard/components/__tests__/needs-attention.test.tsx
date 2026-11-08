@@ -46,7 +46,7 @@ vi.mock("@/features/jobs/actions/job-application.actions", () => ({
 }))
 
 // The quick-action buttons reach a second server-action module for "Check fit";
-// unmocked it drags `next-auth` into jsdom at import time.
+// unmocked it drags the database-backed action module into jsdom.
 vi.mock("@/features/jobs/actions/job-qualification.actions", () => ({
   recheckJobQualification: vi.fn(),
 }))

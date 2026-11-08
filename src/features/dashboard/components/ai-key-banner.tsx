@@ -4,21 +4,17 @@ import { buttonVariants } from "@/shared/ui/button"
 import { cn } from "@/shared/lib/utils"
 
 interface ShouldShowAiKeyBannerInput {
-  /** Session role. Admins fall back to the deployment config, so they never see it. */
-  role: string | undefined
-  /** `configured` from `getUserAiKeyStatus` — a key that fails to decrypt is false. */
+  /** True when the effective provider/key config passes the AI preflight. */
   hasUsableKey: boolean
 }
 
 /**
- * Who needs the "bring your own key" nudge: any signed-in non-admin without a
- * usable personal key. Kept separate from the markup so the rule is testable.
+ * The nudge is shown only when no usable AI configuration exists. There is one
+ * owner, so role no longer decides this.
  */
 export function shouldShowAiKeyBanner({
-  role,
   hasUsableKey,
 }: ShouldShowAiKeyBannerInput): boolean {
-  if (role === "ADMIN") return false
   return !hasUsableKey
 }
 

@@ -4,10 +4,6 @@ import { toast } from "sonner"
 import { useResumeStore } from "../../hooks/use-resume-store"
 import type { ResumeData } from "../../hooks/use-resume-store"
 
-vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: { user: {} }, status: "authenticated", update: vi.fn() }),
-}))
-
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }))

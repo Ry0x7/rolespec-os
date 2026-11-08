@@ -48,7 +48,7 @@ function SectionHeading({ title, hint }: { title: string; hint?: string }) {
 
 export default async function SettingsUsagePage() {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const usage = await getUserAiUsage(session.user.id)
 

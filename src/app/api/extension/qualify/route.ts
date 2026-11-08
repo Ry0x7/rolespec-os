@@ -21,8 +21,7 @@ import {
  *
  * Same envelope as `POST /api/extension/jobs`: personal API token in an
  * `Authorization: Bearer rspec_…` header (the extension's origin carries no
- * session cookie), CORS reflected to extension origins only, and `/api/extension`
- * whitelisted in `src/proxy.ts`.
+ * session cookie) and CORS reflected to extension origins only.
  *
  * Evaluate-only and AI-free: it runs the same deterministic qualification pass
  * the job clip runs, against the same profile slice, and writes nothing — no

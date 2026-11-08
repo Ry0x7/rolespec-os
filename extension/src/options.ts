@@ -47,10 +47,10 @@ async function onSignIn() {
     toggleButton.setAttribute("aria-pressed", "false")
     showStatus("Connected. Token saved.", true)
   } catch (error) {
-    showStatus(error instanceof Error ? error.message : "Sign-in failed.", false)
+    showStatus(error instanceof Error ? error.message : "Connection failed.", false)
   } finally {
     signInButton.disabled = false
-    signInButton.textContent = "Sign in to RoleSpec"
+    signInButton.textContent = "Connect RoleSpec OS"
   }
 }
 

@@ -99,7 +99,7 @@ describe("createResume", () => {
   it("redirects unauthenticated callers before reading a profile or writing", async () => {
     mockAuth.mockResolvedValue(null)
 
-    await expect(createResume(validCreateResumeFormData())).rejects.toThrow("REDIRECT:/sign-in")
+    await expect(createResume(validCreateResumeFormData())).rejects.toThrow("REDIRECT:/unlock")
     expect(mockLoadCareerProfile).not.toHaveBeenCalled()
     expect(mockPrisma.resume.create).not.toHaveBeenCalled()
   })
@@ -651,7 +651,7 @@ describe("createRoleFamilyResume", () => {
     mockAuth.mockResolvedValue(null)
 
     await expect(createRoleFamilyResume(validRoleFamilyResumeFormData())).rejects.toThrow(
-      "REDIRECT:/sign-in"
+      "REDIRECT:/unlock"
     )
     expect(mockFindCareerProfileId).not.toHaveBeenCalled()
     expect(mockPrisma.careerRoleFamily.findFirst).not.toHaveBeenCalled()
@@ -806,10 +806,10 @@ describe("createRoleFamilyResume", () => {
 })
 
 describe("deleteResume", () => {
-  it("redirects unauthenticated callers to sign-in", async () => {
+  it("redirects callers without owner access to the unlock gate", async () => {
     mockAuth.mockResolvedValue(null)
 
-    await expect(deleteResume("resume-1")).rejects.toThrow("REDIRECT:/sign-in")
+    await expect(deleteResume("resume-1")).rejects.toThrow("REDIRECT:/unlock")
     expect(mockPrisma.resume.update).not.toHaveBeenCalled()
   })
 
@@ -837,11 +837,11 @@ describe("deleteResume", () => {
 })
 
 describe("updateResume", () => {
-  it("redirects unauthenticated callers to sign-in", async () => {
+  it("redirects callers without owner access to the unlock gate", async () => {
     mockAuth.mockResolvedValue(null)
 
     await expect(updateResume("resume-1", { title: "New" })).rejects.toThrow(
-      "REDIRECT:/sign-in"
+      "REDIRECT:/unlock"
     )
     expect(mockPrisma.resume.updateMany).not.toHaveBeenCalled()
   })
@@ -890,10 +890,10 @@ describe("updateResume", () => {
 })
 
 describe("restoreResume", () => {
-  it("redirects unauthenticated callers to sign-in", async () => {
+  it("redirects callers without owner access to the unlock gate", async () => {
     mockAuth.mockResolvedValue(null)
 
-    await expect(restoreResume("resume-1")).rejects.toThrow("REDIRECT:/sign-in")
+    await expect(restoreResume("resume-1")).rejects.toThrow("REDIRECT:/unlock")
     expect(mockPrisma.resume.updateMany).not.toHaveBeenCalled()
   })
 

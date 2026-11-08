@@ -16,7 +16,6 @@ export interface SettingsTab {
 
 export interface SettingsTabGroup {
   label: string
-  adminOnly?: boolean
   items: SettingsTab[]
 }
 
@@ -40,9 +39,8 @@ const ALL_TAB_HREFS: string[] = settingsTabGroups.flatMap((group) =>
 )
 
 /**
- * Longest matching prefix wins — the same rule as the app sidebar — so
- * /settings/admin/users lights up "Users" and not the "/settings/admin"
- * overview tab.
+ * Longest matching prefix wins — the same rule as the app sidebar — so a
+ * nested settings route lights up its own tab.
  */
 export function getActiveTabHref(pathname: string): string | null {
   let active: string | null = null

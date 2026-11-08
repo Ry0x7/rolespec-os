@@ -19,7 +19,7 @@ export class AppError extends Error {
   }
 }
 
-export function unauthorized(message = "Please sign in"): AppError {
+export function unauthorized(message = "Unlock the workspace to continue"): AppError {
   return new AppError("UNAUTHORIZED", message, 401)
 }
 

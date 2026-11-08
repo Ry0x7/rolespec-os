@@ -1,3 +1,4 @@
+import { initAutofillPanel } from "./autofill-panel"
 import { loadPendingClips, pendingLabel, queuePendingClip, removePendingClip } from "./offline-queue"
 import { fetchResumes, fetchSearchLinks, generateColdEmail, generateEmailReply, postJob } from "./api"
 import type { GroundingSummary, SignatureFinding } from "./api"
@@ -108,10 +109,12 @@ const descriptionInput = el<HTMLTextAreaElement>("jobDescription")
 const descriptionCount = el<HTMLElement>("description-count")
 
 const clipTab = el<HTMLButtonElement>("tab-clip")
+const autofillTab = el<HTMLButtonElement>("tab-autofill")
 const emailTab = el<HTMLButtonElement>("tab-email")
 const replyTab = el<HTMLButtonElement>("tab-reply")
 const searchTab = el<HTMLButtonElement>("tab-search")
 const clipView = el<HTMLElement>("view-clip")
+const autofillView = el<HTMLElement>("view-autofill")
 const emailView = el<HTMLElement>("view-email")
 const replyView = el<HTMLElement>("view-reply")
 const searchView = el<HTMLElement>("view-search")
@@ -391,7 +394,7 @@ function openOptions(event: Event) {
   chrome.runtime.openOptionsPage()
 }
 
-const SETUP_PROMPT = "Connect this clipper to RoleSpec before saving jobs."
+const SETUP_PROMPT = "Connect this clipper to RoleSpec OS before saving jobs."
 
 /**
  * Same flow as Options, run against the saved App URL. The `storage.onChanged`
@@ -401,17 +404,17 @@ async function onSetupSignIn() {
   const appUrl = settings.appUrl || DEFAULT_APP_URL
   setupSignInButton.disabled = true
   setupSignInButton.textContent = "Waiting for RoleSpec…"
-  setupText.textContent = "Opening RoleSpec…"
+  setupText.textContent = "Opening RoleSpec OS…"
 
   try {
     const apiToken = await signInWithRoleSpec(appUrl)
     await saveSettings({ appUrl, apiToken })
     setupText.textContent = "Connected. Token saved."
   } catch (error) {
-    setupText.textContent = error instanceof Error ? error.message : "Sign-in failed."
+    setupText.textContent = error instanceof Error ? error.message : "Connection failed."
   } finally {
     setupSignInButton.disabled = false
-    setupSignInButton.textContent = "Sign in to RoleSpec"
+    setupSignInButton.textContent = "Connect RoleSpec OS"
   }
 }
 
@@ -688,6 +691,7 @@ async function extractNow(options: { clearFirst: boolean; retryOnBlocked?: boole
  * nothing at stake; otherwise leave their edits alone and just say the page moved.
  */
 async function onActiveTabChanged() {
+  if (mode === "autofill") autofillPanel?.refresh()
   if (dirty) {
     showNote("The page changed. Your edits are kept — press Save, or clear a field to re-read.")
     return
@@ -821,12 +825,14 @@ function watchBackgroundMessages() {
 
 // ── Cold email ───────────────────────────────────────────────────────────────
 
-type PanelMode = "clip" | "email" | "reply" | "search"
+type PanelMode = "clip" | "autofill" | "email" | "reply" | "search"
 
 let mode: PanelMode = "clip"
+let autofillPanel: ReturnType<typeof initAutofillPanel> | null = null
 
 const TABS: Record<PanelMode, { tab: HTMLButtonElement; view: HTMLElement }> = {
   clip: { tab: clipTab, view: clipView },
+  autofill: { tab: autofillTab, view: autofillView },
   email: { tab: emailTab, view: emailView },
   reply: { tab: replyTab, view: replyView },
   search: { tab: searchTab, view: searchView },
@@ -842,6 +848,7 @@ function setMode(next: PanelMode) {
     view.hidden = !active
   }
   if (next === "search" && !searchLoaded) void loadSearchLinks()
+  if (next === "autofill") autofillPanel?.refresh()
 }
 
 // ── Search links ─────────────────────────────────────────────────────────────
@@ -1172,7 +1179,7 @@ async function onGenerateEmail(event: SubmitEvent) {
   }
 
   if (result.kind === "unauthorized") {
-    showEmailStatus("error", `${result.message} Use Sign in to RoleSpec above.`)
+    showEmailStatus("error", `${result.message} Use Connect RoleSpec OS above.`)
     setup.hidden = false
     return
   }
@@ -1344,7 +1351,7 @@ async function onGenerateReply(event: SubmitEvent) {
   }
 
   if (result.kind === "unauthorized") {
-    showReplyStatus("error", `${result.message} Use Sign in to RoleSpec above.`)
+    showReplyStatus("error", `${result.message} Use Connect RoleSpec OS above.`)
     setup.hidden = false
     return
   }
@@ -1670,6 +1677,7 @@ async function init() {
   grantAccessButton.addEventListener("click", onGrantAccess)
   enableBadgesButton.addEventListener("click", onEnableBadges)
   clipTab.addEventListener("click", () => setMode("clip"))
+  autofillTab.addEventListener("click", () => setMode("autofill"))
   emailTab.addEventListener("click", () => setMode("email"))
   replyTab.addEventListener("click", () => setMode("reply"))
   searchTab.addEventListener("click", () => setMode("search"))
@@ -1710,6 +1718,7 @@ async function init() {
   watchBackgroundMessages()
 
   applySettings(await loadSettings())
+  autofillPanel = initAutofillPanel({ getSettings: () => settings })
   watchSettings()
   // Not awaited: the pickers hold a usable default until the list lands.
   void loadResumes()
