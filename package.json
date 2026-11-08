@@ -78,6 +78,10 @@
     "browserslist": "^4.28.7",
     "deepmerge-ts": "^8.0.0",
     "fast-uri": "^3.1.9",
+    "glob": "^14.0.2",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    },
     "mysql2": "^3.23.1",
     "body-parser": "^2.4.0",
     "@vercel/blob": {
