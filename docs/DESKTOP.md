@@ -1,20 +1,25 @@
 # Windows desktop guide
 
-RoleSpec OS v1.0.3 is published by **Chryypt** and available from
+RoleSpec OS is published by **Chryypt** and available from
 [GitHub Releases](https://github.com/Ry0x7/rolespec-os/releases/latest). It supports Windows
 10/11 x64 with WebView2. The installer bundles Node.js and PostgreSQL; users do not need to install
 those separately.
 
-An unsigned v1.0.3 installer has no `latest.json`. Its uninstall entry names Chryypt as the
+An unsigned installer has no `latest.json`. Its uninstall entry names Chryypt as the
 publisher, but without Authenticode signing it has **no verified Windows publisher** and cannot
 auto-update. Download a newer installer manually when upgrading. Updater signatures (`.sig`) are
 distinct from Windows Authenticode signing; check the release notes for the signing status of a
-given build. A clean Windows VM walkthrough remains outstanding.
+given build. Installation, first launch, onboarding and uninstall were exercised on Windows 11
+x64; a separate clean-VM walkthrough has not been run.
 
-The bundled application's version metadata names **Chryypt** as CompanyName, and the uninstall
-entry records Chryypt as the publisher. Tauri's stock NSIS template does not write a CompanyName
-key into the setup executable itself, so that one Explorer field is blank; the description,
-version and copyright fields are populated. The Tauri `productName` (`RoleSpec`), executable name, install directory and
+v1.0.4 rebuilds the installer: 1.0.3 shipped without the shared Next.js server chunks and the
+external-package aliases Turbopack keeps outside the standalone tree, so a fresh install served
+HTTP 500 on first launch. Staging now copies both and fails the build when the server bundle is
+incomplete or still contains a symlink.
+
+The bundled application's version metadata names **Chryypt** as CompanyName, the NSIS hook in
+`desktop/src-tauri/installer-hooks.nsh` adds the same CompanyName to the setup wrapper, and the
+uninstall entry records Chryypt as the publisher. The Tauri `productName` (`RoleSpec`), executable name, install directory and
 application identifier (`com.rolespec.desktop`) are deliberately unchanged from earlier builds so
 upgrades keep the same install identity and existing career data; Windows therefore shows
 `RoleSpec` as the application name while the publisher is Chryypt. `%LOCALAPPDATA%\RoleSpecData` is
@@ -89,9 +94,10 @@ npx @tauri-apps/cli@^2 build --bundles nsis
 The result is `desktop/src-tauri/target/release/bundle/nsis/RoleSpec_<version>_x64-setup.exe`.
 The file name and install directory keep the `RoleSpec` identity used by earlier releases; the
 window title and documentation say RoleSpec OS, and the bundled executable records Chryypt as its
-CompanyName. Tauri's stock NSIS template leaves the setup wrapper's CompanyName blank and records
-the publisher in the uninstall entry instead. A local build is **unsigned**, so Windows SmartScreen
-will warn about it and the publisher is not verified.
+CompanyName. `desktop/src-tauri/installer-hooks.nsh` adds the CompanyName key the stock Tauri
+template omits and removes the runtime `resources` tree on uninstall; the uninstall entry names
+Chryypt. A local build is **unsigned**, so Windows SmartScreen will warn about it and the publisher
+is not verified.
 
 **Signing Windows releases**
 
