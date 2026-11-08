@@ -5,11 +5,11 @@ RoleSpec OS is published by **Chryypt** and available from
 10/11 x64 with WebView2. The installer bundles Node.js and PostgreSQL; users do not need to install
 those separately.
 
-An unsigned installer has no `latest.json`. Its uninstall entry names Chryypt as the
-publisher, but without Authenticode signing it has **no verified Windows publisher** and cannot
-auto-update. Download a newer installer manually when upgrading. Updater signatures (`.sig`) are
-distinct from Windows Authenticode signing; check the release notes for the signing status of a
-given build. Installation, first launch, onboarding and uninstall were exercised on Windows 11
+The installer is not Authenticode-signed. Its uninstall entry names Chryypt as the publisher,
+but Windows has **no verified publisher** and SmartScreen may warn. A release without
+`latest.json` cannot auto-update, so download newer installers manually. Updater signatures
+(`.sig`) are separate from Windows Authenticode and do not establish a verified Windows
+publisher. Installation, first launch, onboarding and uninstall were exercised on Windows 11
 x64; a separate clean-VM walkthrough has not been run.
 
 v1.0.4 rebuilds the installer: 1.0.3 shipped without the shared Next.js server chunks and the
@@ -37,7 +37,8 @@ The remainder of this guide is for building, operating and releasing the desktop
 
 This is the runtime bundled by the Windows installer. It runs the same standalone server against a
 private PostgreSQL 17 cluster, so no Docker, no user-installed PostgreSQL and no `.env` file is
-needed once staged. It is Windows x64 only. Tag builds produce installers; published releases may be unsigned.
+needed once staged. It is Windows x64 only. Tag builds produce unsigned installers and publish
+them directly; no signing step is required.
 
 **Prerequisites**
 - **Windows 10/11 x64** with WebView2 (present on Windows 11 and updated Windows 10)
@@ -99,31 +100,19 @@ template omits and removes the runtime `resources` tree on uninstall; the uninst
 Chryypt. A local build is **unsigned**, so Windows SmartScreen will warn about it and the publisher
 is not verified.
 
-**Signing Windows releases**
+**Windows trust and SmartScreen**
 
-Releases are signed by CI with [Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/)
-(formerly Trusted Signing) using GitHub OIDC, so the signing key is never stored in this repository
-and the workflow holds no client secret. Configure once:
+Windows decides whether to trust an installer from its Authenticode signature, not from the
+CompanyName, ProductName or Publisher fields. This repository does not configure Authenticode
+signing: tag builds publish the installer as-is and no signing credentials are read. Windows
+therefore treats the download as an unknown publisher; SmartScreen may show "Windows protected
+your PC", and Smart App Control may block it outright.
 
-1. Create an Artifact Signing account and a certificate profile, complete identity validation, and
-   grant the GitHub app the *Artifact Signing Certificate Profile Signer* role.
-2. Register an Entra app with a federated credential for `repo:Ry0x7/rolespec-os:ref:refs/tags/v*`
-   (issuer `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`).
-3. Add repository **secrets** `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` and
-   repository **variables** `AZURE_ARTIFACT_SIGNING_ENDPOINT` (e.g. `https://eus.codesigning.azure.net`),
-   `AZURE_ARTIFACT_SIGNING_ACCOUNT`, `AZURE_ARTIFACT_SIGNING_PROFILE`.
-
-With all six present, a `v*` tag build signs the setup executable, verifies the signature and its
-RFC 3161 timestamp, and **publishes** the release. With any of them missing the workflow warns and
-produces an unsigned installer in a **draft** release, so forks and unauthenticated runs still work.
-An unsigned draft can be published deliberately with `gh release edit <tag> --draft=false`; until a
-signed release exists it carries no `latest.json`, so installed copies cannot auto-update.
-
-Only the installer is Authenticode-signed. The application executable inside it is not; signing that
-too requires an `artifact-signing-cli` step wired through `bundle.windows.signCommand` in
-`desktop/src-tauri/tauri.conf.json`. Signing shows a verified publisher, but it does not by itself
-remove SmartScreen warnings for a brand-new binary — reputation accrues for the signing identity over
-time, and EV certificates no longer bypass the warning.
+The metadata is still complete and useful: Explorer and the uninstall entry name Chryypt. But
+metadata cannot create a verified publisher. Removing the warning requires an Authenticode
+certificate from a publicly trusted CA and reputation for that identity (EV certificates no
+longer bypass SmartScreen). Obtaining and configuring one is a separate decision; Microsoft's
+"Report a file as safe" submission can correct a false positive, but it does not sign the binary.
 
 **Updates and the downgrade guard**
 
@@ -137,9 +126,10 @@ user has to install a new build by hand.
 
 Release by bumping `version` in `package.json` (and the lockfile), `desktop/src-tauri/Cargo.toml`
 (which feeds the Windows executable) and `desktop/src-tauri/tauri.conf.json`, then pushing a matching
-`v*` tag. The workflow re-signs the *signed* setup executable in place — Tauri's NSIS updater
-consumes the setup `.exe` directly — and writes `latest.json` around that same signature, so the
-artifact the updater downloads matches the one people download directly.
+`v*` tag. The workflow builds the installer, publishes it with its SHA-256 checksum, and — when
+`TAURI_SIGNING_PRIVATE_KEY` is configured — writes the updater `.sig` and `latest.json` around the
+built bytes. No Authenticode signature is applied, so those updater signatures do not make
+Windows trust the download.
 
 The shell also refuses to open data a newer build created: it compares the migrations recorded in
 `_prisma_migrations` against the migrations it ships and exits with an explanation when the database

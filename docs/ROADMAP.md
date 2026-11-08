@@ -36,10 +36,10 @@ platform requirements.
 ## Distribution limits
 
 - Native desktop packaging is Windows x64 only; Mac/Linux users need self-hosting.
-- v1.0.3 is unsigned unless release signing is configured, and an unsigned build carries no
-  `latest.json`. Users must update manually.
-- Installer signing and the GitHub-hosted updater need end-to-end verification before enabling
-  automatic updates. Updater signatures alone do not provide a Windows verified publisher.
+- Releases are unsigned. SmartScreen and Smart App Control may block them; the metadata names
+  Chryypt, but only Authenticode signing and reputation can establish a verified publisher.
+- Authenticode signing is not configured, and no release requires it. The updater's own
+  signatures are separate and do not provide a Windows verified publisher.
 - A clean-machine walkthrough is still outstanding. Desktop developer-machine checks are not a
   substitute. Runtime, data paths and troubleshooting are in [DESKTOP.md](DESKTOP.md).
 - CLI and local-model AI options still require separate installation and configuration.
