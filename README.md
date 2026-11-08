@@ -23,11 +23,11 @@ A public deployment uses `unlock` mode (the production default) and must set `RO
 (16+ characters) and unlock it once; a non-loopback request is never given passwordless access.
 It is not a multi-tenant service.
 
-The Windows installer is **unsigned unless release signing is configured**, so Windows may show a
-SmartScreen warning. The installer metadata names **Chryypt** as the publisher, but that is an
-application property, not a verified Authenticode publisher. Without updater signing, automatic
-updates are inactive and newer releases must be installed manually; check the release notes for a
-specific build. A clean Windows VM walkthrough is still outstanding. See the
+The Windows installer is **unsigned**, so Windows may show a SmartScreen warning. The installer
+metadata names **Chryypt** as the publisher, but that is an application property, not a verified
+Authenticode publisher, and it cannot remove the warning. A release without `latest.json` cannot
+auto-update, so newer builds are installed manually; check the release notes for a specific build.
+Installation was exercised on Windows 11 x64, but not on a clean VM. See the
 [desktop guide](docs/DESKTOP.md).
 
 ## What it does
