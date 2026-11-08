@@ -17,16 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out public showcase artifact
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: gh-pages
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - name: Verify showcase destination
         run: |
           test "$(cat CNAME)" = "rolespec.ry0x7.dev"
           test -f index.html
           test -d _next
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: .
   deploy:
@@ -38,4 +38,4 @@ jobs:
     steps:
       - name: Publish showcase
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
