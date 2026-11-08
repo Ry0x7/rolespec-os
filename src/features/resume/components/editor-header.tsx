@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Download,
   Eye,
+  GitCompare,
   Loader2,
   Save,
   ScanText,
@@ -30,6 +31,7 @@ import { cn } from "@/shared/lib/utils"
 import { analysisMode, atsVariant, scoreLabel, topIssue } from "../lib/ats-score"
 import { useResumeStore } from "../hooks/use-resume-store"
 import { ResumeKindBadge } from "./resume-kind-badge"
+import { ResumeComparisonDrawer } from "./resume-comparison-drawer"
 
 interface Props {
   /**
@@ -68,6 +70,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
   const setOpenInspector = useResumeStore((s) => s.setOpenInspector)
   const [isPending, startTransition] = useTransition()
   const [isDownloading, setIsDownloading] = useState(false)
+  const [showCompare, setShowCompare] = useState(false)
 
   const isGenerating = generateStatus === "generating" || isPending
   const isSaving = saveStatus === "saving"
@@ -300,6 +303,19 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
           <span className="hidden sm:inline">Job target</span>
         </Button>
 
+        {resume?.variant === "JOB_TAILORED" && resume?.sourceResume?.id && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCompare(true)}
+            aria-label="Compare with source resume and rollback"
+            title="Compare tailored changes with verified source resume"
+          >
+            <GitCompare className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Compare</span>
+          </Button>
+        )}
+
         {/* The analyze → fix loop, visible without opening the drawer: the
             first-run nudge, or the score plus the one issue worth acting on. */}
         <AnalysisStatus />
@@ -455,6 +471,14 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
           )}
         </Button>
       </div>
+
+      {showCompare && resume?.id && (
+        <ResumeComparisonDrawer
+          resumeId={resume.id}
+          open={showCompare}
+          onOpenChange={setShowCompare}
+        />
+      )}
     </div>
   )
 }

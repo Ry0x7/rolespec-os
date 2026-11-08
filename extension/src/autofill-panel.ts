@@ -29,10 +29,10 @@ import {
   loadApprovedAnswers,
   saveApprovedAnswer,
 } from "./approved-answers"
-import { fetchProfile } from "./api"
+import { fetchProfile, fetchResumes } from "./api"
 import { hasCredentials } from "./settings"
 import { hostLabelFor, originPatternFor } from "./site-access"
-import type { Settings } from "./types"
+import type { ResumeSummary, Settings } from "./types"
 
 const el = <T extends HTMLElement>(id: string): T => {
   const node = document.getElementById(id)
@@ -51,6 +51,7 @@ interface ScanState {
   fields: FieldDescriptor[]
   plan: FillPlan
   profile: ProfileFacts
+  resumes?: ResumeSummary[]
 }
 
 interface PendingGrant {
@@ -224,6 +225,71 @@ export function initAutofillPanel(deps: PanelDeps) {
       reason.className = "hint"
       reason.textContent = item.reason
 
+      if (item.category === "document" || item.isResumeUpload) {
+        const docBox = document.createElement("div")
+        docBox.className = "resume-attachment-card"
+
+        const docNotice = document.createElement("p")
+        docNotice.className = "hint"
+        docNotice.textContent =
+          "Browser extensions cannot silently inject files into file upload inputs. Attach your tailored resume from RoleSpec OS:"
+
+        const actionsRow = document.createElement("div")
+        actionsRow.className = "review-input-row"
+
+        const openResumesBtn = document.createElement("button")
+        openResumesBtn.type = "button"
+        openResumesBtn.className = "button button-quiet button-mini"
+        openResumesBtn.textContent = "Open Resumes in RoleSpec"
+        openResumesBtn.addEventListener("click", () => {
+          const settings = deps.getSettings()
+          void chrome.tabs.create({ url: `${settings.appUrl}/resumes` })
+        })
+        actionsRow.appendChild(openResumesBtn)
+
+        if (state?.resumes && state.resumes.length > 0) {
+          const resumeList = document.createElement("ul")
+          resumeList.className = "resume-attach-list"
+          for (const resume of state.resumes.slice(0, 3)) {
+            const rLi = document.createElement("li")
+            rLi.className = "resume-attach-item"
+            const rTitle = document.createElement("span")
+            rTitle.className = "resume-title-text"
+            rTitle.textContent = resume.title || "Untitled Resume"
+            rLi.appendChild(rTitle)
+
+            if (resume.atsScore != null) {
+              const scoreBadge = document.createElement("span")
+              scoreBadge.className = "review-saved"
+              scoreBadge.textContent = `${resume.atsScore}% ATS`
+              rLi.appendChild(scoreBadge)
+            }
+
+            const openBtn = document.createElement("button")
+            openBtn.type = "button"
+            openBtn.className = "button button-quiet button-mini"
+            openBtn.textContent = "Open"
+            openBtn.title = "Open this resume in RoleSpec OS"
+            openBtn.addEventListener("click", () => {
+              const settings = deps.getSettings()
+              void chrome.tabs.create({ url: `${settings.appUrl}/resumes/${resume.id}` })
+            })
+            rLi.appendChild(openBtn)
+            resumeList.appendChild(rLi)
+          }
+          docBox.append(docNotice, actionsRow, resumeList)
+        } else {
+          docBox.append(docNotice, actionsRow)
+        }
+
+        li.append(head, reason, docBox)
+        reviewList.appendChild(li)
+        continue
+      }
+
+      const suggestion = suggestionFor(item, state!.profile)
+      const isApproved = Boolean(approved[item.key])
+
       const inputRow = document.createElement("div")
       inputRow.className = "review-input-row"
 
@@ -233,7 +299,7 @@ export function initAutofillPanel(deps: PanelDeps) {
       input.autocomplete = "off"
       input.placeholder = "Your answer"
       input.setAttribute("aria-label", `Answer for ${item.label}`)
-      input.value = approved[item.key] ?? suggestionFor(item, state!.profile)
+      input.value = approved[item.key] ?? suggestion
 
       const save = document.createElement("button")
       save.type = "button"
@@ -255,6 +321,22 @@ export function initAutofillPanel(deps: PanelDeps) {
 
       inputRow.appendChild(input)
       inputRow.appendChild(save)
+
+      if (suggestion && !isApproved) {
+        const accept = document.createElement("button")
+        accept.type = "button"
+        accept.className = "button button-quiet button-mini"
+        accept.textContent = "Accept suggestion"
+        accept.title = `Accept profile value: "${suggestion}"`
+        accept.addEventListener("click", () => {
+          void saveApprovedAnswer(item.label, suggestion).then((next) => {
+            approved = next
+            showStatus("ok", "Profile suggestion saved as approved answer.")
+            rebuildPlan()
+          })
+        })
+        inputRow.appendChild(accept)
+      }
 
       if (approved[item.key]) {
         const remove = document.createElement("button")
@@ -345,7 +427,10 @@ export function initAutofillPanel(deps: PanelDeps) {
     }
     if (seq !== scanSeq) return
 
-    const profileResult = await fetchProfile(settings)
+    const [profileResult, resumesResult] = await Promise.all([
+      fetchProfile(settings),
+      fetchResumes(settings),
+    ])
     if (seq !== scanSeq) return
     setBusy(false)
     if (!profileResult.ok) {
@@ -360,6 +445,7 @@ export function initAutofillPanel(deps: PanelDeps) {
       tabId: tab.id,
       fields,
       profile: profileResult.profile,
+      resumes: resumesResult.ok ? resumesResult.resumes : [],
       plan: buildFillPlan(profileResult.profile, fields, approved),
     }
     render()

@@ -22,9 +22,12 @@ import type {
 import { generateApplicationEmail } from "../actions/application-email.actions"
 import { generateColdEmail } from "../actions/cold-email.actions"
 import { generateReplyEmail } from "../actions/reply-email.actions"
+import { generateFollowUpEmail } from "../actions/follow-up-email.actions"
+import type { FollowUpScheduleAdvice } from "../services/follow-up-schedule.service"
 import type { JobMatchResumeOption } from "./job-match-panel"
 
-type EmailType = "application" | "cold" | "reply"
+type EmailType = "application" | "cold" | "reply" | "follow-up"
+type FollowUpKind = "status_check" | "post_interview_thank_you" | "next_steps"
 type ReplyTone = "professional" | "warm" | "direct"
 type ReplyLength = "brief" | "standard" | "detailed"
 
@@ -77,6 +80,11 @@ const EMAIL_TYPES: { value: EmailType; label: string; helper: string }[] = [
     label: "Reply assist",
     helper: "Draft your answer to an email you got back about this role.",
   },
+  {
+    value: "follow-up",
+    label: "Follow-up email",
+    helper: "Contextual follow-up after applying or interviewing with schedule suggestions.",
+  },
 ]
 
 const OPTION_BUTTON =
@@ -120,6 +128,8 @@ export function JobEmailPanel({ jobApplicationId, resumeOptions, chosenResumeId 
   const [priorThread, setPriorThread] = useState("")
   const [tone, setTone] = useState<ReplyTone>("professional")
   const [length, setLength] = useState<ReplyLength>("standard")
+  const [followUpKind, setFollowUpKind] = useState<FollowUpKind>("status_check")
+  const [scheduleAdvice, setScheduleAdvice] = useState<FollowUpScheduleAdvice | null>(null)
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
   const [hasResult, setHasResult] = useState(false)
@@ -177,13 +187,19 @@ export function JobEmailPanel({ jobApplicationId, resumeOptions, chosenResumeId 
       }
     }
 
+    if (emailType === "follow-up") {
+      formData.set("followUpType", followUpKind)
+    }
+
     startTransition(async () => {
       const result =
         emailType === "application"
           ? await generateApplicationEmail(formData)
           : emailType === "cold"
             ? await generateColdEmail(formData)
-            : await generateReplyEmail(formData)
+            : emailType === "follow-up"
+              ? await generateFollowUpEmail(formData)
+              : await generateReplyEmail(formData)
       if ("error" in result) {
         toast.error(result.error)
         return
@@ -192,6 +208,11 @@ export function JobEmailPanel({ jobApplicationId, resumeOptions, chosenResumeId 
       setBody(result.body)
       setClaimed(result.grounding?.claimed ?? [])
       setNamedAsGap(result.grounding?.namedAsGap ?? [])
+      if ("scheduleAdvice" in result && result.scheduleAdvice) {
+        setScheduleAdvice(result.scheduleAdvice as FollowUpScheduleAdvice)
+      } else {
+        setScheduleAdvice(null)
+      }
       // Reset on every generation, exactly like the grounding state above: a
       // warning left over from the previous draft is worse than none.
       setSignature(result.signature ?? null)
@@ -401,6 +422,39 @@ export function JobEmailPanel({ jobApplicationId, resumeOptions, chosenResumeId 
               </div>
             )}
 
+            {emailType === "follow-up" && (
+              <div className="space-y-2">
+                <p id="job-email-followup-type-label" className="text-xs font-medium text-muted-foreground">
+                  Follow-up context
+                </p>
+                <div
+                  className="flex gap-1 rounded-lg bg-muted p-0.5"
+                  role="group"
+                  aria-labelledby="job-email-followup-type-label"
+                >
+                  {[
+                    { value: "status_check", label: "Status check-in" },
+                    { value: "post_interview_thank_you", label: "Thank you note" },
+                    { value: "next_steps", label: "Next steps" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={followUpKind === option.value}
+                      onClick={() => setFollowUpKind(option.value as FollowUpKind)}
+                      disabled={isPending}
+                      className={cn(
+                        OPTION_BUTTON,
+                        followUpKind === option.value && OPTION_BUTTON_ACTIVE
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label
                 htmlFor="job-email-instructions"
@@ -444,6 +498,20 @@ export function JobEmailPanel({ jobApplicationId, resumeOptions, chosenResumeId 
               subjectName={subjectName}
               label="email"
             />
+            {scheduleAdvice && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs space-y-1">
+                <p className="font-semibold text-primary flex items-center gap-1.5">
+                  <span>📅 Recommended Follow-Up Schedule: {scheduleAdvice.recommendedDate}</span>
+                </p>
+                <p className="text-muted-foreground">{scheduleAdvice.reason}</p>
+                {scheduleAdvice.deadlineNote && (
+                  <p className={cn("text-[11px] font-medium", scheduleAdvice.isDeadlineUrgent ? "text-destructive" : "text-muted-foreground")}>
+                    ⚠️ {scheduleAdvice.deadlineNote}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <Label
@@ -490,6 +558,20 @@ export function JobEmailPanel({ jobApplicationId, resumeOptions, chosenResumeId 
                 onChange={(e) => setBody(e.target.value)}
                 rows={10}
               />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t text-xs">
+              <span className="text-[11px] text-muted-foreground">
+                🛡️ RoleSpec requires explicit user approval before sending. Emails are never submitted automatically.
+              </span>
+              <a
+                href={`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 text-xs")}
+                onClick={() => setUncopied(false)}
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Open in Email App
+              </a>
             </div>
           </div>
         )}

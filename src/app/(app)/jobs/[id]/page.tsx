@@ -23,6 +23,11 @@ import { resumeEditorHref } from "@/features/resume/lib/resume-editor-href"
 import { JobQualificationCard } from "@/features/jobs/components/job-qualification-card"
 import { OpportunityConfidenceBadge } from "@/features/discovery/components/opportunity-confidence-badge"
 import { assessOpportunityConfidence } from "@/features/discovery/services/opportunity-confidence.service"
+import { JobPipelineStepper } from "@/features/jobs/components/job-pipeline-stepper"
+import { IntelligentMatchingCard } from "@/features/jobs/components/intelligent-matching-card"
+import { CompanyResearchPanel } from "@/features/jobs/components/company-research-panel"
+import { computeIntelligentMatch } from "@/features/jobs/services/intelligent-matching.service"
+import type { CompanyResearchResult } from "@/features/jobs/services/company-research.service"
 import {
   FollowUpActions,
   LastFollowUpNote,
@@ -89,6 +94,14 @@ function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
 }
 
+type ProfileCapability = {
+  name: string
+  selfAssessment?: "EXPOSURE" | "WORKING" | "DEEP" | null
+  evidenceLinks?: Array<{
+    evidence?: { status?: string | null } | null
+  }>
+}
+
 export default async function JobApplicationDetailPage({ params }: Props) {
   const session = await auth()
   if (!session?.user?.id) redirect("/unlock")
@@ -99,7 +112,7 @@ export default async function JobApplicationDetailPage({ params }: Props) {
   // mean the same thing on every surface.
   const todayStart = await getUserDayStart()
 
-  const [row, resumes, usdPhpRate, user, resumeSourceOptions, tasks, statusHistory] =
+  const [row, resumes, usdPhpRate, user, resumeSourceOptions, tasks, statusHistory, careerProfile] =
     await Promise.all([
     prisma.jobApplication.findUnique({
       where: { id, userId: session.user.id },
@@ -198,6 +211,20 @@ export default async function JobApplicationDetailPage({ params }: Props) {
     }),
     // Scoped to the same owner as `row`; a foreign id returns no events.
     getApplicationStatusHistory(session.user.id, id),
+    prisma.careerProfile?.findUnique
+      ? prisma.careerProfile.findUnique({
+          where: { userId: session.user.id },
+          include: {
+            capabilities: {
+              include: {
+                evidenceLinks: {
+                  include: { evidence: { select: { status: true } } },
+                },
+              },
+            },
+          },
+        })
+      : Promise.resolve(null),
   ])
 
   if (!row) notFound()
@@ -376,6 +403,48 @@ export default async function JobApplicationDetailPage({ params }: Props) {
   // resume…"). On a saved application the tracker's own next step is the
   // honest line, and it is the same string the tracker row shows.
   const storedQualification = parseStoredQualification(row.job.qualification)
+
+  const rawMatchResult =
+    typeof row.matchResult === "object" && row.matchResult !== null && !Array.isArray(row.matchResult)
+      ? (row.matchResult as Record<string, unknown>)
+      : null
+  const initialCompanyResearch = (rawMatchResult?.companyResearch as CompanyResearchResult | undefined) ?? null
+
+  const intelligentMatch = computeIntelligentMatch(
+    {
+      title: application.jobTitle,
+      description: application.jobDescription,
+      location: application.location,
+      workType: row.job.workType,
+      salary: application.salary,
+      salaryPeriod: application.salaryPeriod,
+      salaryCurrency: application.salaryCurrency,
+      deadline: application.deadline,
+      postedAt: row.job.postedAt,
+      discoveredAt: row.job.discoveredAt,
+      requirementFlags: (row.job.requirementFlags as string[] | null) ?? [],
+    },
+    careerProfile
+      ? {
+          experienceLevel: careerProfile.experienceLevel,
+          locations: careerProfile.locations,
+          workModes: careerProfile.workModes,
+          workAuthorization: careerProfile.workAuthorization,
+          requiresSponsorship: careerProfile.requiresSponsorship,
+          salaryMin: careerProfile.salaryMin,
+          salaryMax: careerProfile.salaryMax,
+          salaryPeriod: careerProfile.salaryPeriod,
+          salaryCurrency: careerProfile.salaryCurrency,
+          capabilities:
+            (careerProfile as unknown as { capabilities?: ProfileCapability[] }).capabilities?.map((c) => ({
+              name: c.name,
+              depth: c.selfAssessment ?? "WORKING",
+              confirmedCount:
+                c.evidenceLinks?.filter((el) => el.evidence?.status === "CONFIRMED").length ?? 0,
+            })) ?? [],
+        }
+      : {}
+  )
   const nextStep = describeNextStep(
     {
       status: row.status,
@@ -490,6 +559,20 @@ export default async function JobApplicationDetailPage({ params }: Props) {
         </div>
       </div>
 
+      {/* Unified 8-stage job pipeline stepper */}
+      <JobPipelineStepper
+        jobApplicationId={application.id}
+        status={application.status}
+        hasQualification={Boolean(storedQualification)}
+        hasCompanyResearch={Boolean(initialCompanyResearch)}
+        hasTailoredResume={tailoredResumes.length > 0}
+        hasCoverLetter={application.coverLetters.length > 0}
+        hasMatchScore={storedMatch !== null || Boolean(row.matchScore)}
+        hasFollowUp={Boolean(application.followUpAt)}
+        isFollowUpDue={followUpOverdue}
+        chosenResumeId={effectiveResumeId}
+      />
+
       {/*
         Sixteen sibling blocks read as one undifferentiated column, so the page
         is grouped into the four questions it answers — decide, prepare, track,
@@ -529,6 +612,8 @@ export default async function JobApplicationDetailPage({ params }: Props) {
             qualification={row.job.qualification}
             nextAction={nextStep.label}
           />
+
+          <IntelligentMatchingCard matchingResult={intelligentMatch} />
         </div>
 
         {/*
@@ -547,6 +632,13 @@ export default async function JobApplicationDetailPage({ params }: Props) {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Prepare
         </h2>
+
+        {/* Factual company and role research with verified citations */}
+        <CompanyResearchPanel
+          jobApplicationId={application.id}
+          companyName={application.companyName}
+          initialResearch={initialCompanyResearch}
+        />
 
         <JobResumePanel
           jobApplicationId={application.id}
