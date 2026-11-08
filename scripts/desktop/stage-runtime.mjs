@@ -15,6 +15,7 @@ import {
   chmodSync,
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -186,6 +187,30 @@ for (const entry of RUNTIME_ENTRIES) {
   }
 }
 
+// Turbopack keeps shared server chunks and external-package aliases outside
+// the standalone tree. Shipping only `.next/standalone` produced a server that
+// failed on first launch with ChunkLoadError, then "Cannot find module
+// @prisma/client-<hash>". The aliases are absolute symlinks into this checkout,
+// so they must be resolved: that path does not exist on a user's machine.
+const builtDist = path.join(root, DIST_DIR)
+const stagedDist = path.join(appOut, DIST_DIR)
+const builtChunks = path.join(builtDist, "server", "chunks")
+if (existsSync(builtChunks)) {
+  cpSync(builtChunks, path.join(stagedDist, "server", "chunks"), {
+    recursive: true,
+    force: true,
+    filter: (source) => !source.endsWith(".map"),
+  })
+}
+const builtAliases = path.join(builtDist, "node_modules")
+if (existsSync(builtAliases)) {
+  cpSync(builtAliases, path.join(stagedDist, "node_modules"), {
+    recursive: true,
+    force: true,
+    dereference: true,
+  })
+}
+
 // The generated Prisma client is imported from source paths, so keep it even
 // though the rest of `src/` is compile-time only.
 const generatedClient = path.join(standalone, "src", "generated")
@@ -215,6 +240,30 @@ if (existsSync(migrations)) {
 const license = path.join(root, "LICENSE")
 if (existsSync(license)) {
   cpSync(license, path.join(appOut, "LICENSE"))
+}
+
+/** First symlink under `target`, or null. Installers do not preserve links. */
+function findSymlink(target) {
+  const stack = [target]
+  while (stack.length > 0) {
+    const current = stack.pop()
+    if (lstatSync(current).isSymbolicLink()) return current
+    if (lstatSync(current).isDirectory()) {
+      for (const entry of readdirSync(current)) stack.push(path.join(current, entry))
+    }
+  }
+  return null
+}
+
+// Fail here instead of shipping a bundle that only breaks after installation.
+for (const required of ["server", path.join("server", "chunks", "ssr")]) {
+  if (!existsSync(path.join(stagedDist, required))) {
+    throw new Error(`Staged server is incomplete: ${path.join(DIST_DIR, required)} is missing.`)
+  }
+}
+const stagedLink = findSymlink(stagedDist)
+if (stagedLink) {
+  throw new Error(`Staged server contains a symlink that will not survive installation: ${stagedLink}`)
 }
 
 console.log("Staging the Node runtime...")
