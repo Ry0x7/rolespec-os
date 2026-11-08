@@ -37,29 +37,44 @@ in the user's original content. Do not automatically submit applications.
 
 `PDF/DOCX → validation → bounded text extraction → local import or explicit AI structuring → save`
 
-`POST /api/resume/parse` checks authentication, rate limits, size, MIME/extension, file signatures
+`POST /api/resume/parse` checks owner access, rate limits, size, MIME/extension, file signatures
 and DOCX archive sanity. Extraction has a timeout and a 200,000-character cap. Files are limited
 to 5 MB. PDF uses `pdf-parse`; DOCX uses `mammoth`.
 
-The default path never calls AI. It recognizes common standalone headings and saves the extracted
-wording in editable `CUSTOM` sections, using their existing `content` field. It does not infer
-employer/role/date fields or promise layout preservation. Unsupported headings remain in the text.
-Image-only scans without readable text are rejected with guidance to use OCR.
+The default path never calls AI. It recognizes common standalone headings and maps each to its
+matching resume section (summary, experience with bullets, skills, education, projects,
+certifications), preserving the extracted wording. Unrecognized headings stay editable `CUSTOM`
+sections using their existing `content` field. It does not invent qualifications, achievements or
+dates, split fields beyond what the lines state, or promise layout preservation. Image-only scans
+without readable text are rejected with guidance to use OCR.
 
 `useAi=true` explicitly enables structured AI parsing and optional bullet polishing. The legacy
 `optimizeBullets` field controls only polishing within that AI path; it cannot opt a caller into AI.
 Automatic job-match analysis also requires `useAi=true` and a job description. A failed analysis
 after persistence must not discard the imported resume.
 
-## Authentication and privacy
+## Access and privacy
 
-Queries scope user-owned resources to the resolved session user's ID. Exports re-check resume
-ownership rather than relying on storage paths or unguessable URLs.
+There are no RoleSpec accounts, passwords, OAuth providers or registration flow. `auth()` resolves
+the one owner row and every query stays scoped to that owner id; exports re-check résumé ownership
+rather than relying on storage paths or unguessable URLs.
 
-**Current limitation:** `src/features/auth/config.ts` falls back to the first local owner when a
-request has no authenticated session. `src/proxy.ts` redirects sign-in/sign-up to the dashboard.
-This is intentional for a private personal instance; it does not isolate unrelated public visitors.
-Do not deploy this configuration as a shared public service or expose personal data in a demo.
+Access is decided by `src/features/auth/session.ts`:
+
+- `local` (development default; set explicitly by the desktop runtime and Docker compose)
+  passwordless, but only while the request host is loopback (`localhost`, `127.0.0.0/8` or `::1`).
+  A request on a LAN, tunnel or public host is refused rather than treated as the owner.
+- `unlock` (production default) requires `ROLSPEC_ACCESS_KEY` on a public host. A correct key is
+  exchanged for a signed, HttpOnly, SameSite=Lax cookie. Without a usable key the workspace stays
+  locked; there is no fallback that serves it unauthenticated.
+
+`src/proxy.ts` does not perform authentication. It redirects legacy `/sign-in`-style bookmarks to the
+dashboard and records the requested path so `/unlock` can return the owner there afterwards. Guards
+in server components and actions redirect a locked request to `/unlock`.
+
+Browser-extension pairing is independent: a bearer token from `/settings/api` authenticates extension
+API routes even while the browser session is locked. Only token hashes are stored. External AI
+providers keep their own authentication; RoleSpec never copies a CLI or OAuth session.
 
 Database and export storage may be local or cloud-configured. Hosted AI providers receive prompt
 content. Stored provider API keys are encrypted through `src/shared/lib/secret-box.ts`; credentials

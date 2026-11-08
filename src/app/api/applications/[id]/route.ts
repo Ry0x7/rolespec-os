@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { ApplicationStatus } from "@/generated/prisma/enums"
 import { logActivityEvent, resolveApiUserId } from "@/features/auth/api-auth"
+import {
+  STATUS_EVENT_SOURCES,
+  recordStatusTransition,
+} from "@/features/jobs/services/application-status.service"
 import { prisma } from "@/shared/lib/prisma"
 
 export const dynamic = "force-dynamic"
@@ -69,7 +73,29 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (parsed.data.notes !== undefined) data.notes = parsed.data.notes?.trim() ? parsed.data.notes : null
   if (parsed.data.contact !== undefined) data.contact = parsed.data.contact?.trim() ? parsed.data.contact : null
 
-  const application = await prisma.jobApplication.update({ where: { id }, data })
+  // The status write and its history row commit together: a tracker move must
+  // never appear without the line that explains it, and a failed history insert
+  // must not leave the application in a state the timeline cannot account for.
+  // A bearer token means the browser extension (or another external client)
+  // made the move; a session cookie means the app did. The distinction is for
+  // the timeline's wording only.
+  const source = req.headers.get("authorization")?.startsWith("Bearer ")
+    ? STATUS_EVENT_SOURCES.EXTENSION
+    : STATUS_EVENT_SOURCES.USER
+
+  const application = await prisma.$transaction(async (tx) => {
+    const updated = await tx.jobApplication.update({ where: { id }, data })
+    if (parsed.data.status && parsed.data.status !== existing.status) {
+      await recordStatusTransition(tx, {
+        jobApplicationId: id,
+        fromStatus: existing.status,
+        toStatus: parsed.data.status,
+        note: parsed.data.outcomeNote ?? null,
+        source,
+      })
+    }
+    return updated
+  })
 
   if (parsed.data.status && parsed.data.status !== existing.status) {
     await logActivityEvent({

@@ -12,6 +12,8 @@ const { mockAuth, mockPrisma, mockRedirect, mockNotFound, mockGetUsdPhpRate } = 
       careerRoleFamily: { findMany: vi.fn() },
       // This application's own tasks, listed in the Track section.
       todo: { findMany: vi.fn() },
+      // The status history read by the Track section's timeline.
+      applicationStatusEvent: { findMany: vi.fn() },
     },
     mockRedirect: vi.fn(),
     mockNotFound: vi.fn(),
@@ -61,6 +63,7 @@ beforeEach(() => {
   mockPrisma.resume.findMany.mockResolvedValue([])
   mockPrisma.careerRoleFamily.findMany.mockResolvedValue([])
   mockPrisma.todo.findMany.mockResolvedValue([])
+  mockPrisma.applicationStatusEvent.findMany.mockResolvedValue([])
 })
 
 const params = Promise.resolve({ id: "application-1" })

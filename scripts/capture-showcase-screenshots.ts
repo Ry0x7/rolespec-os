@@ -1,32 +1,26 @@
 import "dotenv/config"
 import fs from "node:fs"
 import path from "node:path"
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright"
+import { chromium, type Browser, type Page } from "playwright"
 
 const BASE_URL = process.env.SCREENSHOT_BASE_URL ?? "http://localhost:3100"
-const EMAIL = process.env.DEV_ADMIN_EMAIL ?? "dev-admin@rolespec.local"
-const PASSWORD = process.env.DEV_ADMIN_PASSWORD ?? "dev-admin-local-1234"
+const ACCESS_KEY = process.env.ROLSPEC_ACCESS_KEY ?? ""
 
 const OUT_DIR = path.join(process.cwd(), "screenshots")
 const STORAGE_STATE = path.join(process.cwd(), "scripts", "screenshots", ".auth.json")
 
-async function signIn(context: BrowserContext) {
-  const page = await context.newPage()
-  await page.goto(`${BASE_URL}/sign-in`, { waitUntil: "domcontentloaded" })
-
-  if (!page.url().includes("/sign-in")) {
-    await page.close()
-    return
+async function unlockIfNeeded(page: Page) {
+  if (!page.url().includes("/unlock")) return
+  if (!ACCESS_KEY) {
+    throw new Error(
+      "This deployment uses the owner key gate. Set ROLSPEC_ACCESS_KEY to capture the workspace."
+    )
   }
-
-  await page.fill("#email", EMAIL)
-  await page.fill("#password", PASSWORD)
+  await page.fill("#owner-access-key", ACCESS_KEY)
   await Promise.all([
-    page.waitForURL((url) => !url.pathname.startsWith("/sign-in"), { timeout: 30_000 }),
-    page.click('button[type="submit"]:has-text("Sign In")'),
+    page.waitForURL((url) => !url.pathname.startsWith("/unlock"), { timeout: 30_000 }),
+    page.click('button[type="submit"]'),
   ])
-  await context.storageState({ path: STORAGE_STATE })
-  await page.close()
 }
 
 async function hideDevOverlays(page: Page) {
@@ -53,21 +47,15 @@ async function main() {
   const browser: Browser = await chromium.launch()
 
   // 1. Setup authenticated context
-  let context = await browser.newContext({
+  const context = await browser.newContext({
     viewport: { width: 1560, height: 960 },
     storageState: fs.existsSync(STORAGE_STATE) ? STORAGE_STATE : undefined,
   })
 
   const checkPage = await context.newPage()
   await checkPage.goto(`${BASE_URL}/workspace`, { waitUntil: "domcontentloaded" })
-  if (checkPage.url().includes("/sign-in")) {
-    await checkPage.close()
-    await context.close()
-    context = await browser.newContext({ viewport: { width: 1560, height: 960 } })
-    await signIn(context)
-  } else {
-    await checkPage.close()
-  }
+  await unlockIfNeeded(checkPage)
+  await checkPage.close()
 
   // SCREENSHOT 1: /workspace (Kanban board)
   console.log("Capturing /workspace...")

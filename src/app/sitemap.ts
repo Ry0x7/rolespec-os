@@ -3,9 +3,9 @@ import type { MetadataRoute } from "next"
 import { siteConfig } from "@/config/site"
 
 /**
- * Only the publicly reachable pages belong here. Everything else in the app is
- * behind a session, so listing it would submit URLs that answer with a redirect —
- * which is worse than not listing them.
+ * Only the publicly reachable pages belong here. The workspace opens directly
+ * for its owner and is not a separate marketing destination, so sign-in and
+ * sign-up are gone with the account system.
  *
  * `/pricing` is deliberately absent: `redirects()` in next.config.ts sends it to
  * `/#pricing`, and a sitemap entry that 308s is a crawl error rather than a hint.
@@ -17,18 +17,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: siteConfig.url, lastModified, changeFrequency: "weekly", priority: 1 },
-    {
-      url: `${siteConfig.url}/sign-up`,
-      lastModified,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: `${siteConfig.url}/sign-in`,
-      lastModified,
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
     {
       url: `${siteConfig.url}/terms`,
       lastModified,

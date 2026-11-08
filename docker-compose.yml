@@ -42,6 +42,10 @@ services:
     env_file:
       - .env.docker
     environment:
+      # The app port is published on loopback below, so passwordless owner access
+      # is safe here. Change this to `unlock` (and set ROLSPEC_ACCESS_KEY) if you
+      # expose the container on a public interface.
+      ROLSPEC_ACCESS_MODE: local
       # Pinned: claude-code / ollama / lmstudio providers are local-only and
       # cannot work inside the container.
       AI_PROVIDER: openai

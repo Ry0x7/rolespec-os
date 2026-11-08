@@ -1,6 +1,5 @@
 /**
- * The app's own origin, used for canonical metadata and for absolute links in
- * outbound email.
+ * The app's own origin, used for canonical metadata and for absolute links.
  *
  * `NEXT_PUBLIC_APP_URL` is the intended source and is inlined at build time.
  * `VERCEL_PROJECT_PRODUCTION_URL` is a runtime fallback so that forgetting the
@@ -19,9 +18,16 @@ function resolveAppUrl(): string {
 }
 
 export const siteConfig = {
-  name: "RoleSpec",
+  /** Product name used in page titles, navigation and structured data. */
+  name: "RoleSpec OS",
+  /** Space-constrained name for the web app manifest and install surfaces. */
+  shortName: "RoleSpec OS",
+  /** Publisher shown in metadata and the Windows installer properties. */
+  publisher: "Chryypt",
   tagline: "The Job Seeking AI OS.",
   description:
-    "A self-hosted workspace for building resumes, scoring them against real jobs, tracking applications and drafting outreach.",
+    "A self-hosted job-search workspace for resumes, ATS analysis, job discovery, applications and follow-ups.",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Windows, macOS, Linux",
   url: resolveAppUrl(),
 } as const

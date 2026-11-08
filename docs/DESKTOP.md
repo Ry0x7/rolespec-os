@@ -1,18 +1,27 @@
 # Windows desktop guide
 
-RoleSpec v1.0.2 is available from [GitHub Releases](https://github.com/Ry0x7/rolespec-os/releases/tag/v1.0.2).
-It supports Windows 10/11 x64 with WebView2. The installer bundles Node.js and PostgreSQL;
-users do not need to install those separately.
+RoleSpec OS v1.0.3 is published by **Chryypt** and available from
+[GitHub Releases](https://github.com/Ry0x7/rolespec-os/releases/latest). It supports Windows
+10/11 x64 with WebView2. The installer bundles Node.js and PostgreSQL; users do not need to install
+those separately.
 
-The published v1.0.2 installer is unsigned and has no `latest.json`, so it has no verified Windows
-publisher and cannot auto-update. Download a newer installer manually when upgrading. Updater
-signatures (`.sig`) are distinct from Windows Authenticode signing. A clean Windows VM
-walkthrough remains outstanding.
+An unsigned v1.0.3 installer has no `latest.json`. Its properties name Chryypt as the publisher, but
+without Authenticode signing it has **no verified Windows publisher** and cannot auto-update.
+Download a newer installer manually when upgrading. Updater signatures (`.sig`) are distinct from
+Windows Authenticode signing; check the release notes for the signing status of a given build. A
+clean Windows VM walkthrough remains outstanding.
 
-The current source adds resume text import without AI; the published v1.0.2 installer predates
-that fix and needs a new release. Editing and application tracking work without AI. AI structuring, polishing,
-analysis and generation require a configured provider. CLI and local-model providers need their
-own installation; they are not bundled with RoleSpec.
+The installer's publisher, description and copyright properties name **Chryypt** and
+**RoleSpec OS**. The Tauri `productName` (`RoleSpec`), executable name, install directory and
+application identifier (`com.rolespec.desktop`) are deliberately unchanged from earlier builds so
+upgrades keep the same install identity and existing career data; Windows therefore shows
+`RoleSpec` as the application name while the publisher is Chryypt. `%LOCALAPPDATA%\RoleSpecData` is
+user data, not an installer path; do not rename it when rebranding.
+
+v1.0.3 includes resume text import without AI: recognized headings become matching resume sections
+with their wording preserved. Editing and application tracking work without AI. AI structuring,
+polishing, analysis and generation require a configured provider. CLI and local-model providers
+need their own installation; they are not bundled with RoleSpec OS.
 
 For normal installation, download the setup executable, open it, and complete onboarding.
 The remainder of this guide is for building, operating and releasing the desktop runtime.
@@ -76,7 +85,9 @@ npx @tauri-apps/cli@^2 build --bundles nsis
 ```
 
 The result is `desktop/src-tauri/target/release/bundle/nsis/RoleSpec_<version>_x64-setup.exe`.
-A local build is **unsigned**, so Windows SmartScreen will warn about it.
+The file name and install directory keep the `RoleSpec` identity used by earlier releases; the
+window title, product description and publisher properties say RoleSpec OS / Chryypt. A local build
+is **unsigned**, so Windows SmartScreen will warn about it and the publisher is not verified.
 
 **Signing Windows releases**
 
@@ -114,10 +125,11 @@ secret `TAURI_SIGNING_PRIVATE_KEY`; without it CI produces no updater archive an
 `latest.json`. **Back that key up**: losing it means installed copies can never be updated and every
 user has to install a new build by hand.
 
-Release by bumping `version` in `desktop/src-tauri/tauri.conf.json` and pushing a matching `v*` tag.
-The workflow rebuilds the updater archive from the *signed* installer, re-signs that archive, and
-writes `latest.json`, so the artifact the updater downloads carries the same signature as the one
-people download directly.
+Release by bumping `version` in `package.json` (and the lockfile), `desktop/src-tauri/Cargo.toml`
+(which feeds the Windows executable) and `desktop/src-tauri/tauri.conf.json`, then pushing a matching
+`v*` tag. The workflow re-signs the *signed* setup executable in place — Tauri's NSIS updater
+consumes the setup `.exe` directly — and writes `latest.json` around that same signature, so the
+artifact the updater downloads matches the one people download directly.
 
 The shell also refuses to open data a newer build created: it compares the migrations recorded in
 `_prisma_migrations` against the migrations it ships and exits with an explanation when the database

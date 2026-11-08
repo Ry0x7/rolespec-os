@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   questionCreateMany: vi.fn(),
   jobRowCreate: vi.fn(),
   jobRowUpdateMany: vi.fn(),
+  statusEventCreate: vi.fn(),
   transaction: vi.fn(),
   careerProfileFindUnique: vi.fn(),
 }))
@@ -74,12 +75,14 @@ beforeEach(() => {
     fn({
       job: { create: mocks.jobRowCreate },
       jobApplication: { create: mocks.jobCreate },
+      applicationStatusEvent: { create: mocks.statusEventCreate },
     })
   )
   mocks.jobRowCreate.mockResolvedValue({ id: "job_row_1" })
   mocks.jobRowFindFirst.mockResolvedValue(null)
   mocks.jobRowUpdateMany.mockResolvedValue({ count: 1 })
   mocks.questionCreateMany.mockResolvedValue({ count: 0 })
+  mocks.statusEventCreate.mockResolvedValue({ id: "event_1" })
   // No Career Profile by default, so qualification stays out of the body unless
   // a test opts into one.
   mocks.careerProfileFindUnique.mockResolvedValue(null)

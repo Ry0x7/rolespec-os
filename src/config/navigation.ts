@@ -1,4 +1,4 @@
-import { LayoutDashboard, LayoutPanelTop, FileText, Mail, Settings, Briefcase, CalendarCheck, Telescope, UserRoundCheck } from "lucide-react"
+import { LayoutDashboard, LayoutPanelTop, FileText, Mail, Settings, Briefcase, CalendarCheck, Telescope, UserRoundCheck, IdCard } from "lucide-react"
 
 /** Grouped sidebar navigation, organized by user intent rather than build phase. */
 export const navigationGroups = [
@@ -11,6 +11,7 @@ export const navigationGroups = [
     items: [
       { label: "Career Profile", href: "/career-profile", icon: UserRoundCheck },
       { label: "Resumes", href: "/resumes", icon: FileText },
+      { label: "LinkedIn", href: "/linkedin", icon: IdCard },
     ],
   },
   {
@@ -53,13 +54,12 @@ const PAGE_TITLES: ReadonlyArray<readonly [string, string]> = [
   ["/jobs", "Jobs"],
   ["/planner", "Planner"],
   ["/linkedin", "LinkedIn"],
-  ["/portfolio", "Portfolio"],
   ["/settings", "Settings"],
 ]
 
 export function getPageTitle(pathname: string): string {
   let match = ""
-  let title = "RoleSpec"
+  let title = "RoleSpec OS"
   for (const [prefix, label] of PAGE_TITLES) {
     if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
       if (prefix.length > match.length) {
@@ -92,9 +92,11 @@ export function getBreadcrumbs(pathname: string): Breadcrumb[] {
   const crumbs: Breadcrumb[] = [{ label: "Dashboard", href: "/dashboard" }]
   if (best[0] !== "/dashboard") crumbs.push({ label: best[1], href: best[0] })
   const rest = clean.slice(best[0].length).split("/").filter(Boolean)
-  // A trailing id (resume, job) becomes a non-link "Details" crumb so raw
-  // database ids never render in the header.
-  if (rest.length > 0) crumbs.push({ label: "Details", href: "" })
+  // A trailing database id (resume, job) becomes a non-link "Details" crumb.
+  // Static sub-pages such as /settings/profile or /jobs/cover-letter/new stay
+  // under their section crumb instead of claiming to be a detail record.
+  const last = rest.at(-1) ?? ""
+  if (/^[a-z0-9]{20,}$/i.test(last)) crumbs.push({ label: "Details", href: "" })
   return crumbs
 }
 

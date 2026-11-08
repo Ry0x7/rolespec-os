@@ -43,7 +43,7 @@ export function GettingStarted({
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600/20">
                   <Check className="h-3 w-3 text-brand-400" />
                 </span>
-                <span className="text-muted-foreground line-through">{step.label}</span>
+                <span className="text-muted-foreground">{step.label}</span>
               </div>
             ) : (
               <Link

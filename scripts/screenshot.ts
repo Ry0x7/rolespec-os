@@ -4,19 +4,17 @@
  * Usage:
  *   npx tsx scripts/screenshot.ts <path> [outfile] [--viewport 1440x900] [--scroll-x 600] [--scroll-selector "..."]
  *
- * Signs in through the real sign-in form as the seeded dev admin
- * (see scripts/seed-dev-admin.ts), caches the session in
- * scripts/screenshots/.auth.json, and writes a full-page PNG to
- * scripts/screenshots/.
+ * Opens the local owner workspace directly (unlocking with
+ * ROLSPEC_ACCESS_KEY when the deployment uses the public key gate) and writes a
+ * full-page PNG to scripts/screenshots/.
  */
 import "dotenv/config"
 import fs from "node:fs"
 import path from "node:path"
-import { chromium, type Browser, type BrowserContext } from "playwright"
+import { chromium, type Browser, type Page } from "playwright"
 
 const BASE_URL = process.env.SCREENSHOT_BASE_URL ?? "http://localhost:3100"
-const EMAIL = process.env.DEV_ADMIN_EMAIL ?? "dev-admin@rolespec.local"
-const PASSWORD = process.env.DEV_ADMIN_PASSWORD ?? "dev-admin-local-1234"
+const ACCESS_KEY = process.env.ROLSPEC_ACCESS_KEY ?? ""
 
 const OUT_DIR = path.join(process.cwd(), "scripts", "screenshots")
 const STORAGE_STATE = path.join(OUT_DIR, ".auth.json")
@@ -59,24 +57,18 @@ function parseArgs(argv: string[]): Args {
   return { targetPath, outFile, width, height, scrollX, scrollSelector }
 }
 
-async function signIn(context: BrowserContext) {
-  const page = await context.newPage()
-  await page.goto(`${BASE_URL}/sign-in`, { waitUntil: "domcontentloaded" })
-
-  // Already authenticated: proxy bounces /sign-in to /dashboard.
-  if (!page.url().includes("/sign-in")) {
-    await page.close()
-    return
+async function unlockIfNeeded(page: Page) {
+  if (!page.url().includes("/unlock")) return
+  if (!ACCESS_KEY) {
+    throw new Error(
+      "This deployment uses the owner key gate. Set ROLSPEC_ACCESS_KEY to screenshot the workspace."
+    )
   }
-
-  await page.fill("#email", EMAIL)
-  await page.fill("#password", PASSWORD)
+  await page.fill("#owner-access-key", ACCESS_KEY)
   await Promise.all([
-    page.waitForURL((url) => !url.pathname.startsWith("/sign-in"), { timeout: 30_000 }),
-    page.click('button[type="submit"]:has-text("Sign In")'),
+    page.waitForURL((url) => !url.pathname.startsWith("/unlock"), { timeout: 30_000 }),
+    page.click('button[type="submit"]'),
   ])
-  await context.storageState({ path: STORAGE_STATE })
-  await page.close()
 }
 
 async function main() {
@@ -86,23 +78,15 @@ async function main() {
   const browser: Browser = await chromium.launch()
   const viewport = { width: args.width, height: args.height }
 
-  let context = await browser.newContext({
+  const context = await browser.newContext({
     viewport,
     storageState: fs.existsSync(STORAGE_STATE) ? STORAGE_STATE : undefined,
   })
 
-  let page = await context.newPage()
+  const page = await context.newPage()
   await page.goto(`${BASE_URL}${args.targetPath}`, { waitUntil: "domcontentloaded" })
 
-  // Stale/absent session: proxy redirects to /sign-in. Log in and retry.
-  if (page.url().includes("/sign-in")) {
-    await page.close()
-    await context.close()
-    context = await browser.newContext({ viewport })
-    await signIn(context)
-    page = await context.newPage()
-    await page.goto(`${BASE_URL}${args.targetPath}`, { waitUntil: "domcontentloaded" })
-  }
+  await unlockIfNeeded(page)
 
   await page.waitForLoadState("networkidle").catch(() => {})
 

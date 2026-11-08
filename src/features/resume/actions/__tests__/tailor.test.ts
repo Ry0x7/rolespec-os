@@ -205,7 +205,7 @@ describe("createJobTailoredResume", () => {
     mockAuth.mockResolvedValue(null)
 
     await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
-      "REDIRECT:/sign-in"
+      "REDIRECT:/unlock"
     )
     expect(mockFindCareerProfileId).not.toHaveBeenCalled()
     expect(mockPrisma.jobApplication.findFirst).not.toHaveBeenCalled()
@@ -463,6 +463,44 @@ describe("createJobTailoredResume", () => {
       "REDIRECT:/resumes/resume-tailored"
     )
 
+    const created = mockPrisma.resume.create.mock.calls[0][0].data
+    expect(created.sections.create[0].items.create[0].content).toEqual({
+      text: "Platform engineer focused on reliability.",
+    })
+  })
+
+  it("bars a two-letter job-title term the resume cannot back", async () => {
+    mockPrisma.jobApplication.findFirst.mockResolvedValue({
+      ...jobApplication,
+      job: {
+        title: "QA Automation Engineer",
+        companyName: "Globex",
+        description: "Automation and reliability for payment workflows.",
+      },
+    })
+    mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
+    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
+    mockGenerateJobTailorSuggestions.mockResolvedValue({
+      suggestions: [
+        {
+          // The posting's role title is not evidence that the candidate held it.
+          targetId: "s0::i0",
+          action: "rewrite",
+          suggested: "QA engineer focused on reliability.",
+          reason: "Matches the role title.",
+        },
+      ],
+    })
+
+    await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
+      "REDIRECT:/resumes/resume-tailored"
+    )
+
+    const input = mockGenerateJobTailorSuggestions.mock.calls[0][0]
+    expect([
+      ...input.groundedKeywords.unsupported,
+      ...input.groundedKeywords.ambiguous,
+    ]).toContain("qa")
     const created = mockPrisma.resume.create.mock.calls[0][0].data
     expect(created.sections.create[0].items.create[0].content).toEqual({
       text: "Platform engineer focused on reliability.",
@@ -775,6 +813,39 @@ describe("createJobTailoredResume", () => {
     )
 
     expect(source).toEqual(sourceResumeWithoutSummary())
+  })
+
+  it("refuses to label an unchanged copy as tailored when nothing is tailorable", async () => {
+    mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
+    mockPrisma.resume.findFirst.mockResolvedValue({
+      targetRole: null,
+      template: "MINIMAL",
+      roleFamilyId: null,
+      sections: [
+        {
+          type: "CUSTOM",
+          title: "Experience",
+          order: 0,
+          visible: true,
+          items: [
+            {
+              content: { content: "Built a compiler\nReduced latency" },
+              metadata: null,
+              order: 0,
+            },
+          ],
+        },
+      ],
+    })
+
+    const result = await createJobTailoredResume(validFormData())
+
+    expect(result).toEqual({
+      error:
+        "This resume has no structured summary, skills, experience or project text to tailor. Re-import it with the AI option, or add those sections, then try again.",
+    })
+    expect(mockGenerateJobTailorSuggestions).not.toHaveBeenCalled()
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
   })
 
   it("copies an empty source deterministically without spending an AI call", async () => {

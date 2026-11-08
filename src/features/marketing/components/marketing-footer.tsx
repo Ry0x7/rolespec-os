@@ -5,8 +5,7 @@ import { LogoMark } from "./logo-mark"
 const FOOTER_LINKS = [
   { href: "/#features", label: "Features" },
   { href: "/#pricing", label: "Self-hosting" },
-  { href: "/sign-in", label: "Sign in" },
-  { href: "/sign-up", label: "Create account" },
+  { href: "/dashboard", label: "Open workspace" },
   // A payment processor and a prospective customer both look for these in the
   // footer, so they need to be reachable without an account.
   { href: "/terms", label: "Terms" },

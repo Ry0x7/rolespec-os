@@ -3,11 +3,15 @@ import { siteConfig } from "@/config/site"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: siteConfig.name,
-    short_name: siteConfig.name,
+    short_name: siteConfig.shortName,
     description: siteConfig.description,
     start_url: "/dashboard",
+    scope: "/",
     display: "standalone",
+    lang: "en",
+    categories: ["productivity", "business"],
     background_color: "#09090B",
     theme_color: "#09090B",
     icons: [

@@ -1,7 +1,10 @@
 [package]
 name = "rolespec-desktop"
-version = "1.0.2"
-description = "RoleSpec desktop shell"
+version = "1.0.3"
+description = "RoleSpec OS desktop shell by Chryypt"
+authors = ["Chryypt"]
+homepage = "https://rolespec.ry0x7.dev"
+license = "AGPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.77"
 

@@ -160,8 +160,8 @@ pub fn resolve_paths(resource_dir: Option<&Path>, is_dev: bool) -> Result<Deskto
 }
 
 /// Default origin. 3100 matches `npm run dev` and the value baked into
-/// `NEXT_PUBLIC_APP_URL`; changing it may make absolute links in outbound email
-/// point at the wrong origin, so it is only a fallback preference.
+/// `NEXT_PUBLIC_APP_URL`; changing it may make absolute links point at the wrong
+/// origin, so it is only a fallback preference.
 pub fn preferred_port() -> u16 {
     env::var("ROLESPEC_PORT")
         .ok()
@@ -257,7 +257,10 @@ impl ServerProcess {
             .env("NEXT_TELEMETRY_DISABLED", "1")
             .env("DATABASE_URL", &env.database_url)
             .env("AUTH_SECRET", &env.auth_secret)
-            .env("ROLESPEC_DESKTOP", "1")
+            // The server binds 127.0.0.1 only, so the desktop app opens straight
+            // into its single-owner workspace without a key gate.
+            .env("ROLSPEC_ACCESS_MODE", "local")
+            .env("ROLSPEC_DESKTOP", "1")
             .env(
                 "EXPORT_STORAGE_DIR",
                 paths.data_dir.join("exports").as_os_str(),

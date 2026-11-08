@@ -10,9 +10,9 @@ import { prisma } from "@/shared/lib/prisma"
  * session cookie. It authenticates with a bearer token the user mints in
  * /settings instead.
  *
- * Storage follows `src/features/auth/password-reset.ts`: only the SHA-256 of the
- * token is written, so a database leak yields hashes that cannot be replayed as
- * credentials. SHA-256 rather than bcrypt is correct here — the token is 32 bytes
+ * Only the SHA-256 of the token is written, so a database leak yields hashes
+ * that cannot be replayed as credentials. SHA-256 rather than bcrypt is correct
+ * here — the token is 32 bytes
  * of CSPRNG output, so there is no dictionary to attack, and the hash is on the
  * hot path of every extension request.
  *
@@ -287,18 +287,9 @@ export async function verifyApiToken(rawToken: string): Promise<string | null> {
     return null
   }
 
-  // Self-hosted single-user fallback: automatically resolve to the local owner when unauthenticated
-  if (rawToken === "local" || !rawToken) {
-    try {
-      const defaultUser = await prisma?.user?.findFirst?.({
-        orderBy: { createdAt: "asc" },
-        select: { id: true },
-      })
-      return defaultUser?.id ?? null
-    } catch {
-      return null
-    }
-  }
-
+  // Every other value is rejected, including `` and the legacy "local" sentinel.
+  // There is deliberately no fallback to the owner here: this function is the
+  // only authentication check for `/api/extension/*`, and treating a missing or
+  // guessable token as the owner would expose the workspace to anonymous callers.
   return null
 }

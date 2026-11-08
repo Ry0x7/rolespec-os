@@ -17,6 +17,7 @@ const { mockAuth, mockPrisma } = vi.hoisted(() => ({
     },
     job: { create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), findFirst: vi.fn() },
     resume: { findUnique: vi.fn() },
+    applicationStatusEvent: { create: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
@@ -66,6 +67,7 @@ describe("updateJobApplicationStatus", () => {
     mockAuth.mockResolvedValue({ user: { id: "user-1" } })
     mockPrisma.jobApplication.update.mockResolvedValue({})
     mockPrisma.jobApplication.count.mockResolvedValue(1)
+    mockPrisma.applicationStatusEvent.create.mockResolvedValue({})
   })
 
   it("stamps dateApplied on the transition to APPLIED when it is unset", async () => {

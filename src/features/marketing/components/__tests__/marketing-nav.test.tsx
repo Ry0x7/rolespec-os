@@ -36,16 +36,15 @@ describe("MarketingNav mobile menu", () => {
     const trigger = screen.getByRole("button", { name: "Open menu" })
     expect(trigger.getAttribute("aria-expanded")).toBe("false")
     expect(document.getElementById("marketing-mobile-menu")).toBeNull()
-    expect(screen.queryByRole("link", { name: "Dashboard" })).toBeNull()
-    expect(screen.getByRole("link", { name: "Create account" }).getAttribute("href")).toBe("/sign-up")
+    expect(screen.getByRole("link", { name: "Open workspace" }).getAttribute("href")).toBe("/dashboard")
   })
 
-  it("opens the panel with the nav links and Sign in", () => {
+  it("opens the panel with the nav links and Open workspace", () => {
     const trigger = openMenu()
     expect(trigger.getAttribute("aria-expanded")).toBe("true")
     const panel = document.getElementById("marketing-mobile-menu")
     expect(panel).not.toBeNull()
-    for (const label of ["Features", "How it works", "Self-hosting", "Sign in"]) {
+    for (const label of ["Features", "How it works", "Self-hosting", "Open workspace"]) {
       expect(
         screen.getAllByRole("link", { name: label }).length
       ).toBeGreaterThan(0)

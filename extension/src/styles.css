@@ -190,17 +190,17 @@ textarea {
   background: var(--panel);
 }
 
-/* Four tabs must stay on one line at the panel's ~300px minimum width, so the
+/* Five tabs must stay on one line at the panel's ~300px minimum width, so the
    tabs size to their labels and use a slightly smaller font than the body. */
 .tab {
   flex: 1 1 auto;
-  padding: 6px 4px;
+  padding: 6px 2px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -308,6 +308,83 @@ textarea {
 
 .notice-ok {
   border-color: var(--ok);
+}
+
+/* Autofill: scan/fill actions, then one review card per unfilled question. */
+.autofill-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.review-title {
+  margin: 16px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-item {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.review-label {
+  font-weight: 600;
+}
+
+.fill-value {
+  margin: 4px 0 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.review-category {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.review-saved {
+  color: var(--ok);
+  font-size: 11px;
+}
+
+.review-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.review-input-row input {
+  min-width: 0;
+  flex: 1;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
 }
 
 /* Search tab: one block per target role, link rows that wrap rather than scroll

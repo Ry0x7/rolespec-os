@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
 
 export default async function SettingsAiPage() {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   // Per-user resolution, not the deployment singleton: after onboarding this is
   // what every AI call will actually use, and a header naming a different
@@ -67,6 +67,8 @@ export default async function SettingsAiPage() {
               value: model.id,
               label: model.name,
             }))}
+            fallbackProvider={effective.provider}
+            fallbackModel={effective.model}
           />
         </CardContent>
       </Card>

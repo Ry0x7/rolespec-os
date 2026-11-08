@@ -1,7 +1,13 @@
 import { Prisma } from "@/generated/prisma/client"
+import type { ApplicationStatus } from "@/generated/prisma/enums"
 import { prisma } from "@/shared/lib/prisma"
 import { logger } from "@/shared/lib/logger"
 import { canonicalizeUrl } from "@/features/discovery/services/normalize.service"
+import {
+  STATUS_EVENT_SOURCES,
+  recordStatusTransition,
+  type StatusEventSource,
+} from "./application-status.service"
 
 /**
  * The paired `Job` + `JobApplication` write, used by every ingest path (manual
@@ -250,11 +256,35 @@ export async function updateJobApplicationWithJob(
   const applicationData = withoutPostingFields(data)
 
   await prisma.$transaction(async (tx) => {
+    // Read the previous status before the update: the `update` result already
+    // carries the new value, so comparing against it would never record a move.
+    const previous = await tx.jobApplication.findUnique({
+      where: { id: where.id, userId: where.userId },
+      select: { status: true },
+    })
     const application = await tx.jobApplication.update({
       where: { id: where.id, userId: where.userId },
       data: applicationData,
       select: { jobId: true },
     })
+
+    // The edit form can move the status too, so it records history here rather
+    // than relying on the dedicated status action. A string check keeps a
+    // Prisma enum-operation object from being mistaken for a target status.
+    const nextStatus = applicationData.status
+    if (previous && typeof nextStatus === "string" && nextStatus !== previous.status) {
+      await recordStatusTransition(tx, {
+        jobApplicationId: where.id,
+        fromStatus: previous.status,
+        toStatus: nextStatus as ApplicationStatus,
+        note:
+          typeof applicationData.outcomeNote === "string"
+            ? applicationData.outcomeNote
+            : null,
+        source: STATUS_EVENT_SOURCES.USER,
+      })
+    }
+
     if (Object.keys(jobData).length === 0) return
     await tx.job.update({
       where: { id: application.jobId, userId: where.userId },
@@ -390,10 +420,19 @@ export async function createJobApplicationWithJob(
         data: jobDataFromApplication(data),
         select: { id: true },
       })
-      return tx.jobApplication.create({
+      const created = await tx.jobApplication.create({
         data: applicationCreateData(data, job.id),
         select: { id: true },
       })
+      // Tracking starts at a status; history records that first point with no
+      // predecessor. The event source mirrors how the posting entered RoleSpec.
+      await recordStatusTransition(tx, {
+        jobApplicationId: created.id,
+        fromStatus: null,
+        toStatus: (data.status ?? "INTERESTED") as ApplicationStatus,
+        source: statusEventSource(data.source),
+      })
+      return created
     })
     return { id: application.id, duplicate: false }
   } catch (err) {
@@ -420,12 +459,28 @@ export async function createJobApplicationWithJob(
 
     // A posting with no application left: reuse it rather than orphaning a
     // second one behind a key that can never be written again.
-    const application = await prisma.jobApplication.create({
-      data: applicationCreateData(data, existing.jobId),
-      select: { id: true },
+    const application = await prisma.$transaction(async (tx) => {
+      const created = await tx.jobApplication.create({
+        data: applicationCreateData(data, existing.jobId),
+        select: { id: true },
+      })
+      await recordStatusTransition(tx, {
+        jobApplicationId: created.id,
+        fromStatus: null,
+        toStatus: (data.status ?? "INTERESTED") as ApplicationStatus,
+        source: statusEventSource(data.source),
+      })
+      return created
     })
     return { id: application.id, duplicate: false }
   }
+}
+
+/** The history source that matches how the posting entered the workspace. */
+function statusEventSource(source: unknown): StatusEventSource {
+  return source === "EXTENSION"
+    ? STATUS_EVENT_SOURCES.EXTENSION
+    : STATUS_EVENT_SOURCES.USER
 }
 
 /**

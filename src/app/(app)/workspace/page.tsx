@@ -10,7 +10,7 @@ import { buttonVariants } from "@/shared/ui/button"
 
 export default async function WorkspacePage() {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const userId = session.user.id
 

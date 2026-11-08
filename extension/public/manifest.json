@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "RoleSpec Job Clipper",
-  "version": "0.1.0",
-  "description": "Clip a job posting from the current tab into your RoleSpec job tracker.",
+  "name": "RoleSpec OS Job Clipper",
+  "version": "0.2.0",
+  "description": "Clip jobs and fill application forms from your RoleSpec OS profile, with a review queue for sensitive questions.",
   "minimum_chrome_version": "114",
   "permissions": [
     "activeTab",
@@ -15,7 +15,7 @@
   ],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
   "action": {
-    "default_title": "Clip this job to RoleSpec"
+    "default_title": "Clip this job to RoleSpec OS"
   },
   "commands": {
     "clip-job": {
@@ -23,14 +23,14 @@
         "default": "Ctrl+Shift+S",
         "mac": "Command+Shift+S"
       },
-      "description": "Clip this job to RoleSpec"
+      "description": "Clip this job to RoleSpec OS"
     },
     "quick-save": {
       "suggested_key": {
         "default": "Alt+S",
         "mac": "Alt+S"
       },
-      "description": "Save the current clip to RoleSpec"
+      "description": "Save the current clip to RoleSpec OS"
     }
   },
   "background": {

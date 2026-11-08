@@ -57,7 +57,7 @@ const sectionsSchema = z.array(sectionSchema).max(MAX_SECTIONS)
 
 export async function saveResume(resumeId: string, sections: SectionInput[]) {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   // ── Validate the client-supplied sections ─────────────────────────────────
   if (JSON.stringify(sections ?? null).length > MAX_SECTIONS_PAYLOAD_CHARS) {

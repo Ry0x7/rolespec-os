@@ -1,20 +1,20 @@
 # Roadmap and known gaps
 
-Updated: 2026-10-23. This is a remaining-work list, not a claim that all user journeys have been
-verified. The current product is a private personal workspace; feedback and portfolio showcasing
-do not require converting it into a hosted service.
+Updated: 2026-11-08. This is a remaining-work list, not a claim that all user journeys have been
+verified. The current product is a private, single-owner workspace; feedback and portfolio
+showcasing do not require converting it into a hosted service.
 
 ## Available today
 
 - Career profile, master/role-family/job-tailored resumes, PDF export and application tracking.
 - Optional AI analysis, enhancement, job matching and outreach through user-configured providers.
 - Browser job capture through the standalone extension.
-- Docker/Node self-hosting and a published Windows x64 v1.0.2 installer.
+- Docker/Node self-hosting and a published Windows x64 v1.0.3 installer.
 - Guided AI setup with diagnostics and a connection test.
 
-The current source also includes AI-free resume text import. That change must be included in a new
-build/release before existing v1.0.2 installations receive it. See [README](../README.md) for the
-exact local-import behavior and platform requirements.
+v1.0.3 includes AI-free resume text import, structured into the matching resume sections with the
+extracted wording preserved. See [README](../README.md) for the exact local-import behavior and
+platform requirements.
 
 ## Next verification work
 
@@ -36,7 +36,8 @@ exact local-import behavior and platform requirements.
 ## Distribution limits
 
 - Native desktop packaging is Windows x64 only; Mac/Linux users need self-hosting.
-- v1.0.2 is unsigned and carries no `latest.json`. Users must update manually.
+- v1.0.3 is unsigned unless release signing is configured, and an unsigned build carries no
+  `latest.json`. Users must update manually.
 - Installer signing and the GitHub-hosted updater need end-to-end verification before enabling
   automatic updates. Updater signatures alone do not provide a Windows verified publisher.
 - A clean-machine walkthrough is still outstanding. Desktop developer-machine checks are not a
@@ -45,10 +46,11 @@ exact local-import behavior and platform requirements.
 
 ## Shared hosted service: deferred
 
-The current authentication fallback grants signed-out visitors the local owner's workspace.
-Independent hosted accounts require deliberate authentication, tenant isolation, job ownership,
-export access and credential-boundary work before public access. No SaaS, billing or agent-run
-expansion is included in this cleanup.
+Loopback deployments open directly as the single owner. In production, any non-loopback host — LAN,
+tunnel or public — requires the signed-cookie key gate (`ROLSPEC_ACCESS_MODE=unlock`) and stays locked
+until the operator's key is entered, so it does not serve the owner workspace anonymously. Independent
+hosted accounts would still require multi-tenant isolation, per-user job ownership, export access
+and credential boundaries. No SaaS, billing or agent-run expansion is included in this cleanup.
 
 ## Product boundaries
 

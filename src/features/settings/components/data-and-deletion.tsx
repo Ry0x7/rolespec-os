@@ -6,21 +6,21 @@ import { Button } from "@/shared/ui/button"
 import { Input } from "@/shared/ui/input"
 import { Label } from "@/shared/ui/label"
 
-import { deleteMyAccountAction } from "../actions/account.actions"
+import { resetWorkspaceAction } from "../actions/workspace-reset.actions"
 import { DELETE_CONFIRMATION_PHRASE } from "../constants/data"
 
 /**
- * The "Your data" section: the export and erasure controls the privacy policy
- * promises. Deletion is gated behind an explicit reveal so it cannot be reached by
- * a stray click in a settings page, and the destructive step is never the default.
+ * The "Your data" section: export and erasure for the single-owner workspace.
+ * Deletion is gated behind an explicit reveal so it cannot be reached by a
+ * stray click, and the destructive step is never the default.
  */
-export function DataAndDeletion({ hasPassword }: { hasPassword: boolean }) {
+export function DataAndDeletion() {
   const [confirming, setConfirming] = useState(false)
 
   const [error, action, isPending] = useActionState(
     async (_prev: string | null, formData: FormData) => {
-      // A successful delete redirects, so anything returned is a failure.
-      const result = await deleteMyAccountAction(formData)
+      // A successful wipe redirects, so anything returned is a failure.
+      const result = await resetWorkspaceAction(formData)
       return result.message
     },
     null
@@ -31,8 +31,8 @@ export function DataAndDeletion({ hasPassword }: { hasPassword: boolean }) {
       <div className="space-y-2">
         <h3 className="text-sm font-medium">Export your data</h3>
         <p className="text-sm text-muted-foreground">
-          Downloads everything RoleSpec holds about you as a JSON file — résumés, applications,
-          cover letters, notes and ratings.
+          Downloads everything RoleSpec holds as a JSON file — résumés,
+          applications, cover letters, notes, career profile and AI usage.
         </p>
         {/* A plain link, not fetch: the browser handles the download and takes the
             filename from the response, and nothing has to buffer the file in JS. */}
@@ -46,10 +46,11 @@ export function DataAndDeletion({ hasPassword }: { hasPassword: boolean }) {
       </div>
 
       <div className="space-y-2 border-t border-border pt-6">
-        <h3 className="text-sm font-medium text-destructive">Delete your account</h3>
+        <h3 className="text-sm font-medium text-destructive">Erase workspace data</h3>
         <p className="text-sm text-muted-foreground">
-          Permanent and immediate. Everything above is deleted along with your account. This
-          cannot be undone.
+          Permanent and immediate. Every résumé, job, application, note and saved
+          AI key is deleted. The app then starts fresh with an empty owner
+          workspace. This cannot be undone.
         </p>
 
         {!confirming ? (
@@ -58,29 +59,16 @@ export function DataAndDeletion({ hasPassword }: { hasPassword: boolean }) {
             className="mt-2 text-destructive"
             onClick={() => setConfirming(true)}
           >
-            Delete my account…
+            Erase everything…
           </Button>
         ) : (
           <form action={action} className="mt-4 space-y-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-            {hasPassword && (
-              <div className="space-y-2">
-                <Label htmlFor="delete-password">Your password</Label>
-                <Input
-                  id="delete-password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                />
-              </div>
-            )}
-
             <div className="space-y-2">
-              <Label htmlFor="delete-confirmation">
+              <Label htmlFor="reset-confirmation">
                 Type {DELETE_CONFIRMATION_PHRASE} to confirm
               </Label>
               <Input
-                id="delete-confirmation"
+                id="reset-confirmation"
                 name="confirmation"
                 autoComplete="off"
                 placeholder={DELETE_CONFIRMATION_PHRASE}
@@ -96,7 +84,7 @@ export function DataAndDeletion({ hasPassword }: { hasPassword: boolean }) {
 
             <div className="flex gap-3">
               <Button type="submit" variant="destructive" disabled={isPending}>
-                {isPending ? "Deleting…" : "Delete permanently"}
+                {isPending ? "Erasing…" : "Erase permanently"}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setConfirming(false)}>
                 Cancel

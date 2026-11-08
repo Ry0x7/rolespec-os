@@ -49,16 +49,21 @@ const MAX_TERMS = 200
  * The significant terms of a job posting, lowercased, deduped, in order of
  * first appearance. Everything returned is a candidate claim to be grounded
  * against the resume — NOT a list of keywords to work in.
+ *
+ * `minLength` exists for job titles: "QA", "AI", "UX" and "ML" are two-letter
+ * words that define the role, and skipping them let a rewrite rename the
+ * candidate's job title to the posting's unsupported one.
  */
-export function extractJobTerms(text: string): string[] {
+export function extractJobTerms(text: string, options: { minLength?: number } = {}): string[] {
   const seen = new Set<string>()
   const terms: string[] = []
+  const minLength = options.minLength ?? MIN_TERM_LENGTH
 
   const matches = text.toLowerCase().match(TOKEN_PATTERN) ?? []
   for (const raw of matches) {
     const token = raw.replace(/^\.+|\.+$/g, "")
     if (!token) continue
-    if (token.length < MIN_TERM_LENGTH && !/[+#]/.test(token)) continue
+    if (token.length < minLength && !/[+#]/.test(token)) continue
     if (COMMON_WORDS.has(token)) continue
     if (/^\d+$/.test(token)) continue
     if (seen.has(token)) continue

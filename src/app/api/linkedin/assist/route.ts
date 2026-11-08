@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { isSameOriginRequest } from "@/features/auth/api-auth"
 import { auth } from "@/features/auth/config"
 import {
   generateLinkedinSuggestions,
@@ -40,6 +41,10 @@ export async function POST(req: Request) {
       { error: "Unauthorized", code: "UNAUTHORIZED" },
       { status: 401 }
     )
+  }
+
+  if (!isSameOriginRequest(req)) {
+    return NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 })
   }
 
   const userId = session.user.id

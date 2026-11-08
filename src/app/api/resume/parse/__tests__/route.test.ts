@@ -313,7 +313,7 @@ describe("POST /api/resume/parse upload validation", () => {
     expect(res.status).toBe(201)
     const title = resumeCreate.mock.calls[0][0].data.title as string
     expect(title).toHaveLength(120)
-    expect(title.startsWith("a very long")).toBe(true)
+    expect(title.startsWith("A Very Long")).toBe(true)
     expect(/[\u0000-\u001f\u007f]/.test(title)).toBe(false)
   })
 })

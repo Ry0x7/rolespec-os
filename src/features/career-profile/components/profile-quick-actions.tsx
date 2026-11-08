@@ -78,7 +78,7 @@ export function ProfileQuickActions() {
         >
           <action.icon className="h-3.5 w-3.5" aria-hidden="true" />
           {action.label}
-          <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+          <kbd className="hidden rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground lg:inline">
             {action.hint.toUpperCase()}
           </kbd>
         </Button>

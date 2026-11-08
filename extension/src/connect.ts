@@ -27,7 +27,7 @@ export function generateState(
 /** `GET {appUrl}/extension/connect?state=…&redirect_uri=…` */
 export function buildConnectUrl(appUrl: string, state: string, redirectUri: string): string {
   const base = normalizeAppUrl(appUrl)
-  if (!base) throw new Error("Set your RoleSpec App URL first.")
+  if (!base) throw new Error("Set your RoleSpec OS App URL first.")
   const params = new URLSearchParams({ state, redirect_uri: redirectUri })
   return `${base}/extension/connect?${params.toString()}`
 }
@@ -37,31 +37,31 @@ export function buildConnectUrl(appUrl: string, state: string, redirectUri: stri
  * `launchWebAuthFlow`. Throws with a user-facing message on every failure path.
  */
 export function parseConnectRedirect(redirectUrl: string | undefined, expectedState: string): string {
-  if (!redirectUrl) throw new Error("Sign-in was cancelled before it finished.")
+  if (!redirectUrl) throw new Error("Connection was cancelled before it finished.")
 
   const hashIndex = redirectUrl.indexOf("#")
-  if (hashIndex === -1) throw new Error("RoleSpec did not return a token. Try signing in again.")
+  if (hashIndex === -1) throw new Error("RoleSpec OS did not return a token. Try connecting again.")
 
   const params = new URLSearchParams(redirectUrl.slice(hashIndex + 1))
 
   const error = params.get("error")
-  if (error) throw new Error(`RoleSpec refused the connection: ${error}`)
+  if (error) throw new Error(`RoleSpec OS refused the connection: ${error}`)
 
   if (params.get("state") !== expectedState) {
-    throw new Error("Sign-in response did not match this request. Try again.")
+    throw new Error("The connection response did not match this request. Try again.")
   }
 
   const token = params.get("token")
-  if (!token) throw new Error("RoleSpec did not return a token. Try signing in again.")
+  if (!token) throw new Error("RoleSpec OS did not return a token. Try connecting again.")
   if (!token.startsWith(TOKEN_PREFIX)) {
-    throw new Error("RoleSpec returned an unexpected token format.")
+    throw new Error("RoleSpec OS returned an unexpected token format.")
   }
 
   return token
 }
 
 /**
- * Thin wrapper: the only part that touches `chrome.identity`. Opens the RoleSpec
+ * Thin wrapper: the only part that touches `chrome.identity`. Opens the RoleSpec OS
  * connect page in Chrome's auth window and resolves with the raw `rspec_…` token.
  */
 export async function signInWithRoleSpec(appUrl: string): Promise<string> {
@@ -74,7 +74,7 @@ export async function signInWithRoleSpec(appUrl: string): Promise<string> {
     redirectUrl = await chrome.identity.launchWebAuthFlow({ url, interactive: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new Error(message || "Sign-in was cancelled.")
+    throw new Error(message || "Connection was cancelled.")
   }
 
   return parseConnectRedirect(redirectUrl, state)

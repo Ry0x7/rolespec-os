@@ -5,55 +5,58 @@ import { siteConfig } from "@/config/site"
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: `The agreement between you and ${siteConfig.name}.`,
+  description: `The terms that apply to ${siteConfig.name}.`,
 }
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Service" effectiveDate="August 25, 2026">
+    <LegalPage title="Terms of Service" effectiveDate="November 8, 2026">
       <Section heading="The agreement">
         <p>
-          These terms are between you and RoleSpec Inc. (&quot;we&quot;, &quot;us&quot;). By
-          creating an account you accept them. If you do not agree, do not use{" "}
-          {siteConfig.name}.
+          These terms are between you and {siteConfig.publisher} (&quot;we&quot;, &quot;us&quot;)
+          for the hosted instance we operate. A self-hosted deployment is operated by whoever
+          runs it, under the AGPL-3.0-or-later licence, and that operator is responsible for
+          its own terms. By using this instance you accept these terms. If you do not agree,
+          do not use {siteConfig.name}.
         </p>
       </Section>
 
-      <Section heading="Your account">
+      <Section heading="Access">
         <p>
-          You must be at least 16 and provide an accurate email address — we use it for
-          password resets, so an address you do not control means an account you cannot
-          recover. You are responsible for activity under your account. One person per account;
-          do not share credentials.
+          {siteConfig.name} is a single-owner workspace. There is no registration, password or
+          shared account. A private deployment opens directly on its local or private network.
+          A public deployment stays locked until the operator&apos;s access key is entered.
+          Whoever holds that key controls the workspace, so keep it private and serve the app
+          over HTTPS.
+        </p>
+        <p>
+          You must be at least 16 to use the app. Do not share the owner key or an extension
+          token with anyone you would not trust with the workspace&apos;s data.
         </p>
       </Section>
 
-      <Section heading="License">
+      <Section heading="Licence">
         <p>
-          {siteConfig.name} is a one-time purchase. Buying it grants you a perpetual,
-          non-transferable, non-exclusive licence to run the deployment you purchased it for.
-          The licence covers use of the software; it does not transfer ownership, and it does
-          not permit reselling or redistributing {siteConfig.name} itself.
+          {siteConfig.name} is free and open-source software licensed under the GNU Affero
+          General Public License, version 3 or later (AGPL-3.0-or-later). Running, studying,
+          modifying and redistributing it are permitted under that licence. There is no
+          purchase, activation key, subscription or refund: the software is provided at no
+          charge. The licence does not transfer ownership of the project&apos;s trademarks or
+          branding.
         </p>
         <p>
-          Your licence key is validated offline by your own deployment — it is not checked
-          against our servers, so the software keeps working without a connection to us. Keep
-          the key: it is your proof of purchase, and we cannot reissue what we do not store.
-        </p>
-        <p>
-          <strong>Refunds.</strong> You may request a full refund within 14 days of purchase by
-          writing to privacy@rolespec.app. A refunded licence key is void and may no longer be
-          used to activate a deployment. Nothing in this clause limits any non-waivable rights
-          you have under the consumer law that applies to you.
+          If you modified the app and make it available to users over a network, the AGPL
+          requires you to offer those users the corresponding source. That obligation belongs
+          to the operator of that deployment.
         </p>
       </Section>
 
       <Section heading="Your content">
         <p>
-          Your résumés and everything else you create remain yours. You grant us only the
-          licence needed to run the service: to store your content, and to send the relevant
-          parts to the AI provider you configure so it can produce the analysis, rewrite or
-          export you asked for. That licence ends when you delete the content.
+          Your résumés and everything else you create remain yours. You grant the deployment
+          operator only the licence needed to run the app: to store your content, and to send
+          the relevant parts to the AI provider you configure so it can produce the analysis,
+          rewrite or export you asked for. That licence ends when you erase the content.
         </p>
         <p>
           You confirm you have the right to upload what you upload — in particular that a
@@ -65,12 +68,17 @@ export default function TermsPage() {
         <p>
           Analyses, scores, rewrites, cover letters and match results are generated by AI
           models. They are suggestions, not professional advice, and they can be wrong or
-          misleading. ATS scores are our estimate — they are not produced by, endorsed by, or
+          misleading. ATS scores are an estimate — they are not produced by, endorsed by, or
           predictive of any employer&apos;s actual applicant tracking system.{" "}
           <strong>
             Review anything generated before you send it to an employer. You are responsible
             for what you submit.
           </strong>
+        </p>
+        <p>
+          Tailoring is constrained to facts in your career profile and résumé, and
+          ungrounded suggestions are discarded, but that check is not infallible. Do not rely
+          on generated text as a statement of your qualifications.
         </p>
       </Section>
 
@@ -83,11 +91,11 @@ export default function TermsPage() {
             qualifications;
           </li>
           <li>
-            attempt to circumvent rate limits or access controls, or probe our infrastructure
-            or that of any third party through us;
+            attempt to circumvent rate limits or access controls, or probe infrastructure you
+            do not own;
           </li>
-          <li>scrape, resell or redistribute the service or its output as your own product;</li>
-          <li>upload malware, or content that is unlawful where you or we operate.</li>
+          <li>scrape, resell or redistribute the service as your own product;</li>
+          <li>upload malware, or content that is unlawful where you or the operator operate.</li>
         </ul>
         <p>
           Using {siteConfig.name} in breach of this section is outside the licence granted
@@ -97,37 +105,40 @@ export default function TermsPage() {
 
       <Section heading="Availability">
         <p>
-          We aim to keep {siteConfig.name} available but we do not promise uninterrupted
-          service. We may change, suspend or discontinue features. If we discontinue the
-          service entirely we will give reasonable notice.
+          A self-hosted deployment is available when its operator runs it. We aim to keep the
+          hosted instance available but do not promise uninterrupted service, and we may
+          change, suspend or discontinue features. If we discontinue the hosted service
+          entirely we will give reasonable notice.
         </p>
       </Section>
 
       <Section heading="Liability">
         <p>
-          The service is provided as-is and as available. To the fullest extent the law
-          allows, we are not liable for indirect or consequential loss — including a job you
-          did not get — and our aggregate liability for all claims is limited to the amount
-          you paid us in the twelve months before the claim arose. Nothing in these terms
-          excludes liability that cannot be excluded under the law that applies to you,
-          including under consumer-protection law.
+          The software and hosted service are provided as-is and as available, without
+          warranties to the extent the law allows. To the fullest extent the law allows, we
+          are not liable for indirect or consequential loss — including a job you did not get
+          — and our aggregate liability for all claims is limited to the amount you paid us in
+          the twelve months before the claim arose, which for the free software is zero.
+          Nothing in these terms excludes liability that cannot be excluded under the law that
+          applies to you.
         </p>
       </Section>
 
       <Section heading="Changes and governing law">
         <p>
-          We will update the effective date when these terms change and notify you by email
-          before a material change. These terms are governed by the laws of the Republic of
-          the Philippines, and disputes are subject to the competent courts of the
-          Philippines.
+          We will update the effective date when these terms change and notify users of the
+          hosted instance before a material change. These terms are governed by the laws of
+          the Republic of the Philippines, and disputes are subject to the competent courts of
+          the Philippines. A self-hosted operator may choose different terms for its own
+          deployment.
         </p>
       </Section>
 
       <Section heading="Contact">
         <p>
-          Legal notices and any other question: <strong>privacy@rolespec.app</strong>. If you
-          run {siteConfig.name} on your own deployment, we do not operate it and have no
-          access to your instance.
+          Questions about the project belong in the repository&apos;s issue tracker. If you run
+          {" "}{siteConfig.name} on your own deployment, we do not operate it and have no access
+          to your instance.
         </p>
       </Section>
     </LegalPage>

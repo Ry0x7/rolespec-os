@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { resolveApiUserId } from "@/features/auth/api-auth"
+import {
+  fetchPublicUrl,
+  WebSourceError,
+} from "@/features/career-profile/services/web-presence.service"
 import { RATE_LIMIT_BUCKETS, consumeRateLimit } from "@/shared/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -79,23 +83,26 @@ export async function POST(req: Request) {
       )
     }
 
-    // No-key fallback: plain fetch so the flow works with zero setup.
-    const res = await fetch(parsed.data.url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; RoleSpecBot/1.0; +https://rolespec.ry0x7.dev)",
-        Accept: "text/html,application/xhtml+xml",
-      },
+    // No-key fallback: the same public-only fetch the portfolio scanner uses,
+    // so this route cannot be pointed at loopback, RFC1918 or metadata hosts.
+    const result = await fetchPublicUrl(parsed.data.url, {
+      accept: (contentType) =>
+        !contentType ||
+        contentType.includes("text/html") ||
+        contentType.includes("application/xhtml+xml"),
     })
-    if (!res.ok) return NextResponse.json({ error: "Fetch failed", provider: "direct", status: res.status }, { status: 502 })
-    const html = await res.text()
     return NextResponse.json(
-      { provider: "direct", url: parsed.data.url, html: html.slice(0, 200000) },
+      { provider: "direct", url: result.url, html: result.body.slice(0, 200000) },
       { headers: { "Cache-Control": "private, max-age=60, s-maxage=0" } }
     )
   } catch (err) {
-    const aborted = err instanceof DOMException && err.name === "AbortError"
-    return NextResponse.json({ error: aborted ? "Scrape timed out" : "Scrape failed" }, { status: aborted ? 504 : 502 })
+    const timedOut =
+      (err instanceof DOMException && err.name === "AbortError") ||
+      (err instanceof WebSourceError && err.code === "TIMEOUT")
+    return NextResponse.json(
+      { error: timedOut ? "Scrape timed out" : "Scrape failed" },
+      { status: timedOut ? 504 : 502 }
+    )
   } finally {
     clearTimeout(timer)
   }

@@ -1,13 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 
-const { mockUseSession, mockUpdate, mockGenerate } = vi.hoisted(() => ({
-  mockUseSession: vi.fn(),
-  mockUpdate: vi.fn(),
-  mockGenerate: vi.fn(),
-}))
+const { mockGenerate } = vi.hoisted(() => ({ mockGenerate: vi.fn() }))
 
-vi.mock("next-auth/react", () => ({ useSession: mockUseSession }))
 vi.mock("../../actions/cover-letter.actions", () => ({
   generateCoverLetter: mockGenerate,
 }))
@@ -21,8 +16,6 @@ const applications = [
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockUpdate.mockResolvedValue({})
-  mockUseSession.mockReturnValue({ update: mockUpdate })
 })
 
 afterEach(cleanup)

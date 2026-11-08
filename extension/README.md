@@ -1,7 +1,7 @@
-# RoleSpec Job Clipper (Chrome MV3)
+# RoleSpec OS Job Clipper (Chrome MV3)
 
 A standalone Chrome extension that reads the job posting in the current tab, lets you
-review and edit it, and posts it to your RoleSpec job tracker. The UI is a **side panel**
+review and edit it, and posts it to your RoleSpec OS job tracker. The UI is a **side panel**
 that stays open beside the page, so clicking back into the page never closes or resets it.
 
 Requires **Chrome 114+** (`chrome.sidePanel`).
@@ -25,30 +25,30 @@ Other scripts: `npm run dev` (Vite watch rebuild), `npm test` (extractor, Linked
 1. Run the build above so `extension/dist/` exists.
 2. Open `chrome://extensions` and turn on **Developer mode** (top right).
 3. Click **Load unpacked** and select the `extension/dist` folder (not `extension/`).
-4. Pin "RoleSpec Job Clipper" to the toolbar.
+4. Pin "RoleSpec OS Job Clipper" to the toolbar.
 5. Re-run `npm run build` after code changes, **then hit Reload on the card**. Chrome
    keeps serving the bundle it loaded, so without that Reload your build is not the one
    running — including manifest/permission changes.
 
 ## Configure
 
-### Sign in (recommended)
+### Connect (recommended)
 
-Press **Sign in to RoleSpec** — either in the side panel's setup banner, or on the
+Press **Connect RoleSpec OS** — either in the side panel's setup banner, or on the
 Options page (right-click the extension icon → **Options**, or the *Options* link in the
 side panel).
 
-Chrome opens RoleSpec in an auth window; sign in there if you are not already, then press
-**Connect**. RoleSpec hands the extension a fresh `rspec_…` token and it is saved for you.
+Chrome opens the RoleSpec OS connection page; press **Connect**. RoleSpec OS hands the
+extension a fresh `rspec_…` token and it is saved for you.
 The side panel picks the token up immediately — no reload.
 
-Set **App URL** first if RoleSpec is not on `http://localhost:3100` (the default).
+Set **App URL** first if RoleSpec OS is not on `http://localhost:3100` (the default).
 Trailing slashes are stripped on save.
 
 ### Manual token (fallback)
 
 Under **Advanced — manual token** on the Options page you can still paste a token
-generated in RoleSpec under **Settings → API access**, then press **Save settings**. The
+generated in RoleSpec OS under **Settings → API access**, then press **Save settings**. The
 field is masked with a Show/Hide toggle.
 
 App URL and token are stored in `chrome.storage.local` on this browser profile only.
@@ -72,9 +72,9 @@ App URL and token are stored in `chrome.storage.local` on this browser profile o
    description is only consulted for unambiguous phrases ("work from home", "hybrid
    schedule", "on-site only"), so a "hybrid cloud" or "remote teams" aside cannot set the
    field. No signal means it is left blank for you to pick.
-5. Press **Save to RoleSpec**. Nothing is sent until you press Save. After a save the
+5. Press **Save to RoleSpec OS**. Nothing is sent until you press Save. After a save the
    form stays editable and a **Clip another job** button resets it and re-reads the
-   current tab. If RoleSpec flags the posting as a possible ghost job or scam, a warning
+   current tab. If RoleSpec OS flags the posting as a possible ghost job or scam, a warning
    banner appears under the **Saved.** confirmation with the reasons — the clip is still
    saved either way, and nothing shows when the server sends no flag.
 
@@ -82,27 +82,51 @@ If a page has no structured data, the fields may come out partially filled — t
 says so. Selecting the job description text on the page before opening the panel makes
 that text the description.
 
-### "RoleSpec can't read this page yet"
+### "RoleSpec OS can't read this page yet"
 
 The Job link is still filled (that only needs `tabs`), but the posting's text needs page
-access. The panel shows **Allow RoleSpec to read <host>** — press it and accept Chrome's
+access. The panel shows **Allow RoleSpec OS to read <host>** — press it and accept Chrome's
 prompt, and the panel re-reads the page immediately. That grant is per site (scheme, host
 and port), persists across browser sessions, and is revocable at `chrome://extensions` →
-RoleSpec Job Clipper → **Details** → **Site access**. You can also just fill the form in
+RoleSpec OS Job Clipper → **Details** → **Site access**. You can also just fill the form in
 by hand. If you changed the manifest, make sure you hit **Reload** on the extension card
 first — an old bundle has no way to ask for the grant.
 
 `chrome://`, `chrome-extension://`, `file://` and `about:` pages can never be read by any
 extension; there the panel says so and offers no button.
 
+### Autofill an application form
+
+The **Autofill** tab helps with an application form on a supported ATS: Greenhouse,
+Lever, Ashby, Workable, BambooHR, SmartRecruiters, Jobvite, iCIMS, Taleo, Workday,
+Recruitee, Teamtailor and Personio.
+
+1. Open the employer's application form, switch to **Autofill**, then press **Scan this
+   page**. RoleSpec OS asks for site access the first time; the grant is per origin, and
+   only the form's field labels are read — never the values already in it.
+2. The panel shows how many fields it can fill from your RoleSpec OS contact details. Press
+   **Fill fields**, check the preview, then press **Confirm fill**. Nothing is written
+   before that second press.
+3. Work authorization, visa sponsorship, salary expectations, demographic questions,
+   criminal-history questions, file uploads and free-text essays are **never filled**.
+   They appear in the **Review queue**. Type an answer and press **Save answer**; it is
+   reused for the same question on later forms. Sensitive answers are stored only in
+   `chrome.storage.local` on this browser profile.
+4. RoleSpec OS never clicks Submit, never accepts terms and never sends an application.
+   Review every value on the page and submit it yourself.
+
+The filler has no host permissions of its own: it uses the same optional per-origin
+grant as clipping, and runs only after the user presses Scan. It does not run on a
+job-description page, only on the ATS host.
+
 ### Cold email a person (LinkedIn)
 
-The panel has three modes, switched with the **Clip job** / **Cold email** / **Reply**
-tabs at the top.
+The panel has five modes, switched with the **Clip** / **Autofill** / **Email** / **Reply** /
+**Search** tabs at the top.
 
 1. Open someone's LinkedIn profile (`linkedin.com/in/…`), then open the panel and switch
    to **Cold email** — or right-click the page and pick **Cold email this person with
-   RoleSpec**, which opens the panel on that tab and reads the profile for you.
+   RoleSpec OS**, which opens the panel on that tab and reads the profile for you.
 2. **Read profile from page** fills in name, headline, company, About and the profile
    URL. LinkedIn's markup changes constantly, so treat this as a first draft and correct
    anything that came out wrong. Selecting 200+ characters on the page before reading
@@ -123,18 +147,18 @@ tabs at the top.
 For the two LinkedIn types the server returns an empty subject, so the panel hides the
 subject row and its Copy button and shows only the message.
 
-Requires sign-in (same token as clipping). The draft is written from your RoleSpec
-resume — with no resume in RoleSpec the request is rejected. Nothing is saved: the
+Requires a connected token (same as clipping). The draft is written from your RoleSpec OS
+resume — with no resume in RoleSpec OS the request is rejected. Nothing is saved: the
 subject and body appear in the panel with a **Copy** button each, and are gone when you
 generate the next one.
 
-A 401 points you back at **Sign in to RoleSpec**, and a 429 asks you to wait.
+A 401 points you back at **Connect RoleSpec OS**, and a 429 asks you to wait.
 
 ### Picking a resume
 
 Both generate tabs have a **Resume** picker, filled once the panel is connected with your
 non-archived resumes (newest first, with their ATS score where they have one). It starts
-on **Latest resume**, which sends no resume id at all and lets RoleSpec use your newest.
+on **Latest resume**, which sends no resume id at all and lets RoleSpec OS use your newest.
 
 The list is a convenience only: if it cannot be fetched the picker keeps just the
 **Latest resume** option and drafting works exactly as before. Replacing your token or
@@ -147,7 +171,7 @@ interview invite, a rejection you want to follow up on.
 
 1. Paste the email into **Paste the email you received** (required, 8000 characters max
    with a counter) — or select it in your webmail and right-click → **Draft a reply with
-   RoleSpec**, which opens the panel on the Reply tab with the selection already in the
+   RoleSpec OS**, which opens the panel on the Reply tab with the selection already in the
    box. Nothing is generated until you press the button.
 2. **Company**, **Job title** and **Job description** (5000 characters max) are optional
    and give the model the job context.
@@ -163,7 +187,7 @@ After a draft comes back the button reads **Regenerate reply**: pressing it agai
 the previous draft along so the model rewrites it instead of starting over. Editing the
 received email drops that memory and the button goes back to **Generate reply**.
 
-Same rules as cold email: sign-in required, written from your RoleSpec resume (no
+Same rules as cold email: a connected token is required, written from your RoleSpec OS resume (no
 resume → rejected), nothing persisted, subject and body each with a **Copy** button, and
 the same 401 / 429 handling.
 
@@ -174,10 +198,10 @@ toolbar icon, grant page access for that click):
 
 | Command | Where it shows | What it does |
 | ------- | -------------- | ------------ |
-| **Clip this job to RoleSpec** | any page | Same as clicking the toolbar icon: re-reads the page into the clip form, offering **Replace with this page** instead of overwriting unsaved edits |
+| **Clip this job to RoleSpec OS** | any page | Same as clicking the toolbar icon: re-reads the page into the clip form, offering **Replace with this page** instead of overwriting unsaved edits |
 | **Use selection as job description** | when text is selected | Re-reads the page and forces the selected text into the description, however short it is |
-| **Cold email this person with RoleSpec** | `linkedin.com/in/*` only | Switches to the Cold email tab and reads the profile |
-| **Draft a reply with RoleSpec** | any page, when text is selected | Switches to the Reply tab and drops the selection into the received-email box (truncated at 8000 characters). Nothing is generated automatically |
+| **Cold email this person with RoleSpec OS** | `linkedin.com/in/*` only | Switches to the Cold email tab and reads the profile |
+| **Draft a reply with RoleSpec OS** | any page, when text is selected | Switches to the Reply tab and drops the selection into the received-email box (truncated at 8000 characters). Nothing is generated automatically |
 
 ### Switching tabs
 
@@ -191,7 +215,7 @@ The panel outlives the tab it was opened on:
   access, only the `tabs` permission.
 - Reading the posting's text needs page access. A toolbar-icon click grants it for that
   click only, and that grant does not follow you to another tab. When the panel cannot
-  read the page it says so and offers **Allow RoleSpec to read <host>**, which asks
+  read the page it says so and offers **Allow RoleSpec OS to read <host>**, which asks
   Chrome for a persistent grant on that one site. Whatever is in the form is left
   untouched.
 - Clicking the toolbar icon always re-reads the current page, whether the panel was open
@@ -203,7 +227,7 @@ The panel outlives the tab it was opened on:
 
 ### Fit badges on job boards
 
-On JobStreet / SEEK, Indeed and LinkedIn job pages, RoleSpec can put a small label next
+On JobStreet / SEEK, Indeed and LinkedIn job pages, RoleSpec OS can put a small label next
 to each job title — **✓ Strong fit**, **Worth a look**, **⚠ Weak fit** or **⛔ Blocked**
 (the same wording as the panel), plus **⚑ risk** when the posting looks like a ghost or scam job. Hover it to
 see which of your capabilities matched. The verdict is the same heuristic check the panel
@@ -213,8 +237,8 @@ shows after a save; no AI model is called.
   board the panel shows a **Show fit badges on <host>** button while that site has no
   grant; click it and accept Chrome's prompt, and badges appear on the open tab without
   a reload. Clipping with the toolbar icon does not enable them (that is a one-off
-  activeTab read). The **Allow RoleSpec to read <host>** button grants the same thing, and
-  so does `brave://extensions` / `chrome://extensions` → RoleSpec Job Clipper →
+  activeTab read). The **Allow RoleSpec OS to read <host>** button grants the same thing, and
+  so does `brave://extensions` / `chrome://extensions` → RoleSpec OS Job Clipper →
   **Details** → **Site access** (add the site there). Supported hosts: `*.jobstreet.com`, `*.jobstreet.com.<cc>`,
   `*.seek.com.<cc>`, `*.seek.co.nz`, Indeed (`indeed.com`, `<cc>.indeed.com`,
   `indeed.com.<cc>`, `indeed.co.<cc>`, `indeed.<cc>`) and LinkedIn (`www.linkedin.com`
@@ -222,7 +246,7 @@ shows after a save; no AI model is called.
   any other site never runs the badge script.
 - **What is sent, and where.** For the postings on screen: title, company, location, the
   job's link, and on a single-job page also the work type and description (up to 20,000
-  characters). It goes only to your own RoleSpec server (the App URL in options) with
+  characters). It goes only to your own RoleSpec OS server (the App URL in options) with
   your API token, and only while you are signed in: signed out, nothing leaves the
   browser. With no career profile yet the server answers that once, no badge is drawn,
   and the page sends nothing more.
@@ -232,7 +256,7 @@ shows after a save; no AI model is called.
   stays out of the way of password managers. Verdicts are cached in the extension's
   in-memory session storage for 6 hours (cleared when the browser closes or you change
   the App URL / token).
-- **Turning it off.** Revoke the site's access at `chrome://extensions` → RoleSpec Job
+- **Turning it off.** Revoke the site's access at `chrome://extensions` → RoleSpec OS Job
   Clipper → **Details** → **Site access**; the badge script is unregistered for that site
   straight away.
 
@@ -240,20 +264,23 @@ shows after a save; no AI model is called.
 
 - Permissions are `activeTab`, `contextMenus`, `identity`, `scripting`, `storage`,
   `sidePanel` and `tabs`: no `host_permissions` and no `content_scripts` in the
-  manifest. The only content script, the fit badge, is registered at runtime with
+  manifest. Autofill is injected on demand with `chrome.scripting.executeScript`
+  after the user presses **Scan** and grants that one origin; it registers no
+  persistent content script and reads only field labels. The only always-registered
+  content script, the fit badge, is registered at runtime with
   `chrome.scripting.registerContentScripts` (id `rolespec-badge`, top frame only) for
   exactly the supported job boards you have granted; see below.
-  `identity` is only used for the sign-in flow below, and `contextMenus` only adds the
+  `identity` is only used for the connection flow below, and `contextMenus` only adds the
   four right-click commands. `tabs` is what lets the panel read the active tab's URL and
   title without any page grant — that is how the Job link is filled, and how the panel
   knows which origin to ask about.
 - Page access to a posting's text comes from one of two places: the `activeTab` grant
   from your toolbar-icon or context-menu click (one click, one tab, gone on navigation),
   or a per-site grant from `optional_host_permissions` (`https://*/*`, `http://*/*`).
-  Nothing is granted at install. The **Allow RoleSpec to read <host>** button in the
+  Nothing is granted at install. The **Allow RoleSpec OS to read <host>** button in the
   panel calls `chrome.permissions.request` for that single origin (scheme + host + port),
   and the grant persists across sessions until you revoke it at `chrome://extensions` →
-  RoleSpec Job Clipper → **Details** → **Site access**. `<all_urls>` is never requested.
+  RoleSpec OS Job Clipper → **Details** → **Site access**. `<all_urls>` is never requested.
 - Sign-in (`src/connect.ts`) generates a base64url `state`, opens
   `{appUrl}/extension/connect?state=…&redirect_uri=…` through
   `chrome.identity.launchWebAuthFlow`, and reads the token back out of the
@@ -334,11 +361,11 @@ shows after a save; no AI model is called.
   against a server that predates those fields).
   Both go through the same helper in `src/api.ts`: same bearer token, a 70s client timeout
   (the server's model call is capped at 60s) and the same `{subject, body}` envelope.
-  That envelope may also carry an optional `grounding` object: RoleSpec checks every draft
+  That envelope may also carry an optional `grounding` object: RoleSpec OS checks every draft
   against the user's own resume, and when the draft mentions a skill or technology the
   resume does not back it names them here. The panel then shows the draft with a warning
   status instead of the plain "Draft ready" line. `parseGrounding()` in `src/api.ts` reads
-  it defensively, so a clean draft and an older RoleSpec both mean "nothing to warn about".
+  it defensively, so a clean draft and an older RoleSpec OS both mean "nothing to warn about".
 - Save issues one request: `POST {appUrl}/api/extension/jobs` with
   `Authorization: Bearer <token>`. 401 points you back to options, 429 asks you to wait,
   400 shows the server's validation message, and connection failures name the App URL.
@@ -359,7 +386,7 @@ extension/
     extractor.test.ts        vitest + jsdom tests
     linkedin-extractor.ts    pure, self-contained LinkedIn profile extractor
     linkedin-extractor.test.ts
-    connect.ts               sign-in flow (pure helpers + chrome.identity wrapper)
+    connect.ts               connection flow (pure helpers + chrome.identity wrapper)
     connect.test.ts          vitest tests for the pure connect helpers
     resume-select.ts         pure helpers for the two resume pickers
     resume-select.test.ts    vitest tests for those helpers
@@ -367,6 +394,13 @@ extension/
     job-risk.test.ts         vitest tests for that parser
     __fixtures__/            JSON-LD / @graph / no-data / malformed / LinkedIn fixtures,
                              plus trimmed real job-board markup (badge-*.html)
+    autofill-core.ts       pure field classification + fill planning
+    autofill-core.test.ts
+    autofill-page.ts       self-contained page scan/fill functions (executeScript)
+    autofill-page.test.ts
+    autofill-panel.ts      Autofill tab controller + review queue
+    approved-answers.ts    local chrome.storage answer cache
+    approved-answers.test.ts
     sidepanel.ts, options.ts entry scripts
     background.ts            service worker entry → dist/assets/background.js
     badge.ts                 fit-badge content script entry → dist/assets/badge.js (IIFE)

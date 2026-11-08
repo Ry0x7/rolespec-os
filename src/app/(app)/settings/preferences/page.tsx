@@ -14,13 +14,13 @@ import { parsePreferences } from "@/features/settings/schemas/preferences.schema
 
 export default async function SettingsPreferencesPage() {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { preferences: true },
   })
-  if (!user) redirect("/sign-in")
+  if (!user) redirect("/unlock")
 
   return (
     <Card>

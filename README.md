@@ -2,32 +2,37 @@
 
 ![RoleSpec OS](screenshots/banner.png)
 
-An open-source personal workspace for resumes, job discovery, applications and outreach.
-Built with Next.js, React, TypeScript, PostgreSQL and a Tauri Windows shell.
+An open-source, single-owner job-search workspace for resumes, job discovery, applications and
+outreach. Published by **Chryypt**. Built with Next.js, React, TypeScript, PostgreSQL and a Tauri
+Windows shell.
 
-[Website](https://rolespec.ry0x7.dev/) · [Download for Windows](https://github.com/Ry0x7/rolespec-os/releases/tag/v1.0.2) · [Report a bug](https://github.com/Ry0x7/rolespec-os/issues) · [AGPL-3.0-or-later](LICENSE)
+[Website](https://rolespec.ry0x7.dev/) · [Download for Windows](https://github.com/Ry0x7/rolespec-os/releases/latest) · [Report a bug](https://github.com/Ry0x7/rolespec-os/issues) · [AGPL-3.0-or-later](LICENSE)
 
 ## Who can use it?
 
-- **Windows users:** v1.0.2 is available for Windows 10/11 x64 with WebView2. The installer bundles
-  the app runtime and a private PostgreSQL database; no Node.js, Docker or `.env` setup is needed.
+- **Windows users:** the latest release targets Windows 10/11 x64 with WebView2. The installer
+  bundles the app runtime and PostgreSQL 17, and creates a private database cluster on first launch;
+  no Node.js, Docker or `.env` setup is needed.
 - **Developers:** run your own instance with Docker or Node.js and PostgreSQL.
 - **Mac/Linux:** self-hosting is available; native desktop installers are not shipped.
 
-RoleSpec is a **single-owner workspace**. Signed-out requests resolve to the local owner account.
-Run it privately; it is not ready to serve independent users on one public instance. The Docker
-example below binds the app to localhost.
+RoleSpec OS is a **single-owner workspace**. It launches directly into one owner workspace with no
+account registration, login or password recovery. Passwordless owner access is limited to loopback
+hosts; the Docker example below binds the app to localhost and sets `ROLSPEC_ACCESS_MODE=local`.
+A public deployment uses `unlock` mode (the production default) and must set `ROLSPEC_ACCESS_KEY`
+(16+ characters) and unlock it once; a non-loopback request is never given passwordless access.
+It is not a multi-tenant service.
 
-The Windows installer is currently **unsigned**, so Windows may show a publisher/SmartScreen
-warning. Automatic updates are inactive for v1.0.2; install newer releases manually. A clean
-Windows VM walkthrough is still outstanding. See the [desktop guide](docs/DESKTOP.md).
+The Windows installer is **unsigned unless release signing is configured**, so Windows may show a
+SmartScreen warning. The installer metadata names **Chryypt** as the publisher, but that is an
+application property, not a verified Authenticode publisher. Without updater signing, automatic
+updates are inactive and newer releases must be installed manually; check the release notes for a
+specific build. A clean Windows VM walkthrough is still outstanding. See the
+[desktop guide](docs/DESKTOP.md).
 
 ## What it does
 
-**Source update:** AI-free resume import is fixed in the current source. The published v1.0.2
-Windows installer predates this fix; a new desktop release is needed to deliver it to installers.
-
-- Edit master, role-family and job-tailored resumes; preview and export PDFs in four templates.
+- Edit master, role-family and job-tailored resumes; preview and export PDFs in eight templates.
 - Import text-based PDF or DOCX resumes (up to 5 MB) without an AI provider.
 - Discover opportunities and track applications, follow-ups, notes and outcomes.
 - With AI configured: structure and polish resumes, analyze resume quality/job matches, and draft
@@ -37,9 +42,11 @@ Windows installer predates this fix; a new desktop release is needed to deliver 
 ### Resume import and AI
 
 Resume import defaults to **no AI**. Text is extracted on the app's server (on your computer for
-Windows/local installs), grouped under recognized headings, and saved as editable text sections.
-Review the result before exporting. This path does not infer structured employers, roles or dates,
-rewrite bullets, or run ATS analysis. Scanned/image-only PDFs need OCR before upload.
+Windows/local installs) and grouped by recognized heading into matching resume sections — summary,
+experience with bullets, skills, education, projects and certifications — keeping the original
+wording. Unrecognized headings stay editable text sections. This path does not invent employers,
+roles, dates or achievements, rewrite bullets, or run ATS analysis. Scanned/image-only PDFs need OCR
+before upload.
 
 Select **Organize and polish with AI** to use a configured provider for structured import and bullet
 rewriting. If you also supply a job description, RoleSpec attempts an AI job-match analysis after
@@ -68,7 +75,8 @@ Requires Docker with Compose.
 git clone https://github.com/Ry0x7/rolespec-os.git
 cd rolespec-os
 cp .env.docker.example .env.docker
-# Set AUTH_SECRET and ENCRYPTION_KEY in .env.docker.
+# Set AUTH_SECRET and ENCRYPTION_KEY in .env.docker. Compose sets
+# ROLSPEC_ACCESS_MODE=local because the app port is published on 127.0.0.1.
 docker compose up -d --build
 ```
 
@@ -123,7 +131,8 @@ use screenshots or a recording with sample data for a portfolio showcase.
 
 ## Development credits
 
-RoleSpec OS is developed and maintained by [Ry0x7](https://github.com/Ry0x7).
+RoleSpec OS is published by **Chryypt** and developed and maintained by
+[Ry0x7](https://github.com/Ry0x7).
 [Claude Code](https://claude.com/product/claude-code) is acknowledged as an
 AI-assisted development tool used in the project. Code decisions, review, and
 maintenance remain the responsibility of the human maintainer. This credit
@@ -136,7 +145,7 @@ Human contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 - [Architecture and invariants](docs/ARCHITECTURE.md)
 - [Roadmap and known gaps](docs/ROADMAP.md)
-- [Windows runtime, troubleshooting and releases](docs/DESKTOP.md)
+- [Windows runtime, installer metadata, troubleshooting and releases](docs/DESKTOP.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security reporting](SECURITY.md)
 

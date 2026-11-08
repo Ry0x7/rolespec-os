@@ -152,7 +152,7 @@ function skillEntries(list: string): string[] {
  */
 export async function createJobTailoredResume(formData: FormData) {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const parsed = createJobTailoredResumeSchema.safeParse(Object.fromEntries(formData))
   if (!parsed.success) {
@@ -246,6 +246,20 @@ export async function createJobTailoredResume(formData: FormData) {
 
   const targets = buildTargets(sections)
 
+  // A resume that holds content but no summary/skills/experience/project text
+  // (for example a plain-text import whose sections all landed in CUSTOM) has
+  // nothing the tailoring pass may touch. Copying it would hand back an
+  // unchanged document labelled "tailored", so say so instead.
+  const hasContent = sections.some((section) =>
+    section.items.some((item) => Object.keys(item.content ?? {}).length > 0)
+  )
+  if (targets.length === 0 && hasContent) {
+    return {
+      error:
+        "This resume has no structured summary, skills, experience or project text to tailor. Re-import it with the AI option, or add those sections, then try again.",
+    }
+  }
+
   if (targets.length > 0) {
     // ── Evidence grounding ──────────────────────────────────────────────────
     // The posting's own terms are classified against the candidate's text; a
@@ -256,9 +270,15 @@ export async function createJobTailoredResume(formData: FormData) {
       serializeSections(sections as unknown as Section[]),
       ...targets.map((target) => target.text),
     ].join("\n")
-    const terms = extractJobTerms(
-      [job.jobTitle, job.jobDescription ?? ""].join("\n")
-    )
+    // Title terms allow two-letter words so "QA", "AI" and "UX" are barred
+    // when the resume cannot back them — otherwise a rewrite could rename the
+    // candidate's role to the posting's title without evidence.
+    const terms = [
+      ...new Set([
+        ...extractJobTerms(job.jobTitle, { minLength: 2 }),
+        ...extractJobTerms(job.jobDescription ?? ""),
+      ]),
+    ]
     const grounded = groundKeywords(terms, evidenceText)
     const barredKeywords = [...grounded.unsupported, ...grounded.ambiguous]
 

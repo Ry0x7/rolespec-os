@@ -280,7 +280,7 @@ fn start_runtime(
         "main",
         WebviewUrl::External(url.parse().expect("loopback URL")),
     )
-    .title("RoleSpec")
+    .title("RoleSpec OS")
     .inner_size(1280.0, 860.0)
     .min_inner_size(960.0, 640.0)
     .center()

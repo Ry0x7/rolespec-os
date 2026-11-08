@@ -17,7 +17,7 @@ import { prisma } from "@/shared/lib/prisma"
  */
 export default async function DiscoverJobsPage() {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const [profile, user] = await Promise.all([
     loadCareerProfile(session.user.id),

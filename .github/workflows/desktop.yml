@@ -13,7 +13,7 @@ name: Desktop (Windows)
 #      also produces `<installer>.sig` and a `latest.json`, which is what an
 #      installed copy checks for updates.
 #
-# See "Signing Windows releases" in README.md for the setup.
+# See docs/DESKTOP.md for the signing and release setup.
 on:
   workflow_dispatch:
   push:
@@ -286,5 +286,5 @@ jobs:
             fi
           else
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
-              $draft_flag --generate-notes --title "RoleSpec $GITHUB_REF_NAME"
+              $draft_flag --generate-notes --title "RoleSpec OS $GITHUB_REF_NAME"
           fi

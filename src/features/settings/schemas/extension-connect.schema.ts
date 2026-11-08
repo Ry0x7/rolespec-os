@@ -1,5 +1,5 @@
 /**
- * Validation for the extension "sign in to connect" handshake.
+ * Validation for the extension "connect" handshake.
  *
  * The extension calls `chrome.identity.launchWebAuthFlow` and opens
  * `/extension/connect?state=…&redirect_uri=…`. Both parameters are fully

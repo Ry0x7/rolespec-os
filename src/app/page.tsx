@@ -73,7 +73,7 @@ const STEPS = [
     step: "01",
     title: "Start with your resume",
     description:
-      "Create your account on your RoleSpec deployment. Import an existing PDF or DOCX resume, or build one from scratch.",
+      "Open your RoleSpec workspace. Import an existing PDF or DOCX resume, or build one from scratch.",
   },
   {
     step: "02",
@@ -140,8 +140,8 @@ function SectionHeading({
 }
 
 export default async function LandingPage() {
-  // A signed-in visitor has no use for the pitch and a "Sign in" nav — send
-  // them to the app. Signed-out visitors still get the marketing page.
+  // The owner opens straight into the workspace; the marketing page remains
+  // the public face of a key-gated deployment that has not been unlocked yet.
   const session = await auth()
   if (session?.user?.id) redirect("/dashboard")
 
@@ -166,8 +166,8 @@ export default async function LandingPage() {
                 </p>
               </HeroRevealItem>
               <HeroRevealItem className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "min-h-11")}>
-                  Create account <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                <Link href="/dashboard" className={cn(buttonVariants({ size: "lg" }), "min-h-11")}>
+                  Open workspace <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
                 <Link href="#how-it-works" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "min-h-11")}>
                   See how it works
@@ -316,13 +316,13 @@ export default async function LandingPage() {
                       Start with your resume. Tailor it to a role. Keep your next step in sight.
                     </p>
                     <Link
-                      href="/sign-up"
+                      href="/dashboard"
                       className={cn(
                         buttonVariants({ size: "lg" }),
                         "min-h-11 w-full sm:w-auto"
                       )}
                     >
-                      Create account
+                      Open workspace
                       <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </Link>
                   </div>

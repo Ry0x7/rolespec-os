@@ -9,11 +9,6 @@ const { mockReorderResumeSections, mockAddResumeSection, mockRemoveResumeSection
   })
 )
 
-// The session does not resolve under vitest.
-vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: null, update: vi.fn() }),
-}))
-
 vi.mock("../../actions/sections", () => ({
   reorderResumeSections: mockReorderResumeSections,
   addResumeSection: mockAddResumeSection,

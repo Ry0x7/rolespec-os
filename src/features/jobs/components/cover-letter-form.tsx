@@ -59,8 +59,8 @@ const NETWORK_ERROR = "Couldn't reach RoleSpec — try again."
 /**
  * A redirecting action reports itself by throwing. Catching that and showing a
  * network message would turn a working navigation into a fake failure, so it is
- * rethrown untouched. Same digest check `features/auth/actions.ts` makes —
- * `isRedirectError` only ships from a deep `next/dist/...` path, not a public one.
+ * rethrown untouched. `isRedirectError` only ships from a deep `next/dist/...`
+ * path, not a public one.
  */
 function isRedirectError(err: unknown): boolean {
   return (

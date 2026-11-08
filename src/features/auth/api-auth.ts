@@ -3,54 +3,71 @@ import { verifyApiToken } from "@/features/settings/services/api-token"
 import { prisma } from "@/shared/lib/prisma"
 
 /**
+ * Browser same-origin check for cookie-authenticated mutations.
+ *
+ * Server Actions get this from Next.js; route handlers do not. A request with
+ * no `Origin` (curl, a server job) is allowed through, but a browser sends one
+ * on every non-GET request, and a forged value cannot be produced by a web page
+ * for another site. `Origin: null` is refused because sandboxed frames use it.
+ */
+export function isSameOriginRequest(req: Request): boolean {
+  const origin = req.headers.get("origin")
+  if (!origin) return true
+  if (origin === "null") return false
+
+  let originHost: string
+  try {
+    originHost = new URL(origin).host.toLowerCase()
+  } catch {
+    return false
+  }
+
+  const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase()
+
+  return !!host && originHost === host
+}
+
+/**
  * Single-owner API identity.
  *
  * Every `/api/*` route in this OS must resolve the caller through here:
- *  1. Session cookie via `auth()` — which itself falls back to the local
- *     owner account on a private instance (see `config.ts`), so signed-out
- *     reads on a self-hosted box keep working.
+ *  1. Owner access via `auth()` — passwordless on a private deployment, or a
+ *     signed unlock cookie on a public one (see `session.ts`).
  *  2. `Authorization: Bearer rspec_…` personal token (extension + external
- *     clients whose origin carries no cookie).
+ *     clients whose origin carries no cookie). A token works even when the
+ *     browser session is locked, which is what keeps the extension paired.
  *
- * Returns the owning user id, or null when the caller is anonymous.
+ * Returns the owning user id, or null when the caller is anonymous. A presented
+ * but invalid token never falls back to an unauthenticated owner.
  * Callers must ALWAYS scope every Prisma read/write with the returned id —
  * never trust a client-supplied userId, and never read across users.
  */
 export async function resolveApiUserId(req: Request): Promise<string | null> {
   try {
     const session = await auth()
-    if (session?.user?.id) return session.user.id
+    if (session?.user?.id) {
+      // A cross-site POST would otherwise ride the owner cookie (or, in local
+      // mode, the passwordless session) into a state-changing handler.
+      const mutating = !["GET", "HEAD", "OPTIONS"].includes(req.method.toUpperCase())
+      if (mutating && !isSameOriginRequest(req)) return null
+      return session.user.id
+    }
   } catch {
     // Fall through to bearer-token auth; a DB blip must not throw here.
   }
 
   const header = req.headers.get("authorization") ?? ""
   const bearer = header.startsWith("Bearer ") ? header.slice(7).trim() : ""
-  if (bearer) {
-    try {
-      const userId = await verifyApiToken(bearer)
-      if (userId) return userId
-    } catch {
-      return null
-    }
-  }
+  if (!bearer) return null
 
-  // Last resort for a private box with no session infrastructure yet:
-  // resolve to the oldest local user rather than 401, matching `auth()`.
-  // Never used to bypass a presented-but-invalid credential.
-  if (!bearer) {
-    try {
-      const owner = await prisma.user.findFirst({
-        orderBy: { createdAt: "asc" },
-        select: { id: true },
-      })
-      return owner?.id ?? null
-    } catch {
-      return null
-    }
+  try {
+    return await verifyApiToken(bearer)
+  } catch {
+    return null
   }
-
-  return null
 }
 
 /** Best-effort activity log — feed writes must never fail the user action. */

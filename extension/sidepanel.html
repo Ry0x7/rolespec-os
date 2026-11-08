@@ -2,12 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>RoleSpec Job Clipper</title>
+    <title>RoleSpec OS Job Clipper</title>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body class="sidepanel">
     <header class="header">
-      <h1>Clip to RoleSpec</h1>
+      <h1>Clip to RoleSpec OS</h1>
       <span class="header-meta">
         <span id="connection-dot" class="conn-dot" title="Checking connection…" aria-label="Connection status"></span>
         <a id="open-options" class="link" href="#">Options</a>
@@ -20,8 +20,8 @@
     </div>
 
     <div id="setup" class="notice notice-warn" hidden>
-      <p id="setup-text" class="setup-text">Connect this clipper to RoleSpec before saving jobs.</p>
-      <button id="setup-sign-in" class="button" type="button">Sign in to RoleSpec</button>
+      <p id="setup-text" class="setup-text">Connect this clipper to RoleSpec OS before saving jobs.</p>
+      <button id="setup-sign-in" class="button" type="button">Connect RoleSpec OS</button>
       <p class="hint">
         Different App URL, or pasting a token by hand?
         <a id="setup-link" class="link" href="#">Open options</a>
@@ -37,7 +37,17 @@
         aria-selected="true"
         aria-controls="view-clip"
       >
-        Clip job
+        Clip
+      </button>
+      <button
+        id="tab-autofill"
+        class="tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="view-autofill"
+      >
+        Autofill
       </button>
       <button
         id="tab-email"
@@ -47,7 +57,7 @@
         aria-selected="false"
         aria-controls="view-email"
       >
-        Cold email
+        Email
       </button>
       <button
         id="tab-reply"
@@ -74,7 +84,7 @@
     <section id="view-clip" role="tabpanel" aria-labelledby="tab-clip">
       <p id="extract-note" class="hint" hidden></p>
       <button id="grant-access" class="button button-quiet button-note" type="button" hidden>
-        Allow RoleSpec to read this site
+        Allow RoleSpec OS to read this site
       </button>
       <button id="replace-page" class="button button-quiet" type="button" hidden>
         Replace with this page
@@ -178,12 +188,55 @@
         <p id="clip-match" class="hint" hidden></p>
         <p id="clip-requirements" class="hint" hidden></p>
 
-        <button id="save" class="button" type="submit">Save to RoleSpec</button>
+        <button id="save" class="button" type="submit">Save to RoleSpec OS</button>
         <p class="hint shortcut-hint">Tip: <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>S</kbd> saves, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> clips the page.</p>
         <button id="clip-another" class="button button-quiet" type="button" hidden>
           Clip another job
         </button>
       </form>
+    </section>
+
+    <section id="view-autofill" role="tabpanel" aria-labelledby="tab-autofill" hidden>
+      <p class="hint">
+        Fill an application form from your RoleSpec OS profile. Only ordinary contact fields
+        are filled automatically. Sensitive questions go to a review queue, and RoleSpec
+        never submits an application.
+      </p>
+
+      <p id="autofill-site" class="hint"></p>
+
+      <div class="autofill-actions">
+        <button id="autofill-scan" class="button" type="button">Scan this page</button>
+        <button id="autofill-grant" class="button button-quiet" type="button" hidden>
+          Allow RoleSpec OS to read this site
+        </button>
+        <button id="autofill-clear" class="button button-quiet button-mini" type="button">
+          Clear saved answers
+        </button>
+      </div>
+
+      <p id="autofill-status" class="notice" role="status" hidden></p>
+      <p id="autofill-summary" class="hint" hidden></p>
+
+      <div id="autofill-fill-preview" hidden>
+        <h2 class="review-title">Will be filled</h2>
+        <p class="hint">
+          Check each value here before filling. Nothing is written until you press Fill and
+          then Confirm.
+        </p>
+        <ul id="autofill-fill-list" class="review-list"></ul>
+      </div>
+
+      <button id="autofill-fill" class="button" type="button" hidden>Fill fields</button>
+
+      <div id="autofill-review" hidden>
+        <h2 class="review-title">Review queue</h2>
+        <p class="hint">
+          These fields were not filled. Save an answer once and it is reused for the same
+          question next time. Check every answer on the page before you submit.
+        </p>
+        <ul id="autofill-review-list" class="review-list"></ul>
+      </div>
     </section>
 
     <section id="view-email" role="tabpanel" aria-labelledby="tab-email" hidden>
@@ -299,7 +352,7 @@
 
     <section id="view-reply" role="tabpanel" aria-labelledby="tab-reply" hidden>
       <p class="hint">
-        Draft a reply to an email you received, using your RoleSpec resume.
+        Draft a reply to an email you received, using your RoleSpec OS resume.
       </p>
 
       <form id="reply-form" class="form">

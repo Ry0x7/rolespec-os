@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { isSameOriginRequest } from "@/features/auth/api-auth"
 import { auth } from "@/features/auth/config"
 import { prisma } from "@/shared/lib/prisma"
 import { AiDailyLimitError, AiKeyRequiredError } from "@/shared/lib/ai-provider"
@@ -63,6 +64,10 @@ export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  if (!isSameOriginRequest(req)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const userId = session.user.id

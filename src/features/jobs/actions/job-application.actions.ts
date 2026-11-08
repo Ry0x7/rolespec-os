@@ -33,6 +33,10 @@ import { extractJobRequirements } from "../services/job-requirements.service"
 import { assessJobRiskHeuristics } from "../services/job-risk.service"
 import { FOLLOW_UP_STATUSES } from "../services/follow-up.service"
 import { isTerminalStatus } from "../services/outcome.service"
+import {
+  STATUS_EVENT_SOURCES,
+  recordStatusTransition,
+} from "../services/application-status.service"
 import { createJobApplicationSchema, updateJobApplicationSchema } from "../schemas/job-application.schema"
 
 const log = logger("job-application-actions")
@@ -766,23 +770,35 @@ export async function updateJobApplicationStatus(
     const enteredTerminal =
       isTerminalStatus(parsed.data) && parsed.data !== existing.status
 
-    await prisma.jobApplication.update({
-      where: { id },
-      data: {
-        status: parsed.data,
-        ...(enteredTerminal ? { outcomeAt: resolveClientToday(clientToday) } : {}),
-        // A finished application has nobody left to chase, so a pending
-        // follow-up would only linger as a Done/Snooze the planner can't honour.
-        ...(isTerminalStatus(parsed.data) ? { followUpAt: null } : {}),
-        // The goal panel and the dashboard's "applied today" count `dateApplied`,
-        // so the transition has to stamp it or those numbers never move. It is
-        // stamped as the *client's* calendar day (see `resolveClientToday`):
-        // stamping the server instant made a 07:00 application in UTC+8 land on
-        // yesterday's date once `@db.Date` truncated it in UTC.
-        ...(becameApplied && !existing.dateApplied
-          ? { dateApplied: resolveClientToday(clientToday) }
-          : {}),
-      },
+    // The update and its history row share one transaction, so the timeline can
+    // never miss a move that the tracker shows. `recordStatusTransition` is a
+    // no-op for a re-save of the same status.
+    await prisma.$transaction(async (tx) => {
+      await tx.jobApplication.update({
+        where: { id },
+        data: {
+          status: parsed.data,
+          ...(enteredTerminal ? { outcomeAt: resolveClientToday(clientToday) } : {}),
+          // A finished application has nobody left to chase, so a pending
+          // follow-up would only linger as a Done/Snooze the planner can't honour.
+          ...(isTerminalStatus(parsed.data) ? { followUpAt: null } : {}),
+          // The goal panel and the dashboard's "applied today" count `dateApplied`,
+          // so the transition has to stamp it or those numbers never move. It is
+          // stamped as the *client's* calendar day (see `resolveClientToday`):
+          // stamping the server instant made a 07:00 application in UTC+8 land on
+          // yesterday's date once `@db.Date` truncated it in UTC.
+          ...(becameApplied && !existing.dateApplied
+            ? { dateApplied: resolveClientToday(clientToday) }
+            : {}),
+        },
+      })
+
+      await recordStatusTransition(tx, {
+        jobApplicationId: id,
+        fromStatus: existing.status,
+        toStatus: parsed.data,
+        source: STATUS_EVENT_SOURCES.USER,
+      })
     })
 
     revalidatePath("/jobs")

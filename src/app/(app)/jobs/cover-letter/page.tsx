@@ -10,7 +10,7 @@ import { PageShell } from "@/shared/components/page-shell"
 
 export default async function CoverLettersPage() {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const coverLetters = await prisma.coverLetter.findMany({
     where: { userId: session.user.id },

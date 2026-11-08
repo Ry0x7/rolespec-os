@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation"
-import { auth } from "@/features/auth/config"
+import { requireUser } from "@/features/auth/guards"
 import { prisma } from "@/shared/lib/prisma"
 import { OnboardingWizard } from "@/features/onboarding/components/onboarding-wizard"
 import { getAiSetupSnapshot } from "@/features/onboarding/services/ai-setup.service"
 
 export default async function OnboardingPage() {
-  const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  const session = await requireUser()
 
   const userId = session.user.id
 

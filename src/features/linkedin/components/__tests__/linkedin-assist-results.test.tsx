@@ -4,14 +4,10 @@ import { LinkedinView } from "../linkedin-view"
 import type { LinkedinSuggestionData } from "../../services/linkedin.service"
 import { installMotionTestEnv } from "./motion-test-env"
 
-const update = vi.fn()
 const toastError = vi.fn()
 const toastSuccess = vi.fn()
 const writeText = vi.fn()
 
-vi.mock("next-auth/react", () => ({
-  useSession: () => ({ update: (...args: unknown[]) => update(...args) }),
-}))
 vi.mock("sonner", () => ({
   toast: {
     error: (...args: unknown[]) => toastError(...args),

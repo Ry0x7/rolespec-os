@@ -13,7 +13,7 @@
  * traceable to the source. Career-neutral on purpose: the same bet that only
  * paid out in software is what PP0.5 had to undo.
  *
- * The account is `GROUNDING_CHECK_USER_ID`, else `DEV_ADMIN_EMAIL`, else the
+ * The account is `GROUNDING_CHECK_USER_ID`, else `SEED_OWNER_EMAIL`, else the
  * first ADMIN. One `ai_usage_events` row and that account's provider credit.
  */
 import "dotenv/config"
@@ -107,7 +107,7 @@ function rule() {
 async function resolveUserId(): Promise<string> {
   const fromEnv = process.env.GROUNDING_CHECK_USER_ID?.trim()
   if (fromEnv) return fromEnv
-  const devAdminEmail = process.env.DEV_ADMIN_EMAIL?.trim()
+  const devAdminEmail = process.env.SEED_OWNER_EMAIL?.trim()
   if (devAdminEmail) {
     const user = await prisma.user.findUnique({
       where: { email: devAdminEmail },

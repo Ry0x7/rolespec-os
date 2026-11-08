@@ -5,6 +5,7 @@ import { z } from "zod"
 import { auth } from "@/features/auth/config"
 import { prisma } from "@/shared/lib/prisma"
 import { AiDailyLimitError, AiKeyRequiredError } from "@/shared/lib/ai-provider"
+import { describeAiFailure } from "@/shared/lib/ai-providers/failures"
 import {
   analyzeResumeATS,
   type AnalysisMode,
@@ -173,6 +174,8 @@ export async function analyzeATS(
     if (err instanceof AiKeyRequiredError || err instanceof AiDailyLimitError) {
       return { error: err.message }
     }
+    const actionable = describeAiFailure(err)
+    if (actionable) return { error: actionable }
     return { error: "ATS analysis failed. Please try again." }
   }
 

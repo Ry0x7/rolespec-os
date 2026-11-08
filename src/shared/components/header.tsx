@@ -2,11 +2,11 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { LogOut, Search, Settings } from "lucide-react"
-import { signOutAction } from "@/features/auth/actions"
+import { Lock, Search, Settings } from "lucide-react"
+
+import { lockWorkspaceAction } from "@/features/auth/unlock.actions"
 import { getPageTitle } from "@/config/navigation"
 import { Breadcrumbs } from "@/shared/components/breadcrumbs"
 import {
@@ -33,11 +33,18 @@ const CommandPalette = dynamic(
   { ssr: false }
 )
 
-export const Header = memo(function Header() {
-  const { data: session } = useSession()
+interface HeaderProps {
+  owner: {
+    name: string | null
+    email: string
+  }
+  /** Only true behind the public key gate; a local instance has nothing to lock. */
+  canLock?: boolean
+}
+
+export const Header = memo(function Header({ owner, canLock = false }: HeaderProps) {
   const pathname = usePathname()
   const title = useMemo(() => getPageTitle(pathname), [pathname])
-  const user = session?.user
   const [paletteToken, setPaletteToken] = useState(0)
   const [paletteArmed, setPaletteArmed] = useState(false)
   const openPalette = useCallback(() => {
@@ -95,14 +102,17 @@ export const Header = memo(function Header() {
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger
-              aria-label="Account menu"
+              aria-label="Workspace menu"
               className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-foreground transition-colors duration-150 hover:bg-input active:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {initialOf(user?.name, user?.email)}
+              {initialOf(owner.name, owner.email)}
             </DropdownMenuTrigger>
-            <DropdownMenuContent label="Account">
+            <DropdownMenuContent label="Workspace">
               <DropdownMenuLabel className="truncate">
-                {user?.email ?? "Signed in"}
+                <span className="block truncate font-medium">{owner.name ?? "Owner"}</span>
+                <span className="block truncate text-xs font-normal text-muted-foreground">
+                  {owner.email}
+                </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
@@ -111,18 +121,18 @@ export const Header = memo(function Header() {
                   Settings
                 </Link>
               </DropdownMenuItem>
-              {/* Kept as a form post so sign-out keeps the server-action redirect.
-                closeOnSelect is off so the form is not unmounted mid-submit. */}
-              <form action={signOutAction}>
-                <DropdownMenuItem
-                  type="submit"
-                  variant="destructive"
-                  closeOnSelect={false}
-                >
-                  <LogOut className="h-4 w-4" aria-hidden="true" />
-                  Sign out
-                </DropdownMenuItem>
-              </form>
+              {canLock ? (
+                <form action={lockWorkspaceAction}>
+                  <DropdownMenuItem
+                    type="submit"
+                    variant="destructive"
+                    closeOnSelect={false}
+                  >
+                    <Lock className="h-4 w-4" aria-hidden="true" />
+                    Lock workspace
+                  </DropdownMenuItem>
+                </form>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

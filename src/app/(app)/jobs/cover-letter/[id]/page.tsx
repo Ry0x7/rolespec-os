@@ -13,7 +13,7 @@ interface Props {
 
 export default async function CoverLetterDetailPage({ params }: Props) {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const { id } = await params
 

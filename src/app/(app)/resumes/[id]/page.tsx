@@ -25,7 +25,7 @@ export const maxDuration = 60
 
 export default async function ResumeEditorPage({ params, searchParams }: Props) {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   const { id } = await params
   const { jobId } = await searchParams

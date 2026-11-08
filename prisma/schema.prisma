@@ -8,25 +8,18 @@ datasource db {
 }
 
 // ─────────────────────────────────────────────
-// AUTH
+// OWNER
 // ─────────────────────────────────────────────
 
+/// The single workspace owner. There is no registration or sign-in: the app
+/// resolves this row itself (`src/features/auth/session.ts`) and every other
+/// table hangs off its id. `role`/`status` remain for the owner guard and the
+/// seeded admin identity; no credential columns exist any more.
 model User {
   id                  String     @id @default(cuid())
   name                String?
   email               String     @unique
-  /// Required by the Auth.js Prisma adapter, which reads and writes it on every
-  /// OAuth link. Nothing in the app reads it — there is no email-verification flow.
-  emailVerified       DateTime?
   image               String?
-  password            String?
-  /// Set whenever the password changes. Sessions minted before this instant are
-  /// treated as stale and invalidated on the next JWT refresh.
-  passwordChangedAt   DateTime?
-  /// Bumped to revoke every existing session for this user (see
-  /// `revokeUserSessions`). A token carrying an older value is invalidated on its
-  /// next JWT refresh.
-  sessionVersion      Int        @default(0)
   role                UserRole   @default(USER)
   status              UserStatus @default(ACTIVE)
   suspendedAt         DateTime?
@@ -36,8 +29,6 @@ model User {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  accounts            Account[]
-  sessions            Session[]
   profile             PlayerProfile?
   resumes             Resume[]
   atsAnalyses         ATSAnalysis[]
@@ -58,50 +49,8 @@ model User {
   @@map("users")
 }
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@index([userId])
-  @@map("accounts")
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("sessions")
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@map("verification_tokens")
-}
-
 /// Long-lived personal access tokens, issued from /settings so the browser
-/// extension can call the API without a session cookie. Only the SHA-256 of the
+/// extension can call the API without the owner cookie. Only the SHA-256 of the
 /// token is stored — the raw value is shown to the user exactly once.
 model ApiToken {
   id         String    @id @default(cuid())
@@ -308,6 +257,9 @@ model JobApplication {
   coverLetters       CoverLetter[]
   todos              Todo[]
   interviewQuestions InterviewQuestion[]
+  /// Append-only record of every status move, so the tracker can show how the
+  /// application actually progressed instead of only where it is now.
+  statusEvents       ApplicationStatusEvent[]
   tailoredResumes    Resume[]            @relation("TailoredResumeSource")
   submittedResume    Resume?             @relation("SubmittedResume", fields: [resumeId, userId], references: [id, userId], onDelete: SetNull)
 
@@ -322,6 +274,27 @@ model JobApplication {
   @@index([jobId, userId])
   @@index([resumeId, userId])
   @@map("job_applications")
+}
+
+/// One move in an application's pipeline history. `fromStatus` is null only for
+/// the row written when tracking starts. Append-only: editing an application
+/// never rewrites its past, and deleting the application cascades here.
+model ApplicationStatusEvent {
+  id               String             @id @default(cuid())
+  jobApplicationId String
+  fromStatus       ApplicationStatus?
+  toStatus         ApplicationStatus
+  /// Optional human context, e.g. the outcome note written with the move.
+  note             String?            @db.Text
+  /// Who moved it: USER, EXTENSION, MIGRATION. Free text so a future ingest
+  /// path can name itself without a migration.
+  source           String             @default("USER")
+  createdAt        DateTime           @default(now())
+
+  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([jobApplicationId, createdAt])
+  @@map("application_status_events")
 }
 
 /// A job posting as a thing in the world, separate from the user's decision to
@@ -550,10 +523,10 @@ model AiUsageEvent {
 }
 
 /// Append-only log of rate-limited attempts, shared by every feature that needs a
-/// sliding window but has no artifact table of its own (sign-in, sign-up, free AI
+/// sliding window but has no artifact table of its own (unlock attempts, free AI
 /// actions). `bucket` namespaces the limit and `identifier` is whatever the caller
-/// keys on — a lowercased email, a userId, or an IP. Rows are only ever counted
-/// inside a window, so old ones can be pruned freely.
+/// keys on — a userId or an IP. Rows are only ever counted inside a window, so
+/// old ones can be pruned freely.
 model RateLimitAttempt {
   id         String   @id @default(cuid())
   bucket     String
@@ -939,6 +912,8 @@ enum CareerEvidenceSource {
   USER_ENTERED
   RESUME_IMPORT_CANDIDATE
   LINKEDIN_IMPORT_CANDIDATE
+  GITHUB_IMPORT_CANDIDATE
+  PORTFOLIO_IMPORT_CANDIDATE
 }
 
 enum CareerEvidenceStatus {

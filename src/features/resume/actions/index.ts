@@ -65,7 +65,7 @@ function withSummary(
 
 export async function createResume(formData: FormData) {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   const raw = Object.fromEntries(formData)
   const parsed = createResumeSchema.safeParse(raw)
@@ -163,7 +163,7 @@ export async function createResume(formData: FormData) {
 
 export async function createRoleFamilyResume(formData: FormData) {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/unlock")
 
   const parsed = createRoleFamilyResumeSchema.safeParse(Object.fromEntries(formData))
   if (!parsed.success) {
@@ -251,7 +251,7 @@ export async function updateResume(
   data: Record<string, unknown>
 ): Promise<{ error: string } | undefined> {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   const parsed = updateResumeSchema.safeParse(data)
   if (!parsed.success) {
@@ -278,7 +278,7 @@ export async function updateResume(
 
 export async function deleteResume(id: string): Promise<{ error: string } | undefined> {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   try {
     await prisma.resume.update({
@@ -293,7 +293,7 @@ export async function deleteResume(id: string): Promise<{ error: string } | unde
 
 export async function restoreResume(id: string): Promise<{ error: string } | undefined> {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   try {
     // updateMany so the ARCHIVED guard lives in the where clause: only rows
@@ -314,7 +314,7 @@ export async function restoreResume(id: string): Promise<{ error: string } | und
 
 export async function duplicateResume(id: string) {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user) redirect("/unlock")
 
   // Archived (soft-deleted) resumes can't be duplicated — restore first.
   const original = await prisma.resume.findUnique({
