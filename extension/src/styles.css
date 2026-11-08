@@ -387,6 +387,42 @@ textarea {
   font: inherit;
 }
 
+.resume-attachment-card {
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+}
+
+.resume-attach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resume-attach-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.resume-title-text {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Search tab: one block per target role, link rows that wrap rather than scroll
    at the panel's narrowest width. */
 .search-results {

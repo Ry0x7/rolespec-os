@@ -98,6 +98,8 @@ export interface ReviewField {
   options?: string[]
   /** A profile fact the user can accept, or use as a starting point. */
   suggestedValue?: string
+  /** True when the field is a file upload specifically for a resume or CV. */
+  isResumeUpload?: boolean
 }
 
 export interface FillPlan {
@@ -422,6 +424,10 @@ export function buildFillPlan(
 }
 
 function toReview(field: FieldDescriptor, classification: FieldClassification): ReviewField {
+  const isResumeUpload =
+    classification.category === "document" ||
+    (field.type ?? "").toLowerCase() === "file" ||
+    hasAny(textFor(field), [/\bresume\b/, /\bcv\b/, /\bcurriculum vitae\b/])
   const item: ReviewField = {
     fieldId: field.id,
     label: field.label.trim() || field.name?.trim() || "Untitled field",
@@ -431,6 +437,7 @@ function toReview(field: FieldDescriptor, classification: FieldClassification): 
     reason: classification.reason ?? "Confirm this answer before filling it.",
     required: field.required === true,
   }
+  if (isResumeUpload) item.isResumeUpload = true
   if (field.options && field.options.length > 0) item.options = field.options.slice(0, 40)
   return item
 }

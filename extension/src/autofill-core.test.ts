@@ -155,6 +155,18 @@ describe("buildFillPlan", () => {
     expect(plan.review[0].reason).toMatch(/cannot safely set/)
     expect(plan.skipped).toBe(1)
   })
+
+  it("marks resume upload fields in review with isResumeUpload: true", () => {
+    const plan = buildFillPlan(PROFILE, [
+      field({ id: "af-file", label: "Upload Resume / CV", type: "file" }),
+    ])
+    expect(plan.fills).toHaveLength(0)
+    expect(plan.review[0]).toMatchObject({
+      fieldId: "af-file",
+      category: "document",
+      isResumeUpload: true,
+    })
+  })
 })
 
 describe("splitFullName", () => {
