@@ -104,7 +104,7 @@ is not verified.
 
 Windows decides whether to trust an installer from its Authenticode signature, not from the
 CompanyName, ProductName or Publisher fields. This repository does not configure Authenticode
-signing: tag builds publish the installer as-is and no signing credentials are read. Windows
+signing: tag builds publish the installer as-is and no Authenticode credentials are read. Windows
 therefore treats the download as an unknown publisher; SmartScreen may show "Windows protected
 your PC", and Smart App Control may block it outright.
 
