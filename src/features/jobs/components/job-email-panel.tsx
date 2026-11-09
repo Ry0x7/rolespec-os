@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Mail, Copy, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/shared/lib/utils"
@@ -23,6 +24,7 @@ import { generateApplicationEmail } from "../actions/application-email.actions"
 import { generateColdEmail } from "../actions/cold-email.actions"
 import { generateReplyEmail } from "../actions/reply-email.actions"
 import { generateFollowUpEmail } from "../actions/follow-up-email.actions"
+import { setJobApplicationFollowUpDate } from "../actions/job-application.actions"
 import type { FollowUpScheduleAdvice } from "../services/follow-up-schedule.service"
 import type { JobMatchResumeOption } from "./job-match-panel"
 
@@ -130,6 +132,25 @@ export function JobEmailPanel({ jobApplicationId, resumeOptions, chosenResumeId 
   const [length, setLength] = useState<ReplyLength>("standard")
   const [followUpKind, setFollowUpKind] = useState<FollowUpKind>("status_check")
   const [scheduleAdvice, setScheduleAdvice] = useState<FollowUpScheduleAdvice | null>(null)
+  const router = useRouter()
+  const [isScheduling, startScheduling] = useTransition()
+
+  /**
+   * Turns the recommendation into the actual reminder. The date came from this
+   * application's own status, interview and deadline; making the user retype it
+   * in the edit dialog is how the advice stayed decorative.
+   */
+  function scheduleRecommendedFollowUp(date: string) {
+    startScheduling(async () => {
+      const result = await setJobApplicationFollowUpDate(jobApplicationId, date)
+      if ("error" in result) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(`Follow-up scheduled for ${date}`)
+      router.refresh()
+    })
+  }
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
   const [hasResult, setHasResult] = useState(false)
@@ -509,6 +530,15 @@ export function JobEmailPanel({ jobApplicationId, resumeOptions, chosenResumeId 
                     ⚠️ {scheduleAdvice.deadlineNote}
                   </p>
                 )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isScheduling}
+                  onClick={() => scheduleRecommendedFollowUp(scheduleAdvice.recommendedDate)}
+                >
+                  {isScheduling ? "Scheduling…" : `Schedule for ${scheduleAdvice.recommendedDate}`}
+                </Button>
               </div>
             )}
 

@@ -38,6 +38,75 @@ const TAILOR_RATE_LIMIT = { max: 10, windowMs: 10 * 60 * 1000 }
 /** Leading list glyphs the model sometimes prefixes bullets with. */
 const LEADING_GLYPHS = /^[\s\-–—•*·▪◦]+/
 
+/** A number, optionally with a percent sign or a k/m/b magnitude suffix. */
+const NUMERIC_CLAIM = /\b\d[\d,]*(?:\.\d+)?\s?(?:[%+kKmMbB])?\b/g
+
+/**
+ * Scope words that turn a description into a claim about size or reach. They
+ * are only allowed when the source text already used them: "all regional
+ * branches" is a fact nobody checked, not a stylistic flourish.
+ */
+const SCOPE_CLAIM = /\b(?:all|every|entire|company-wide|organization-wide|global|worldwide|thousands|millions)\b/gi
+
+/** Every capitalized token, checked against the resume unless it merely opens a sentence. */
+const CAPITALIZED_TERM = /\b[A-Z][A-Za-z0-9]*(?:[+#.][A-Za-z0-9]+)*\b/g
+
+function numericKey(raw: string): string {
+  const cleaned = raw.replace(/[,\s]/g, "").toLowerCase()
+  const match = cleaned.match(/^(\d+(?:\.\d+)?)([kmb])?([%+]?)$/)
+  if (!match) return cleaned
+  const multiplier = match[2] === "k" ? 1_000 : match[2] === "m" ? 1_000_000 : match[2] === "b" ? 1_000_000_000 : 1
+  return `${Number(match[1]) * multiplier}${match[3]}`
+}
+
+function claimKeys(text: string, pattern: RegExp): Set<string> {
+  return new Set(Array.from(text.matchAll(pattern), (match) => numericKey(match[0])))
+}
+
+/**
+ * Facts a rewrite is not allowed to invent.
+ *
+ * The prompt asks the model not to add numbers or scope; this is the check that
+ * enforces it. A rewrite may use a technology or proper noun that appears
+ * somewhere in the resume (a skill list backing a bullet), but a number or an
+ * "all/every/global" scope claim has to exist in the exact target text it is
+ * rewriting — otherwise the rewrite attributes a metric or scale to the wrong
+ * achievement. Observed live: "Built the note engine" became "...processing
+ * 10K+ daily transactions" with no source for the figure.
+ */
+function findUnsupportedFacts(input: {
+  original: string
+  suggested: string
+  evidenceText: string
+}): string[] {
+  const problems: string[] = []
+  const allowedNumbers = claimKeys(input.original, NUMERIC_CLAIM)
+  for (const raw of Array.from(input.suggested.matchAll(NUMERIC_CLAIM), (m) => m[0])) {
+    if (!allowedNumbers.has(numericKey(raw))) problems.push(`number "${raw}"`)
+  }
+
+  const allowedScopes = new Set(
+    Array.from(input.original.matchAll(SCOPE_CLAIM), (m) => m[0].toLowerCase())
+  )
+  for (const raw of Array.from(input.suggested.matchAll(SCOPE_CLAIM), (m) => m[0])) {
+    if (!allowedScopes.has(raw.toLowerCase())) problems.push(`scope "${raw}"`)
+  }
+
+  const evidence = input.evidenceText.toLowerCase()
+  for (const match of input.suggested.matchAll(CAPITALIZED_TERM)) {
+    const term = match[0]
+    const start = match.index ?? 0
+    const atSentenceStart = start === 0 || /[.!?]\s+$/.test(input.suggested.slice(0, start))
+    // Ordinary words are capitalized at sentence starts; a mixed-case or
+    // all-caps token is a name or technology wherever it sits.
+    const distinctive = /^[A-Z]{2,6}$/.test(term) || /[a-z0-9][A-Z]/.test(term) || /[+#.]/.test(term)
+    if (atSentenceStart && !distinctive) continue
+    if (!evidence.includes(term.toLowerCase())) problems.push(`term "${term}"`)
+  }
+
+  return Array.from(new Set(problems))
+}
+
 /** Target ids are positional against the copied sections: s0::i2 / s0::i2::b1. */
 const TARGET_ID = /^s(\d+)::i(\d+)(?:::b(\d+))?$/
 
@@ -314,6 +383,8 @@ export async function createJobTailoredResume(formData: FormData) {
     const targetsById = new Map(targets.map((target) => [target.targetId, target]))
     const seen = new Set<string>()
     const removals: string[] = []
+    /** Snapshot before any mutation: a copy that matches it is not tailored. */
+    const beforeSections = JSON.stringify(sections)
     /** `si::ii` keys of whole experience items the model wants dropped. */
     const itemExclusions: string[] = []
 
@@ -378,6 +449,22 @@ export async function createJobTailoredResume(formData: FormData) {
             targetId: candidate.targetId,
             field: target.field,
             introduced,
+          })
+          continue
+        }
+      }
+
+      if (target.field !== "skills") {
+        const unsupported = findUnsupportedFacts({
+          original: target.text,
+          suggested,
+          evidenceText,
+        })
+        if (unsupported.length > 0) {
+          log.warn("Discarded a tailoring suggestion that introduced unsupported facts", {
+            targetId: candidate.targetId,
+            field: target.field,
+            unsupported,
           })
           continue
         }
@@ -489,6 +576,16 @@ export async function createJobTailoredResume(formData: FormData) {
             section.order = index
           })
         }
+      }
+    }
+
+    // Compare the actual payload instead of trusting that a suggestion applied.
+    // A refused exclusion or a no-op removal otherwise still counted as a
+    // change and produced an identical copy labelled "tailored".
+    if (JSON.stringify(sections) === beforeSections) {
+      return {
+        error:
+          "No supportable changes were found for this posting. Your source resume was left unchanged; add concrete achievements or tailor it manually.",
       }
     }
   }

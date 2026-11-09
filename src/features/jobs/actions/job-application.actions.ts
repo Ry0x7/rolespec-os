@@ -651,6 +651,47 @@ export async function scheduleJobApplicationFollowUp(id: string, clientToday?: s
 }
 
 /**
+ * Schedules the nudge on a specific calendar day rather than a week out.
+ *
+ * The follow-up draft recommends a date from the application's real status,
+ * interview and deadline; this is the action behind that recommendation, so the
+ * advice can become the reminder instead of asking the user to retype it in the
+ * edit dialog. The day is the user's own calendar day, stored as UTC midnight.
+ */
+export async function setJobApplicationFollowUpDate(id: string, date: string) {
+  const session = await auth()
+  if (!session?.user?.id) return { error: "Unauthorized" }
+
+  const followUpAt = parseCalendarDate(date)
+  if (!followUpAt) return { error: "Invalid date" }
+
+  try {
+    const existing = await prisma.jobApplication.findUnique({
+      where: { id, userId: session.user.id },
+      select: { id: true, status: true },
+    })
+    if (!existing) return { error: "Not found" }
+    if (!FOLLOW_UP_STATUSES.includes(existing.status)) {
+      return { error: "This application is not waiting on a reply" }
+    }
+
+    await prisma.jobApplication.update({
+      where: { id },
+      data: { followUpAt },
+    })
+
+    revalidatePath("/jobs")
+    revalidatePath(`/jobs/${id}`)
+    revalidatePath("/workspace")
+    revalidatePath("/planner")
+    revalidatePath("/dashboard")
+    return { success: true as const }
+  } catch {
+    return { error: "Something went wrong. Please try again." }
+  }
+}
+
+/**
  * Pushes an existing nudge a week further out.
  *
  * The counterpart to "Done" on a chase the user is not ready to make: clearing

@@ -27,7 +27,7 @@ interface Props {
 
 export function IntelligentMatchingCard({ matchingResult }: Props) {
   const [expanded, setExpanded] = useState(false)
-  const { compositeScore, priority, summary, dimensions, strengths, gaps } = matchingResult
+  const { compositeScore, priority, summary, dimensions, strengths, gaps, knownDimensions } = matchingResult
 
   const priorityBadge = () => {
     switch (priority) {
@@ -39,6 +39,8 @@ export function IntelligentMatchingCard({ matchingResult }: Props) {
         return <Badge variant="warning">Low Priority</Badge>
       case "INELIGIBLE":
         return <Badge variant="error">Ineligible / Blocker</Badge>
+      case "UNKNOWN":
+        return <Badge variant="neutral">Not enough data</Badge>
     }
   }
 
@@ -63,7 +65,7 @@ export function IntelligentMatchingCard({ matchingResult }: Props) {
     }
   }
 
-  const statusBadge = (status: "GOOD" | "NEUTRAL" | "CONCERN" | "BLOCKED") => {
+  const statusBadge = (status: "GOOD" | "NEUTRAL" | "CONCERN" | "BLOCKED" | "UNKNOWN") => {
     switch (status) {
       case "GOOD":
         return <span className="inline-flex items-center text-xs font-medium text-emerald-600 dark:text-emerald-400 gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Aligned</span>
@@ -73,6 +75,8 @@ export function IntelligentMatchingCard({ matchingResult }: Props) {
         return <span className="inline-flex items-center text-xs font-medium text-amber-600 dark:text-amber-400 gap-1"><AlertTriangle className="h-3.5 w-3.5" /> Gap</span>
       case "BLOCKED":
         return <span className="inline-flex items-center text-xs font-medium text-destructive gap-1"><XCircle className="h-3.5 w-3.5" /> Blocker</span>
+      case "UNKNOWN":
+        return <span className="inline-flex items-center text-xs font-medium text-muted-foreground gap-1"><HelpCircle className="h-3.5 w-3.5" /> Unknown</span>
     }
   }
 
@@ -85,7 +89,14 @@ export function IntelligentMatchingCard({ matchingResult }: Props) {
           {priorityBadge()}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-foreground">{compositeScore}%</span>
+          <div className="text-right">
+            <span className="text-lg font-bold text-foreground">
+              {compositeScore === null ? "—" : `${compositeScore}%`}
+            </span>
+            <p className="text-[11px] text-muted-foreground">
+              Based on {knownDimensions} of 7 factors
+            </p>
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -151,23 +162,29 @@ export function IntelligentMatchingCard({ matchingResult }: Props) {
                     </span>
                     <div className="flex items-center gap-2">
                       {statusBadge(dim.status)}
-                      <span className="font-bold text-foreground">{dim.score}%</span>
+                      <span className="font-bold text-foreground">
+                        {dim.score === null ? "—" : `${dim.score}%`}
+                      </span>
                     </div>
                   </div>
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-300 ${
-                        dim.status === "GOOD"
-                          ? "bg-emerald-500"
-                          : dim.status === "BLOCKED"
-                            ? "bg-destructive"
-                            : dim.status === "CONCERN"
-                              ? "bg-amber-500"
-                              : "bg-sky-500"
-                      }`}
-                      style={{ width: `${dim.score}%` }}
-                    />
-                  </div>
+                  {dim.score === null ? (
+                    <div className="h-1.5 w-full rounded-full border border-dashed border-border bg-muted/40" />
+                  ) : (
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          dim.status === "GOOD"
+                            ? "bg-emerald-500"
+                            : dim.status === "BLOCKED"
+                              ? "bg-destructive"
+                              : dim.status === "CONCERN"
+                                ? "bg-amber-500"
+                                : "bg-sky-500"
+                        }`}
+                        style={{ width: `${dim.score}%` }}
+                      />
+                    </div>
+                  )}
                   <p className="text-[11px] text-muted-foreground">{dim.explanation}</p>
                 </div>
               ))}

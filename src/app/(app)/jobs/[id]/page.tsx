@@ -28,6 +28,7 @@ import { IntelligentMatchingCard } from "@/features/jobs/components/intelligent-
 import { CompanyResearchPanel } from "@/features/jobs/components/company-research-panel"
 import { computeIntelligentMatch } from "@/features/jobs/services/intelligent-matching.service"
 import type { CompanyResearchResult } from "@/features/jobs/services/company-research.service"
+import { isVerifiedCompanyResearch } from "@/features/jobs/lib/company-research"
 import {
   FollowUpActions,
   LastFollowUpNote,
@@ -222,6 +223,7 @@ export default async function JobApplicationDetailPage({ params }: Props) {
                 },
               },
             },
+            targetRoles: { select: { id: true } },
           },
         })
       : Promise.resolve(null),
@@ -410,6 +412,32 @@ export default async function JobApplicationDetailPage({ params }: Props) {
       : null
   const initialCompanyResearch = (rawMatchResult?.companyResearch as CompanyResearchResult | undefined) ?? null
 
+  // A profile row can exist while still being empty. The stage only counts when
+  // at least one fact it needs has actually been saved.
+  const hasCareerProfile = Boolean(
+    careerProfile &&
+      (careerProfile.contactFullName?.trim() ||
+        careerProfile.experienceLevel ||
+        careerProfile.locations.length > 0 ||
+        careerProfile.targetRoles.length > 0 ||
+        careerProfile.capabilities.length > 0)
+  )
+
+  const appliedStatuses = new Set([
+    "APPLIED",
+    "SCREENING",
+    "INTERVIEW",
+    "OFFER",
+    "REJECTED",
+    "WITHDRAWN",
+  ])
+  const hasApplied =
+    Boolean(application.dateApplied) || appliedStatuses.has(application.status)
+  // Saving the job and moving it to APPLIED are different records; tracking
+  // starts paying off only when the application has actually moved again.
+  const hasTracking =
+    application.status !== "INTERESTED" && application.status !== "APPLIED"
+
   const intelligentMatch = computeIntelligentMatch(
     {
       title: application.jobTitle,
@@ -563,12 +591,18 @@ export default async function JobApplicationDetailPage({ params }: Props) {
       <JobPipelineStepper
         jobApplicationId={application.id}
         status={application.status}
+        hasCareerProfile={hasCareerProfile}
         hasQualification={Boolean(storedQualification)}
-        hasCompanyResearch={Boolean(initialCompanyResearch)}
+        hasCompanyResearch={
+          initialCompanyResearch ? isVerifiedCompanyResearch(initialCompanyResearch) : false
+        }
         hasTailoredResume={tailoredResumes.length > 0}
         hasCoverLetter={application.coverLetters.length > 0}
         hasMatchScore={storedMatch !== null || Boolean(row.matchScore)}
+        hasApplied={hasApplied}
+        hasTracking={hasTracking}
         hasFollowUp={Boolean(application.followUpAt)}
+        hasFollowedUp={Boolean(row.lastFollowedUpAt)}
         isFollowUpDue={followUpOverdue}
         chosenResumeId={effectiveResumeId}
       />
@@ -633,7 +667,8 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           Prepare
         </h2>
 
-        {/* Factual company and role research with verified citations */}
+        {/* Factual company and role research with verified citations. The card
+            carries `id="research"`, the pipeline's stage-3 destination. */}
         <CompanyResearchPanel
           jobApplicationId={application.id}
           companyName={application.companyName}

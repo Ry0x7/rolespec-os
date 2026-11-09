@@ -36,6 +36,7 @@ import {
   saveJobApplicationOutcomeNote,
   scheduleJobApplicationFollowUp,
   selectJobApplicationResume,
+  setJobApplicationFollowUpDate,
   snoozeJobApplicationFollowUp,
   updateJobApplication,
   updateJobApplicationStatus,
@@ -955,6 +956,70 @@ describe("scheduleJobApplicationFollowUp", () => {
     expect(paths).toEqual(
       expect.arrayContaining(["/jobs", "/jobs/app-1", "/workspace"]),
     )
+  })
+})
+
+describe("setJobApplicationFollowUpDate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockAuth.mockResolvedValue({ user: { id: "user-1" } })
+    mockPrisma.jobApplication.update.mockResolvedValue({})
+  })
+
+  it("requires a session before touching the application", async () => {
+    mockAuth.mockResolvedValue(null)
+
+    expect(await setJobApplicationFollowUpDate("app-1", "2026-09-16")).toEqual({
+      error: "Unauthorized",
+    })
+    expect(mockPrisma.jobApplication.findUnique).not.toHaveBeenCalled()
+    expect(mockPrisma.jobApplication.update).not.toHaveBeenCalled()
+  })
+
+  it("does not write another owner's application", async () => {
+    mockPrisma.jobApplication.findUnique.mockResolvedValue(null)
+
+    expect(await setJobApplicationFollowUpDate("app-1", "2026-09-16")).toEqual({
+      error: "Not found",
+    })
+    expect(mockPrisma.jobApplication.update).not.toHaveBeenCalled()
+  })
+
+  it("stores the recommended day as UTC midnight for the owning user", async () => {
+    mockPrisma.jobApplication.findUnique.mockResolvedValue({
+      id: "app-1",
+      status: ApplicationStatus.SCREENING,
+    })
+
+    const result = await setJobApplicationFollowUpDate("app-1", "2026-09-16")
+
+    expect(result).toEqual({ success: true })
+    expect(mockPrisma.jobApplication.findUnique.mock.calls[0][0].where).toEqual({
+      id: "app-1",
+      userId: "user-1",
+    })
+    expect(lastUpdateData().followUpAt.toISOString()).toBe(
+      "2026-09-16T00:00:00.000Z"
+    )
+  })
+
+  it("rejects a day that is not a real calendar date before writing", async () => {
+    expect(await setJobApplicationFollowUpDate("app-1", "2026-02-31")).toEqual({
+      error: "Invalid date",
+    })
+    expect(mockPrisma.jobApplication.update).not.toHaveBeenCalled()
+  })
+
+  it("refuses a closed application", async () => {
+    mockPrisma.jobApplication.findUnique.mockResolvedValue({
+      id: "app-1",
+      status: ApplicationStatus.REJECTED,
+    })
+
+    expect(await setJobApplicationFollowUpDate("app-1", "2026-09-16")).toEqual({
+      error: "This application is not waiting on a reply",
+    })
+    expect(mockPrisma.jobApplication.update).not.toHaveBeenCalled()
   })
 })
 
