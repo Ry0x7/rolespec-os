@@ -42,13 +42,37 @@ describe("local text import", () => {
       { school: "University of London", degree: "B.A. Mathematics", endDate: "2018" },
     ])
 
+    // Header contact details move into the contact row; consumed lines are not
+    // duplicated in the CUSTOM sections.
+    expect(result.contact).toEqual({ fullName: "Ada Lovelace", email: "ada@example.com" })
     // Recognized headings are typed sections now; only the unfamiliar one is
     // left for the route to persist as a CUSTOM section.
     expect(result.importedSections).toEqual([
-      { title: "Imported details", content: "Ada Lovelace\nada@example.com" },
       { title: "Awards", content: "Royal Society member" },
     ])
     expect(result.importedSections?.map((section) => section.title)).not.toContain("Experience")
+  })
+
+  it("reads contact details only from the header, never from prose in the body", () => {
+    const source = [
+      "Grace Hopper",
+      "grace@example.com",
+      "Manila, Philippines",
+      "Summary",
+      "Reach me at other@example.com.",
+      "Experience",
+      "Built compilers",
+    ].join("\n")
+
+    const result = importResumeText(source)
+
+    expect(result.contact).toEqual({
+      fullName: "Grace Hopper",
+      email: "grace@example.com",
+      location: "Manila, Philippines",
+    })
+    expect(result.summary?.text).toContain("other@example.com")
+    expect(JSON.stringify(result.importedSections)).not.toContain("grace@example.com")
   })
 
   it("keeps every source line's text in the structured output", () => {

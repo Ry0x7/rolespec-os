@@ -206,6 +206,10 @@ export function KanbanBoard({
     <KanbanStatusContext.Provider value={changeStatus}>
       <KanbanTodayContext.Provider value={today}>
         <DndContext
+          // Stable across server and client: dnd-kit otherwise derives the
+          // aria-describedby announcement ids from a counter, which differs on
+          // hydration and logs a mismatch on every workspace load.
+          id="workspace-kanban"
           sensors={sensors}
           collisionDetection={collisionDetection}
           onDragStart={handleDragStart}

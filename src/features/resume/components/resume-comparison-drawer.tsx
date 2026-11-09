@@ -11,7 +11,7 @@ import { Button } from "@/shared/ui/button"
 import { Badge } from "@/shared/ui/badge"
 import { Drawer, DrawerHeader, DrawerBody, DrawerFooter } from "@/shared/ui/drawer"
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog"
-import type { ResumeComparison } from "../services/resume-diff.service"
+import { skillsDiffStatus, type ResumeComparison } from "../services/resume-diff.service"
 import { getTailoredResumeDiff, rollbackTailoredResume } from "../actions/rollback"
 
 interface Props {
@@ -163,6 +163,30 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
                       {diff.summaryDiff.tailored}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Skills: the tailoring pass only reorders, but the editor can edit later. */}
+              {diff.skillsDiff && (
+                <div className="rounded-lg border p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                      Skills
+                    </span>
+                    <Badge variant="neutral" className="text-[10px]">
+                      {skillsDiffStatus(diff.skillsDiff.original, diff.skillsDiff.tailored)}
+                    </Badge>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded bg-muted/40 p-2 text-xs text-muted-foreground">
+                      <p className="mb-1 text-[10px] uppercase tracking-wide">Source</p>
+                      {diff.skillsDiff.original.join(", ") || "—"}
+                    </div>
+                    <div className="rounded border border-primary/20 bg-primary/5 p-2 text-xs text-foreground">
+                      <p className="mb-1 text-[10px] uppercase tracking-wide">Tailored</p>
+                      {diff.skillsDiff.tailored.join(", ") || "—"}
+                    </div>
+                  </div>
                 </div>
               )}
 

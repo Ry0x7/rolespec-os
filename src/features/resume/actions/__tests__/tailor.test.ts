@@ -54,6 +54,9 @@ vi.mock("../../services/tailor-resume", () => ({
 import { createJobTailoredResume } from "../tailor"
 import { AiDailyLimitError } from "@/shared/lib/ai-provider"
 
+const NO_CHANGES =
+  "No supportable changes were found for this posting. Your source resume was left unchanged; add concrete achievements or tailor it manually."
+
 function validFormData() {
   const formData = new FormData()
   formData.set("title", "Globex Application")
@@ -324,12 +327,11 @@ describe("createJobTailoredResume", () => {
   it("passes the posting only as untrusted context with pre-grounded terms", async () => {
     mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
     mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
-    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
 
-    await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
-      "REDIRECT:/resumes/resume-tailored"
-    )
+    const result = await createJobTailoredResume(validFormData())
 
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
     const input = mockGenerateJobTailorSuggestions.mock.calls[0][0]
     expect(input.jobTitle).toBe("Senior Platform Engineer")
     expect(input.companyName).toBe("Globex")
@@ -444,9 +446,9 @@ describe("createJobTailoredResume", () => {
   })
 
   it("discards a rewrite that claims a posting term the resume cannot back", async () => {
+    const source = sourceResume()
     mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
-    mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
-    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
+    mockPrisma.resume.findFirst.mockResolvedValue(source)
     mockGenerateJobTailorSuggestions.mockResolvedValue({
       suggestions: [
         {
@@ -459,14 +461,91 @@ describe("createJobTailoredResume", () => {
       ],
     })
 
+    const result = await createJobTailoredResume(validFormData())
+
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
+    expect(source).toEqual(sourceResume())
+  })
+
+  it("discards a rewrite that invents a metric the source bullet never had", async () => {
+    mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
+    mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
+    mockGenerateJobTailorSuggestions.mockResolvedValue({
+      suggestions: [
+        {
+          targetId: "s1::i0::b0",
+          action: "rewrite",
+          suggested: "Cut latency by 20%, processing 10K+ daily requests.",
+          reason: "Adds scale to the reliability result.",
+        },
+      ],
+    })
+
+    const result = await createJobTailoredResume(validFormData())
+
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
+  })
+
+  it("discards a rewrite that invents an org-wide scope", async () => {
+    mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
+    mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
+    mockGenerateJobTailorSuggestions.mockResolvedValue({
+      suggestions: [
+        {
+          targetId: "s1::i0::b0",
+          action: "rewrite",
+          suggested: "Cut latency by 20% across all regional branches.",
+          reason: "Shows broad impact.",
+        },
+      ],
+    })
+
+    const result = await createJobTailoredResume(validFormData())
+
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
+  })
+
+  it("discards a rewrite that adds a technology absent from the resume", async () => {
+    mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
+    mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
+    mockGenerateJobTailorSuggestions.mockResolvedValue({
+      suggestions: [
+        {
+          targetId: "s1::i0::b0",
+          action: "rewrite",
+          suggested: "Cut latency by 20% using Kafka.",
+          reason: "Matches the streaming stack.",
+        },
+      ],
+    })
+
+    const result = await createJobTailoredResume(validFormData())
+
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
+  })
+
+  it("keeps a rewrite that preserves the source metric and a resume-backed technology", async () => {
+    mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
+    mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
+    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
+    mockGenerateJobTailorSuggestions.mockResolvedValue({
+      suggestions: [
+        {
+          targetId: "s1::i0::b0",
+          action: "rewrite",
+          suggested: "Cut TypeScript service latency by 20% through reliability work.",
+          reason: "Aligns the result with the posting's reliability focus.",
+        },
+      ],
+    })
+
     await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
       "REDIRECT:/resumes/resume-tailored"
     )
-
-    const created = mockPrisma.resume.create.mock.calls[0][0].data
-    expect(created.sections.create[0].items.create[0].content).toEqual({
-      text: "Platform engineer focused on reliability.",
-    })
   })
 
   it("bars a two-letter job-title term the resume cannot back", async () => {
@@ -479,7 +558,6 @@ describe("createJobTailoredResume", () => {
       },
     })
     mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
-    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
     mockGenerateJobTailorSuggestions.mockResolvedValue({
       suggestions: [
         {
@@ -492,25 +570,20 @@ describe("createJobTailoredResume", () => {
       ],
     })
 
-    await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
-      "REDIRECT:/resumes/resume-tailored"
-    )
+    const result = await createJobTailoredResume(validFormData())
 
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
     const input = mockGenerateJobTailorSuggestions.mock.calls[0][0]
     expect([
       ...input.groundedKeywords.unsupported,
       ...input.groundedKeywords.ambiguous,
     ]).toContain("qa")
-    const created = mockPrisma.resume.create.mock.calls[0][0].data
-    expect(created.sections.create[0].items.create[0].content).toEqual({
-      text: "Platform engineer focused on reliability.",
-    })
   })
 
   it("discards a skills suggestion that adds an entry instead of reordering", async () => {
     mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
     mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
-    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
     mockGenerateJobTailorSuggestions.mockResolvedValue({
       suggestions: [
         {
@@ -528,21 +601,15 @@ describe("createJobTailoredResume", () => {
       ],
     })
 
-    await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
-      "REDIRECT:/resumes/resume-tailored"
-    )
+    const result = await createJobTailoredResume(validFormData())
 
-    const created = mockPrisma.resume.create.mock.calls[0][0].data
-    expect(created.sections.create[2].items.create[0].content).toEqual({
-      category: "Languages",
-      skills: ["TypeScript", "SQL"],
-    })
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
   })
 
   it("ignores invented target ids", async () => {
     mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
     mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
-    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
     mockGenerateJobTailorSuggestions.mockResolvedValue({
       suggestions: [
         {
@@ -554,26 +621,20 @@ describe("createJobTailoredResume", () => {
       ],
     })
 
-    await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
-      "REDIRECT:/resumes/resume-tailored"
-    )
+    const result = await createJobTailoredResume(validFormData())
 
-    const created = mockPrisma.resume.create.mock.calls[0][0].data
-    expect(created.sections.create[1].items.create[0].content.bullets).toEqual([
-      "Cut latency by 20%.",
-      "Organized the office party.",
-    ])
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
   })
 
   it("asks for a generated summary only when the source has none", async () => {
     mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
     mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
-    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
 
-    await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
-      "REDIRECT:/resumes/resume-tailored"
-    )
+    const result = await createJobTailoredResume(validFormData())
 
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
     expect(mockGenerateJobTailorSuggestions.mock.calls[0][0].needsSummary).toBe(false)
   })
 
@@ -662,40 +723,30 @@ describe("createJobTailoredResume", () => {
   it("drops a generated summary that claims a barred posting term", async () => {
     mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
     mockPrisma.resume.findFirst.mockResolvedValue(sourceResumeWithoutSummary())
-    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
     mockGenerateJobTailorSuggestions.mockResolvedValue({
       suggestions: [],
       // "Kubernetes" appears only in the posting.
       generatedSummary: "Engineer at Acme running Kubernetes in production.",
     })
 
-    await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
-      "REDIRECT:/resumes/resume-tailored"
-    )
+    const result = await createJobTailoredResume(validFormData())
 
-    const created = mockPrisma.resume.create.mock.calls[0][0].data
-    expect(
-      created.sections.create.map((s: { type: string }) => s.type)
-    ).not.toContain("SUMMARY")
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
   })
 
   it("ignores a generated summary when the source already has one", async () => {
     mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
     mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
-    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
     mockGenerateJobTailorSuggestions.mockResolvedValue({
       suggestions: [],
       generatedSummary: "Engineer at Acme who cut latency by 20%.",
     })
 
-    await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
-      "REDIRECT:/resumes/resume-tailored"
-    )
+    const result = await createJobTailoredResume(validFormData())
 
-    const created = mockPrisma.resume.create.mock.calls[0][0].data
-    expect(created.sections.create[0].items.create[0].content).toEqual({
-      text: "Platform engineer focused on reliability.",
-    })
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
   })
 
   it("drops a whole unrelated experience item and renumbers what is left", async () => {
@@ -763,7 +814,6 @@ describe("createJobTailoredResume", () => {
   it("ignores a remove-item aimed at anything but an experience item", async () => {
     mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
     mockPrisma.resume.findFirst.mockResolvedValue(sourceResumeWithoutSummary())
-    mockPrisma.resume.create.mockResolvedValue({ id: "resume-tailored" })
     mockGenerateJobTailorSuggestions.mockResolvedValue({
       suggestions: [
         // A skills item and a bullet — neither is an experience-item target.
@@ -773,21 +823,10 @@ describe("createJobTailoredResume", () => {
       generatedSummary: null,
     })
 
-    await expect(createJobTailoredResume(validFormData())).rejects.toThrow(
-      "REDIRECT:/resumes/resume-tailored"
-    )
+    const result = await createJobTailoredResume(validFormData())
 
-    const created = mockPrisma.resume.create.mock.calls[0][0].data
-    const skills = created.sections.create.find((s: { type: string }) => s.type === "SKILLS")
-    const experience = created.sections.create.find(
-      (s: { type: string }) => s.type === "EXPERIENCE"
-    )
-    expect(skills.items.create).toHaveLength(1)
-    expect(experience.items.create).toHaveLength(2)
-    expect(experience.items.create[0].content.bullets).toEqual([
-      "Cut latency by 20%.",
-      "Shipped TypeScript services.",
-    ])
+    expect(result).toEqual({ error: NO_CHANGES })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
   })
 
   it("leaves the source resume untouched while inserting and excluding", async () => {
@@ -846,6 +885,25 @@ describe("createJobTailoredResume", () => {
     })
     expect(mockGenerateJobTailorSuggestions).not.toHaveBeenCalled()
     expect(mockPrisma.resume.create).not.toHaveBeenCalled()
+  })
+
+  it("refuses to create a copy when the model found no supportable change", async () => {
+    const source = sourceResume()
+    mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
+    mockPrisma.resume.findFirst.mockResolvedValue(source)
+    mockGenerateJobTailorSuggestions.mockResolvedValue({
+      suggestions: [],
+      generatedSummary: null,
+    })
+
+    const result = await createJobTailoredResume(validFormData())
+
+    expect(result).toEqual({
+      error:
+        "No supportable changes were found for this posting. Your source resume was left unchanged; add concrete achievements or tailor it manually.",
+    })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
+    expect(source).toEqual(sourceResume())
   })
 
   it("copies an empty source deterministically without spending an AI call", async () => {

@@ -7,6 +7,7 @@ import { Button } from "@/shared/ui/button"
 import { Badge } from "@/shared/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card"
 import type { CompanyResearchResult } from "../services/company-research.service"
+import { isSourceCheckedResearch, isVerifiedCompanyResearch } from "../lib/company-research"
 import { runCompanyResearch } from "../actions/company-research.actions"
 
 interface Props {
@@ -35,14 +36,39 @@ export function CompanyResearchPanel({
     })
   }
 
+  const verified = research ? isVerifiedCompanyResearch(research) : false
+  // A fresh run that fetched nothing is not the same as a legacy row written
+  // before source checking existed. Keep those two review states apart.
+  const sourceChecked = research ? isSourceCheckedResearch(research) : false
+  const legacy = Boolean(research && !sourceChecked)
+
+  // Facts in a row written before citations were fetched were never checked
+  // against a source. Showing them under an "Unverified" badge still presents
+  // guesses as company facts, so the factual blocks are withheld until the
+  // research is re-run and its sources are actually fetched.
+  const showVerifiedFacts = Boolean(research && verified)
+  // Rows are persisted JSON. A legacy or partially written row may not carry
+  // every list, so render from safe copies rather than crashing the page.
+  const citations = research?.citations ?? []
+  const techStack = research?.techStack ?? []
+  const keyProducts = research?.keyProducts ?? []
+  const missionOrValues = research?.statedMissionOrValues ?? []
+  const interviewTips = research?.interviewTips ?? []
+
   const confidenceBadge = (confidence: "HIGH" | "MEDIUM" | "LOW") => {
+    // Legacy rows can carry a HIGH written before sources were fetched. Never
+    // dress that up as verified today.
+    if (legacy) return <Badge variant="neutral">Unverified / Legacy</Badge>
+    // A high model-written label cannot stand in for a source that was never
+    // fetched. The panel says what is actually known.
+    if (!verified) return <Badge variant="neutral">No verified sources</Badge>
     switch (confidence) {
       case "HIGH":
         return <Badge variant="success">High Confidence</Badge>
       case "MEDIUM":
         return <Badge variant="warning">Medium Confidence</Badge>
       case "LOW":
-        return <Badge variant="neutral">Unverified / Low</Badge>
+        return <Badge variant="neutral">Low Confidence</Badge>
     }
   }
 
@@ -94,23 +120,60 @@ export function CompanyResearchPanel({
           </div>
         ) : (
           <div className="space-y-4 text-sm">
+            {legacy && (
+              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground">Saved research is unverified</p>
+                <p className="mt-1">
+                  This result predates source verification. Company facts are hidden because no
+                  fetched source backs them; re-run research to replace them with verified facts.
+                </p>
+              </div>
+            )}
+
+            {sourceChecked && !verified && (
+              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground">No verified sources</p>
+                <p className="mt-1">
+                  Research checked its sources, but none could be fetched and verified. Company
+                  facts stay unknown; add the posting link or try again when the source is reachable.
+                </p>
+              </div>
+            )}
+
             {/* Overview */}
+            {showVerifiedFacts && (
             <div className="rounded-md bg-muted/40 p-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Overview</p>
               <p className="mt-1 leading-relaxed text-foreground">{research.overview}</p>
-              <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                {research.headquarters && <span>📍 HQ: <strong className="text-foreground">{research.headquarters}</strong></span>}
-                {research.industry && <span>🏢 Industry: <strong className="text-foreground">{research.industry}</strong></span>}
-                {research.companySize && <span>👥 Size: <strong className="text-foreground">{research.companySize}</strong></span>}
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span>
+                  📍 HQ:{" "}
+                  <strong className={research.headquarters ? "text-foreground" : "font-normal italic"}>
+                    {research.headquarters ?? "Not disclosed in verified sources"}
+                  </strong>
+                </span>
+                <span>
+                  🏢 Industry:{" "}
+                  <strong className={research.industry ? "text-foreground" : "font-normal italic"}>
+                    {research.industry ?? "Not disclosed"}
+                  </strong>
+                </span>
+                <span>
+                  👥 Size:{" "}
+                  <strong className={research.companySize ? "text-foreground" : "font-normal italic"}>
+                    {research.companySize ?? "Not disclosed"}
+                  </strong>
+                </span>
               </div>
             </div>
+            )}
 
             {/* Tech Stack */}
-            {research.techStack.length > 0 && (
+            {showVerifiedFacts && techStack.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground">Detected Tech Stack</p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {research.techStack.map((tech) => (
+                  {techStack.map((tech) => (
                     <Badge key={tech} variant="neutral" className="text-xs font-normal">
                       <Tag className="mr-1 h-3 w-3 opacity-60" />
                       {tech}
@@ -121,23 +184,23 @@ export function CompanyResearchPanel({
             )}
 
             {/* Key Products / Values */}
-            {(research.keyProducts.length > 0 || research.statedMissionOrValues.length > 0) && (
+            {showVerifiedFacts && (keyProducts.length > 0 || missionOrValues.length > 0) && (
               <div className="grid gap-3 sm:grid-cols-2">
-                {research.keyProducts.length > 0 && (
+                {keyProducts.length > 0 && (
                   <div className="rounded-md border p-2.5">
                     <p className="text-xs font-semibold text-muted-foreground">Key Products / Services</p>
                     <ul className="mt-1 space-y-1 text-xs list-disc pl-4 text-foreground">
-                      {research.keyProducts.map((p, idx) => (
+                      {keyProducts.map((p, idx) => (
                         <li key={idx}>{p}</li>
                       ))}
                     </ul>
                   </div>
                 )}
-                {research.statedMissionOrValues.length > 0 && (
+                {missionOrValues.length > 0 && (
                   <div className="rounded-md border p-2.5">
                     <p className="text-xs font-semibold text-muted-foreground">Stated Mission & Values</p>
                     <ul className="mt-1 space-y-1 text-xs list-disc pl-4 text-foreground">
-                      {research.statedMissionOrValues.map((v, idx) => (
+                      {missionOrValues.map((v, idx) => (
                         <li key={idx}>{v}</li>
                       ))}
                     </ul>
@@ -147,14 +210,14 @@ export function CompanyResearchPanel({
             )}
 
             {/* Interview Pointers */}
-            {research.interviewTips.length > 0 && (
+            {showVerifiedFacts && interviewTips.length > 0 && (
               <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Interview Focus & Preparation
                 </p>
                 <ul className="mt-1.5 space-y-1 text-xs list-disc pl-4 text-foreground/90">
-                  {research.interviewTips.map((tip, idx) => (
+                  {interviewTips.map((tip, idx) => (
                     <li key={idx}>{tip}</li>
                   ))}
                 </ul>
@@ -165,31 +228,51 @@ export function CompanyResearchPanel({
             <div className="border-t pt-2.5">
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                 <span className="font-semibold flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                  Verified Citations & Sources ({research.citations.length})
+                  <ShieldCheck className={verified ? "h-3.5 w-3.5 text-emerald-600" : "h-3.5 w-3.5 text-muted-foreground"} />
+                  {verified ? "Verified Citations & Sources" : "Citations & Sources"} ({citations.length})
                 </span>
-                <span className="text-[11px] italic">{research.confidenceExplanation}</span>
+                <span className="text-[11px] italic">
+                  {verified
+                    ? research.confidenceExplanation
+                    : legacy
+                      ? "Unverified saved result; cited pages were not fetched when it was written."
+                      : "No source could be fetched and verified; unknown company facts stay unknown."}
+                </span>
               </div>
-              {research.citations.length > 0 ? (
+              {citations.length > 0 ? (
                 <div className="space-y-1.5">
-                  {research.citations.map((cite, idx) => (
-                    <div key={idx} className="flex items-baseline justify-between text-xs rounded bg-muted/20 px-2 py-1">
+                  {citations.map((cite, idx) => (
+                    <div key={idx} className="flex items-baseline justify-between gap-2 text-xs rounded bg-muted/20 px-2 py-1">
                       <a
                         href={cite.url}
                         target="_blank"
                         rel="noreferrer noopener"
-                        className="text-primary hover:underline flex items-center gap-1 truncate max-w-[80%]"
+                        className="text-primary hover:underline flex items-center gap-1 truncate max-w-[70%]"
                       >
                         <Globe className="h-3 w-3 shrink-0" />
                         {cite.title || cite.url}
                         <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-60" />
                       </a>
-                      {cite.quote && <span className="text-[10px] text-muted-foreground truncate ml-2 italic">&quot;{cite.quote}&quot;</span>}
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {cite.quote && (
+                          <span className="max-w-[220px] truncate text-[10px] italic text-muted-foreground" title={cite.quote}>
+                            &quot;{cite.quote}&quot;
+                          </span>
+                        )}
+                        <Badge
+                          variant={cite.verified ? "success" : "neutral"}
+                          className="px-1.5 py-0 text-[10px] font-normal"
+                        >
+                          {cite.verified ? "Verified" : "Unverified"}
+                        </Badge>
+                      </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">No external URLs provided in posting; derived from supplied text.</p>
+                <p className="text-xs text-muted-foreground">
+                  No source could be fetched and verified. Company facts are shown as unknown.
+                </p>
               )}
             </div>
           </div>
