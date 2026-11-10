@@ -290,6 +290,20 @@ describe("computeIntelligentMatch", () => {
     expect(result.strengths.join(" ")).not.toContain("Fresh posting")
   })
 
+  it("does not treat the date the job was discovered as posting freshness", () => {
+    const job: IntelligentMatchingJob = {
+      title: "Senior Full Stack Engineer",
+      description: REQUIRED_SKILLS,
+      requirementFlags: [],
+    }
+
+    const result = computeIntelligentMatch(job, profile)
+
+    expect(result.dimensions.freshness.status).toBe("UNKNOWN")
+    expect(result.dimensions.freshness.score).toBeNull()
+    expect(result.dimensions.freshness.explanation).toContain("published date")
+  })
+
   it("annualizes an hourly posting before comparing it with a yearly minimum", () => {
     const job: IntelligentMatchingJob = {
       title: "Senior Full Stack Engineer",

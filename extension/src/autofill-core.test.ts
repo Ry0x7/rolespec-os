@@ -56,6 +56,25 @@ describe("classifyField", () => {
     expect(result.profileKey).toBe(profileKey)
   })
 
+  it("keeps a typeahead field in review instead of writing free text it will discard", () => {
+    const location = field({ label: "Current location", requiresSelection: true })
+    const plan = buildFillPlan(PROFILE, [location])
+
+    expect(plan.fills).toEqual([])
+    expect(plan.review).toHaveLength(1)
+    expect(plan.review[0]).toMatchObject({
+      label: "Current location",
+      suggestedValue: "Manila, Philippines",
+    })
+    expect(plan.review[0].reason).toContain("picked from its suggestions")
+
+    const approved = buildFillPlan(PROFILE, [location], {
+      [answerKey("Current location")]: "Cebu, Philippines",
+    })
+    expect(approved.fills).toEqual([])
+    expect(approved.review[0].suggestedValue).toBe("Cebu, Philippines")
+  })
+
   it("does not mistake Company name for a person's name", () => {
     const result = classifyField(field({ label: "Company name" }))
     expect(result.category).toBe("work")
@@ -92,6 +111,22 @@ describe("classifyField", () => {
     expect(
       classifyField(field({ label: "Country", tagName: "select" })),
     ).toMatchObject({ category: "unknown", sensitivity: "unknown" })
+  })
+
+  it("does not let a choice control borrow a safe contact meaning", () => {
+    const radio = field({
+      label: "Are you able to work onsite in the location listed on this job?",
+      type: "radio",
+    })
+    const select = field({ label: "Current location", tagName: "select" })
+
+    for (const choice of [radio, select]) {
+      expect(classifyField(choice)).toMatchObject({
+        category: "unknown",
+        sensitivity: "unknown",
+      })
+      expect(buildFillPlan(PROFILE, [choice]).fills).toHaveLength(0)
+    }
   })
 })
 

@@ -12,7 +12,14 @@ but Windows has **no verified publisher** and SmartScreen may warn. A release wi
 publisher. Installation, first launch, onboarding and uninstall were exercised on Windows 11
 x64; a separate clean-VM walkthrough has not been run.
 
-v1.0.4 rebuilds the installer: 1.0.3 shipped without the shared Next.js server chunks and the
+v1.0.5 ships the evidence-backed company research, pipeline and matching changes plus the safer
+ATS autofill flow. The installer remains unsigned and still has no latest.json, so an installed
+v1.0.4 copy cannot self-update to it; install v1.0.5 over the existing copy and keep the same
+`%LOCALAPPDATA%\RoleSpecData` directory. A fresh v1.0.4 install, in-place v1.0.5 upgrade, restart,
+data retention and uninstall were exercised on Windows 11 x64. A separate clean-VM walkthrough has
+not been run.
+
+v1.0.4 rebuilt the installer: 1.0.3 shipped without the shared Next.js server chunks and the
 external-package aliases Turbopack keeps outside the standalone tree, so a fresh install served
 HTTP 500 on first launch. Staging now copies both and fails the build when the server bundle is
 incomplete or still contains a symlink.

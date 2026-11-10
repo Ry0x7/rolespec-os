@@ -17,6 +17,8 @@ export interface ScannedField {
   tagName?: string
   required?: boolean
   options?: string[]
+  /** A typeahead/combobox that discards free text unless a suggestion is chosen. */
+  requiresSelection?: boolean
 }
 
 export interface FillAssignment {
@@ -62,7 +64,74 @@ export function scanAutofillFields(): ScannedField[] {
     return true
   }
 
-  function labelFor(el: HTMLElement): string {
+  /**
+   * The question a radio/checkbox group asks, rather than the text of one
+   * option. Lever, for example, puts "Will you require visa sponsorship?" in a
+   * sibling label above the Yes/No list, so reading the wrapping label alone
+   * made every choice a field called "Yes" or "No" and lost the question the
+   * approved-answer cache is keyed on.
+   */
+  function groupLabelFor(el: HTMLElement): string {
+    let node: HTMLElement | null = el.parentElement
+    while (node && node !== document.body) {
+      if (node.matches('fieldset, [role="radiogroup"], [role="group"]')) {
+        const legend = node.querySelector(":scope > legend")
+        const text = textOf(legend)
+        if (text) return text
+      }
+
+      const labelledBy = node.getAttribute("aria-labelledby")
+      if (labelledBy) {
+        const text = labelledBy
+          .split(/\s+/)
+          .map((id) => textOf(document.getElementById(id)))
+          .filter(Boolean)
+          .join(" ")
+        if (text) return text
+      }
+
+      const previous = node.previousElementSibling
+      if (
+        previous &&
+        !previous.querySelector("input, select, textarea, button, [role='button']")
+      ) {
+        const text = textOf(previous)
+        if (text) return text
+      }
+
+      node = node.parentElement
+    }
+    return ""
+  }
+
+  /**
+   * True when the control is a typeahead whose value only sticks if the user
+   * picks one of the page's suggestions. Lever's location field is the common
+   * case: typing free text and blurring it clears the input.
+   */
+  function needsSuggestion(el: HTMLInputElement): boolean {
+    if (el.getAttribute("role") === "combobox") return true
+    const auto = (el.getAttribute("aria-autocomplete") ?? "").toLowerCase()
+    if (auto === "list" || auto === "both") return true
+    if (el.hasAttribute("list")) return true
+
+    const container = el.parentElement
+    if (!container || container === document.body) return false
+    const hidden = Array.from(container.children).find(
+      (child): child is HTMLInputElement =>
+        child instanceof HTMLInputElement && child.type === "hidden",
+    )
+    if (!hidden) return false
+    const name = `${hidden.name} ${hidden.id}`
+    return /(^|[^a-z])(selected|selection|place|location|geo|id)([^a-z]|$)/i.test(name)
+  }
+
+  function labelFor(el: HTMLElement, preferGroup = false): string {
+    if (preferGroup) {
+      const group = groupLabelFor(el)
+      if (group) return group
+    }
+
     const aria = clean(el.getAttribute("aria-label"))
     if (aria) return aria
 
@@ -126,6 +195,7 @@ export function scanAutofillFields(): ScannedField[] {
 
     const tag = el.tagName.toLowerCase()
     const type = el instanceof HTMLInputElement ? el.type.toLowerCase() : ""
+    const preferGroup = type === "radio" || type === "checkbox"
     if (el instanceof HTMLInputElement) {
       if (["hidden", "password", "submit", "button", "reset", "image"].includes(type)) {
         continue
@@ -140,7 +210,19 @@ export function scanAutofillFields(): ScannedField[] {
       }
     }
 
-    const label = labelFor(el)
+    let label = labelFor(el, preferGroup)
+    // A bare <select> often has no label element; its name (or generated id) is
+    // all the browser exposes. Fall back to the same question search the radio
+    // groups use, so "Are you legally authorized to work?" is not reviewed as
+    // an opaque cards[...] field.
+    if (tag === "select") {
+      const nameAttr = clean(el.getAttribute("name"))
+      const idAttr = clean(el.id)
+      if (!label || label === nameAttr || label === idAttr) {
+        const group = groupLabelFor(el)
+        if (group) label = group
+      }
+    }
     if (!label) continue
 
     if (!el.hasAttribute("data-rolespec-af")) {
@@ -153,6 +235,9 @@ export function scanAutofillFields(): ScannedField[] {
       label: label.slice(0, 200),
       tagName: tag,
       required: el.required,
+    }
+    if (el instanceof HTMLInputElement && type === "text" && needsSuggestion(el)) {
+      field.requiresSelection = true
     }
     if (el.getAttribute("name")) field.name = clean(el.getAttribute("name")).slice(0, 120)
     if (type) field.type = type
@@ -169,14 +254,25 @@ export function scanAutofillFields(): ScannedField[] {
       field.options = [clean(el.value)].filter(Boolean)
     }
 
-    // A group of radios shares a label; one review row per group is enough.
+    // A group of radios shares a label; one review row per group is enough,
+    // and the row should list every choice, not just the first radio scanned.
     const duplicate = fields.find(
       (existing) =>
         existing.label === field.label &&
         existing.type === field.type &&
         existing.name === field.name,
     )
-    if (!duplicate) fields.push(field)
+    if (duplicate) {
+      if (field.options && field.options.length > 0) {
+        const merged = [...(duplicate.options ?? [])]
+        for (const option of field.options) {
+          if (!merged.includes(option)) merged.push(option)
+        }
+        duplicate.options = merged.slice(0, 40)
+      }
+    } else {
+      fields.push(field)
+    }
   }
 
   return fields

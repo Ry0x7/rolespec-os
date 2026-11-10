@@ -83,6 +83,7 @@ describe("job match panel stored result hydration", () => {
 
     expect(screen.getByText("71")).toBeTruthy()
     expect(screen.getByText("Stored summary.")).toBeTruthy()
+    expect(screen.getByText(/AI estimate/i)).toBeTruthy()
     expect(mockAnalyze).not.toHaveBeenCalled()
   })
 

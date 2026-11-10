@@ -100,6 +100,33 @@ describe("analyzeJobMatch — persistence", () => {
     })
   })
 
+  it("preserves company research stored in the same JSON column", async () => {
+    const companyResearch = {
+      confidence: "LOW",
+      validationVersion: 2,
+      citations: [],
+      headquarters: null,
+    }
+    mockPrisma.jobApplication.findUnique.mockResolvedValue({
+      notes: null,
+      matchResult: { companyResearch },
+      job: {
+        companyName: "Acme",
+        title: "Engineer",
+        description: "Build things with TypeScript.",
+      },
+    })
+
+    await analyzeJobMatch(INPUT)
+
+    expect(lastUpdateData().matchResult).toEqual(
+      expect.objectContaining({
+        summary: AI_RESULT.summary,
+        companyResearch,
+      })
+    )
+  })
+
   it("never stores the resume text the analysis was derived from", async () => {
     await analyzeJobMatch(INPUT)
 

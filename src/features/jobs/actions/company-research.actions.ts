@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache"
 import { auth } from "@/features/auth/config"
+import { logger } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
 import {
   analyzeCompanyResearchAI,
   type CompanyResearchResult,
 } from "../services/company-research.service"
+
+const log = logger("company-research-actions")
 
 export async function runCompanyResearch(
   jobApplicationId: string
@@ -55,9 +58,12 @@ export async function runCompanyResearch(
     revalidatePath(`/jobs/${jobApplicationId}`)
     return { success: true, research }
   } catch (err) {
+    // Provider and database errors can carry endpoint, key or query detail. The
+    // action logs them for the operator and gives the user an actionable line.
+    log.error("Company research failed", { err, userId: session.user.id, jobApplicationId })
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to run company research",
+      error: "Company research failed. Please try again.",
     }
   }
 }

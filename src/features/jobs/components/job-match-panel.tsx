@@ -148,7 +148,7 @@ export function JobMatchPanel({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Target className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          Resume Match
+          AI Resume Match
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -229,11 +229,15 @@ export function JobMatchPanel({
 
         {!isPending && result && (
           <div className="space-y-4 border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">
+              AI comparison of this resume&apos;s text against the posting. It is separate from the
+              evidence-based fit score in Decide, which only uses confirmed profile data.
+            </p>
             <div className="flex items-baseline gap-2">
               <span className={`text-4xl font-bold ${scoreColor(result.matchScore)}`}>
                 {result.matchScore}
               </span>
-              <span className="text-sm text-muted-foreground">/ 100 match</span>
+              <span className="text-sm text-muted-foreground">/ 100 AI estimate</span>
             </div>
 
             {storedMeta && (

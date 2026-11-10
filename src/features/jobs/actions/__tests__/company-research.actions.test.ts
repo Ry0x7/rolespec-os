@@ -98,11 +98,11 @@ describe("runCompanyResearch", () => {
     expect(mockRevalidate).toHaveBeenCalledWith("/jobs/app1")
   })
 
-  it("returns a safe error when generation throws", async () => {
-    mockAnalyze.mockRejectedValue(new Error("provider exploded"))
+  it("does not leak provider detail when generation throws", async () => {
+    mockAnalyze.mockRejectedValue(new Error("provider exploded at https://internal.example"))
     await expect(runCompanyResearch("app1")).resolves.toEqual({
       success: false,
-      error: "provider exploded",
+      error: "Company research failed. Please try again.",
     })
   })
 })

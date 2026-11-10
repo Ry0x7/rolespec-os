@@ -50,6 +50,56 @@ describe("scanAutofillFields", () => {
     expect(fields.find((f) => f.label === "First name")?.autocomplete).toBe("given-name")
   })
 
+  it("uses the group question for a radio set and keeps every option", () => {
+    document.body.innerHTML = `
+      <div class="application-field">
+        <div class="application-label">Will you require visa sponsorship?</div>
+        <ul>
+          <li><label><input type="radio" name="sponsorship" value="Yes" required /><span>Yes</span></label></li>
+          <li><label><input type="radio" name="sponsorship" value="No" required /><span>No</span></label></li>
+        </ul>
+      </div>
+    `
+
+    const fields = scanAutofillFields()
+
+    expect(fields).toHaveLength(1)
+    expect(fields[0].label).toBe("Will you require visa sponsorship?")
+    expect(fields[0].options).toEqual(["Yes", "No"])
+  })
+
+  it("uses the question above a bare select instead of its name", () => {
+    document.body.innerHTML = `
+      <div class="application-question">
+        <div class="application-label">Are you legally authorized to work in the United States?</div>
+        <div class="application-field">
+          <div><select name="cards[abc][field0]" required><option>Select...</option><option>Yes</option><option>No</option></select></div>
+        </div>
+      </div>
+    `
+
+    const fields = scanAutofillFields()
+
+    expect(fields).toHaveLength(1)
+    expect(fields[0].label).toBe("Are you legally authorized to work in the United States?")
+    expect(fields[0].options).toEqual(["Select...", "Yes", "No"])
+  })
+
+  it("marks a location typeahead that needs a suggestion", () => {
+    document.body.innerHTML = `
+      <div class="application-field">
+        <label for="location-input">Current location</label>
+        <input id="location-input" name="location" type="text" />
+        <input id="selected-location" type="hidden" name="selectedLocation" />
+      </div>
+      <label for="plain">Current city</label><input id="plain" name="city" />
+    `
+
+    const fields = scanAutofillFields()
+    expect(fields.find((f) => f.label === "Current location")?.requiresSelection).toBe(true)
+    expect(fields.find((f) => f.label === "Current city")?.requiresSelection).toBeUndefined()
+  })
+
   it("never reads a value the page already contains", () => {
     buildForm()
     const email = document.getElementById("email") as HTMLInputElement

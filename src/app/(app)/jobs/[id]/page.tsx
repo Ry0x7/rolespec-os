@@ -447,9 +447,7 @@ export default async function JobApplicationDetailPage({ params }: Props) {
       salary: application.salary,
       salaryPeriod: application.salaryPeriod,
       salaryCurrency: application.salaryCurrency,
-      deadline: application.deadline,
       postedAt: row.job.postedAt,
-      discoveredAt: row.job.discoveredAt,
       requirementFlags: (row.job.requirementFlags as string[] | null) ?? [],
     },
     careerProfile
