@@ -159,24 +159,32 @@ function parseTarget(raw: string): ParsedTarget {
  * address that was checked is the address actually dialled, which closes the
  * DNS-rebinding gap a separate pre-flight lookup would leave open.
  */
-const safeLookup = ((
+export function safeLookup(
   hostname: string,
-  _options: unknown,
-  callback: (error: NodeJS.ErrnoException | null, address: string, family: number) => void
-) => {
+  options: { all?: boolean } | number | undefined,
+  callback: (...args: unknown[]) => void
+): void {
   dnsLookup(hostname, { all: true, verbatim: true }, (error, addresses) => {
     if (error) {
-      callback(error, "", 0)
+      callback(error)
       return
     }
     if (!addresses.length || addresses.some((entry) => !isPublicIpAddress(entry.address))) {
-      callback(Object.assign(new Error("blocked address"), { code: "EBLOCKED" }), "", 0)
+      callback(Object.assign(new Error("blocked address"), { code: "EBLOCKED" }))
+      return
+    }
+    // Node 20+ asks for the whole address list when `autoSelectFamily` is on.
+    // Returning one address/family pair there breaks the connection with an
+    // invalid-address error, which made every public fetch fail on Node 24.
+    const wantsAll = typeof options === "object" && options !== null && options.all === true
+    if (wantsAll) {
+      callback(null, addresses)
       return
     }
     const chosen = addresses.find((entry) => entry.family === 4) ?? addresses[0]
     callback(null, chosen.address, chosen.family)
   })
-}) as unknown as LookupFunction
+}
 
 export interface PublicFetchResult {
   status: number
@@ -207,7 +215,7 @@ function requestOnce(target: ParsedTarget, headers: Record<string, string>): Pro
           accept: "text/html,application/xhtml+xml,application/json;q=0.9",
           ...headers,
         },
-        lookup: safeLookup,
+        lookup: safeLookup as unknown as LookupFunction,
         timeout: FETCH_TIMEOUT_MS,
       },
       (res) => {

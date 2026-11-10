@@ -45,6 +45,11 @@ export interface FieldDescriptor {
   required?: boolean
   /** Select/radio choices, for the review queue only. Never auto-selected. */
   options?: string[]
+  /**
+   * The page expects one of its own suggestions (a typeahead/combobox with a
+   * hidden selection), so free text would be discarded on blur. Always reviewed.
+   */
+  requiresSelection?: boolean
 }
 
 export interface ProfileFacts {
@@ -239,6 +244,17 @@ export function classifyField(field: FieldDescriptor): FieldClassification {
     }
   }
 
+  // A select/radio/checkbox is never guessed at, even when the label looks
+  // like a safe contact fact: "Are you able to work onsite, in the location
+  // listed?" contains "location", but filling it with the profile's city would
+  // be a wrong answer. The option set is the employer's, and a wrong choice is
+  // worse than a blank. Checked before the safe patterns so a choice control
+  // cannot borrow their meaning; the sensitive categories above still win so
+  // the review row says what the question is really about.
+  if (tag === "select" || type === "radio" || type === "checkbox") {
+    return { category: "unknown", sensitivity: "unknown", key, reason: "Choose this option yourself." }
+  }
+
   // ── Safe identity and contact facts ────────────────────────────────────────
   if (autocomplete === "given-name" || hasAny(text, [/\bfirst name\b/, /\bgiven name\b/])) {
     return { category: "identity", sensitivity: "safe", key, profileKey: "fullName" }
@@ -295,12 +311,6 @@ export function classifyField(field: FieldDescriptor): FieldClassification {
     return { category: "education", sensitivity: "unknown", key, reason: "Education facts need review." }
   }
 
-  // A select/radio/checkbox is never guessed at, even when the label is benign:
-  // the option set is the employer's, and a wrong choice is worse than a blank.
-  if (tag === "select" || type === "radio" || type === "checkbox") {
-    return { category: "unknown", sensitivity: "unknown", key, reason: "Choose this option yourself." }
-  }
-
   return {
     category: "unknown",
     sensitivity: "unknown",
@@ -350,6 +360,7 @@ function isFillable(field: FieldDescriptor): boolean {
   if (tag === "select") return true
   if (tag === "textarea") return true
   if (tag !== "input") return false
+  if (field.requiresSelection) return false
   return ["text", "email", "tel", "url", "search", ""].includes(type)
 }
 
@@ -371,6 +382,20 @@ export function buildFillPlan(
     const classification = classifyField(field)
     const approvedValue = approvedAnswers[classification.key]?.trim()
     const label = field.label.trim() || field.name?.trim() || "Untitled field"
+
+    if (field.requiresSelection) {
+      const suggestedValue =
+        approvedValue ||
+        (classification.sensitivity === "safe"
+          ? profileValue(classification.profileKey, profile, field)
+          : "")
+      review.push({
+        ...toReview(field, classification),
+        reason: "This form needs a value picked from its suggestions. Choose it yourself.",
+        ...(suggestedValue ? { suggestedValue } : {}),
+      })
+      continue
+    }
 
     if (approvedValue) {
       if (!isFillable(field)) {

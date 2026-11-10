@@ -73,6 +73,7 @@ function statusClass(kind: StatusKind): string {
 }
 
 function suggestionFor(item: ReviewField, profile: ProfileFacts): string {
+  if (item.suggestedValue) return item.suggestedValue
   switch (item.category) {
     case "authorization":
       return (profile.workAuthorization ?? "").trim()

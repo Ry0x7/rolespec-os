@@ -1,6 +1,6 @@
 # Roadmap and known gaps
 
-Updated: 2026-11-08. This is a remaining-work list, not a claim that all user journeys have been
+Updated: 2026-11-09. This is a remaining-work list, not a claim that all user journeys have been
 verified. The current product is a private, single-owner workspace; feedback and portfolio
 showcasing do not require converting it into a hosted service.
 
@@ -9,18 +9,23 @@ showcasing do not require converting it into a hosted service.
 - Career profile, master/role-family/job-tailored resumes, PDF export and application tracking.
 - Optional AI analysis, enhancement, job matching and outreach through user-configured providers.
 - Browser job capture through the standalone extension.
-- Docker/Node self-hosting and a published Windows x64 v1.0.3 installer.
+- Docker/Node self-hosting and a published Windows x64 v1.0.5 installer.
 - Guided AI setup with diagnostics and a connection test.
 
-v1.0.3 includes AI-free resume text import, structured into the matching resume sections with the
-extracted wording preserved. See [README](../README.md) for the exact local-import behavior and
+v1.0.5 replaces inferred company-research citations with fetched, validated sources, derives the
+eight pipeline stages from persisted evidence, explains matching from candidate and posting facts,
+and keeps 50/50 and other unchanged resume content intact through tailoring and rollback. The ATS
+autofill flow leaves typeahead fields, sensitive questions, file uploads and all submission to the
+user. v1.0.3 added AI-free resume text import; see [README](../README.md) for its exact behavior and
 platform requirements.
 
 ## Next verification work
 
 1. **Clean Windows install:** exercise download, install, onboarding without AI, PDF/DOCX import,
    edit/export, application tracking, close/reopen and uninstall on a fresh Windows VM. Confirm
-   data retention and record the Windows/WebView2 versions and release tested.
+   data retention and record the Windows/WebView2 versions and release tested. A fresh v1.0.4
+   install, in-place v1.0.5 upgrade, restart, data retention and uninstall were exercised on the
+   development Windows 11 host; a separate clean-VM walkthrough remains outstanding.
 2. **Resume improvement loop:** verify that applied suggestions and Revert survive reload, reason
    text contains no internal IDs, re-analysis shows the score change, and whole-resume enhancement
    reaches issues outside Experience. Separate unit-test evidence from real provider/browser runs.

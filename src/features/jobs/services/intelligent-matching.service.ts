@@ -28,9 +28,7 @@ export interface IntelligentMatchingJob {
   salary?: number | null
   salaryPeriod?: SalaryPeriod | null
   salaryCurrency?: SalaryCurrency
-  deadline?: Date | null
   postedAt?: Date | null
-  discoveredAt?: Date | null
   requirementFlags?: JobRequirementFlag[] | string[] | null
 }
 
@@ -486,14 +484,15 @@ export function computeIntelligentMatch(
     else gaps.push("Stated pay is below your minimum")
   }
 
-  // 7. Freshness — an undated listing is unknown, not "recent".
-  const dateToCheck = job.postedAt ?? job.discoveredAt
-  const postedMs = dateToCheck ? new Date(dateToCheck).getTime() : Number.NaN
+  // 7. Freshness — only the posting's own date says how old the posting is.
+  // The date this app discovered or saved it is a different fact: a two-month-old
+  // listing saved today would otherwise be reported as a fresh posting.
+  const postedMs = job.postedAt ? new Date(job.postedAt).getTime() : Number.NaN
   let freshness: DimensionScore
-  if (!dateToCheck || !Number.isFinite(postedMs)) {
+  if (!job.postedAt || !Number.isFinite(postedMs)) {
     freshness = unknownDimension(
       "freshness",
-      "The posting has no usable published or discovered date, so its age is unknown."
+      "The posting has no usable published date, so its age is unknown."
     )
   } else {
     const ageInDays = Math.max(0, (now.getTime() - postedMs) / (1000 * 60 * 60 * 24))

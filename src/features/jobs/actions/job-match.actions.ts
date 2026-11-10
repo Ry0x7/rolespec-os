@@ -55,6 +55,9 @@ export async function analyzeJobMatch(input: {
       select: {
         // `notes` is the user's own commentary, so it stays on the application.
         notes: true,
+        // `matchResult` also carries company research. Replacing the whole
+        // object would delete research the user already generated.
+        matchResult: true,
         job: { select: { companyName: true, title: true, description: true } },
       },
     })
@@ -113,11 +116,19 @@ export async function analyzeJobMatch(input: {
     // component state, so navigating away threw the analysis away. Only the
     // verdict is stored: never the resume text it was derived from.
     try {
+      const existingMatchResult =
+        typeof row.matchResult === "object" && row.matchResult !== null && !Array.isArray(row.matchResult)
+          ? (row.matchResult as Record<string, unknown>)
+          : {}
+
       await prisma.jobApplication.update({
         where: { id: jobApplicationId, userId },
         data: {
           matchScore: result.matchScore,
+          // Merge instead of replacing: the same JSON column stores the
+          // company research written by `runCompanyResearch`.
           matchResult: {
+            ...existingMatchResult,
             summary: result.summary,
             matchedKeywords: result.matchedKeywords,
             missingKeywords: result.missingKeywords,
