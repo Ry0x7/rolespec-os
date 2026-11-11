@@ -210,6 +210,7 @@ export function createFakePrisma(): FakePrisma {
             id: nextId("step"),
             status: "PENDING",
             attempts: 0,
+            recoveryCount: 0,
             output: null,
             input: null,
             lastError: null,
