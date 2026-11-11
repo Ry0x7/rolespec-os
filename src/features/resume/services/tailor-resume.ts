@@ -127,6 +127,17 @@ export interface JobTailorInput {
    * never from the posting — which the caller re-grounds before keeping.
    */
   needsSummary?: boolean
+  /**
+   * Bounded repair context. Present only on a retry after deterministic
+   * validation or a grounding rejection; it names the exact claim that failed
+   * so the model can remove it rather than regenerate blind. Never contains the
+   * job description or any provider secret, only short claim-level messages.
+   */
+  repair?: {
+    attempt: number
+    issues: string[]
+    rejected: string[]
+  }
 }
 
 // ─── Prompt caps ────────────────────────────────────────────────────────────
@@ -225,6 +236,26 @@ export async function generateJobTailorSuggestions(
         .join("\n\n")
     )}`
   )
+
+  if (input.repair && (input.repair.issues.length > 0 || input.repair.rejected.length > 0)) {
+    promptParts.push(
+      [
+        `REPAIR PASS ${input.repair.attempt}: the previous suggestions failed deterministic grounding checks. Rewrite ONLY the affected targets and remove every unsupported claim. Do not introduce any new fact while repairing.`,
+        ...(input.repair.issues.length > 0
+          ? [
+              `Validation failures:\n${bulletList(input.repair.issues.slice(0, 12))}`,
+            ]
+          : []),
+        ...(input.repair.rejected.length > 0
+          ? [
+              `Rejected suggestions (their claims must not return in any form):\n${bulletList(
+                input.repair.rejected.slice(0, 12)
+              )}`,
+            ]
+          : []),
+      ].join("\n")
+    )
+  }
 
   const { object } = await generateObjectTracked({
     schema: jobTailorSuggestionsSchema,

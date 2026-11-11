@@ -32,6 +32,17 @@ export interface UserDataExport {
   notes: unknown[]
   profileRatings: unknown[]
   linkedinSuggestions: unknown[]
+  activityEvents: unknown[]
+  aiUsageEvents: unknown[]
+  intakeRuns: unknown[]
+  workflowRuns: unknown[]
+  reviewTasks: unknown[]
+  atsPreparations: unknown[]
+  atsAnswers: unknown[]
+  resumeTailoringRuns: unknown[]
+  resumeSnapshots: unknown[]
+  resumeValidations: unknown[]
+  resumeEditEvents: unknown[]
 }
 
 export async function exportUserData(userId: string): Promise<UserDataExport | null> {
@@ -81,6 +92,26 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
       notes: true,
       profileRatings: true,
       linkedinSuggestions: true,
+      activityEvents: { orderBy: { createdAt: "asc" } },
+      intakeRuns: {
+        include: {
+          sources: true,
+          patches: { include: { corrections: true } },
+          conflicts: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      workflowRuns: {
+        include: { steps: true, events: { orderBy: { createdAt: "asc" } } },
+        orderBy: { createdAt: "asc" },
+      },
+      reviewTasks: { orderBy: { createdAt: "asc" } },
+      atsPreparations: true,
+      atsAnswers: true,
+      resumeTailoringRuns: true,
+      resumeSnapshots: true,
+      resumeValidations: true,
+      resumeEditEvents: true,
     },
   })
 
@@ -99,8 +130,24 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     notes,
     profileRatings,
     linkedinSuggestions,
+    activityEvents,
+    intakeRuns,
+    workflowRuns,
+    reviewTasks,
+    atsPreparations,
+    atsAnswers,
+    resumeTailoringRuns,
+    resumeSnapshots,
+    resumeValidations,
+    resumeEditEvents,
     ...account
   } = user
+
+  // AI usage rows have no User relation; they are keyed by the owner id.
+  const aiUsageEvents = await prisma.aiUsageEvent.findMany({
+    where: { userId },
+    orderBy: { createdAt: "asc" },
+  })
 
   return {
     exportedAt: new Date().toISOString(),
@@ -119,6 +166,17 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     notes,
     profileRatings,
     linkedinSuggestions,
+    activityEvents,
+    aiUsageEvents,
+    intakeRuns,
+    workflowRuns,
+    reviewTasks,
+    atsPreparations,
+    atsAnswers,
+    resumeTailoringRuns,
+    resumeSnapshots,
+    resumeValidations,
+    resumeEditEvents,
   }
 }
 

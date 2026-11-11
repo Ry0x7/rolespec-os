@@ -19,6 +19,7 @@ const mockedSaveResume = vi.mocked(saveResume)
 const makeResume = (overrides: Partial<ResumeData> = {}): ResumeData => ({
   id: "resume-autosave",
   title: "Autosave Resume",
+  version: 1,
   targetRole: null,
   targetCompany: null,
   template: "MINIMAL",
@@ -50,7 +51,7 @@ describe("useAutosave", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
-    mockedSaveResume.mockResolvedValue({ success: true, idMap: {} })
+    mockedSaveResume.mockResolvedValue({ success: true, idMap: {}, version: 2, changed: true })
     useResumeStore.getState().setResume(makeResume())
   })
 
@@ -73,9 +74,11 @@ describe("useAutosave", () => {
     expect(mockedSaveResume).toHaveBeenCalledTimes(1)
     expect(mockedSaveResume).toHaveBeenCalledWith(
       "resume-autosave",
-      useResumeStore.getState().resume!.sections
+      useResumeStore.getState().resume!.sections,
+      { baseVersion: 1 }
     )
     expect(useResumeStore.getState().isDirty).toBe(false)
+    expect(useResumeStore.getState().resume!.version).toBe(2)
     expect(useResumeStore.getState().saveStatus).toBe("saved")
     expect(useResumeStore.getState().lastSavedAt).toBeInstanceOf(Date)
   })
@@ -119,12 +122,16 @@ describe("useAutosave", () => {
     })
 
     expect(mockedSaveResume).toHaveBeenCalledTimes(1)
-    expect(mockedSaveResume).toHaveBeenCalledWith("resume-autosave", [
-      expect.objectContaining({
-        id: "section-1",
-        items: [expect.objectContaining({ content: { text: "Typed then left" } })],
-      }),
-    ])
+    expect(mockedSaveResume).toHaveBeenCalledWith(
+      "resume-autosave",
+      [
+        expect.objectContaining({
+          id: "section-1",
+          items: [expect.objectContaining({ content: { text: "Typed then left" } })],
+        }),
+      ],
+      { baseVersion: 1 }
+    )
     expect(useResumeStore.getState().isDirty).toBe(false)
     expect(useResumeStore.getState().lastSavedAt).toBeInstanceOf(Date)
   })
@@ -140,7 +147,12 @@ describe("useAutosave", () => {
   })
 
   it("does not double-fire when unmount lands mid-save", async () => {
-    let resolveSave: (value: { success: true; idMap: Record<string, string> }) => void = () => {}
+    let resolveSave: (value: {
+      success: true
+      idMap: Record<string, string>
+      version: number
+      changed: boolean
+    }) => void = () => {}
     mockedSaveResume.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -168,7 +180,7 @@ describe("useAutosave", () => {
     expect(mockedSaveResume).toHaveBeenCalledTimes(1)
 
     await act(async () => {
-      resolveSave({ success: true, idMap: {} })
+      resolveSave({ success: true, idMap: {}, version: 2, changed: true })
     })
 
     expect(mockedSaveResume).toHaveBeenCalledTimes(1)
@@ -176,7 +188,12 @@ describe("useAutosave", () => {
   })
 
   it("keeps edits typed during an in-flight save dirty and saves them next", async () => {
-    let resolveSave: (value: { success: true; idMap: Record<string, string> }) => void = () => {}
+    let resolveSave: (value: {
+      success: true
+      idMap: Record<string, string>
+      version: number
+      changed: boolean
+    }) => void = () => {}
     mockedSaveResume.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -199,7 +216,7 @@ describe("useAutosave", () => {
       useResumeStore.getState().updateSectionItem("section-1", "item-1", { text: "Second" })
     })
     await act(async () => {
-      resolveSave({ success: true, idMap: {} })
+      resolveSave({ success: true, idMap: {}, version: 2, changed: true })
     })
 
     expect(useResumeStore.getState().isDirty).toBe(true)
@@ -209,11 +226,15 @@ describe("useAutosave", () => {
     })
 
     expect(mockedSaveResume).toHaveBeenCalledTimes(2)
-    expect(mockedSaveResume).toHaveBeenLastCalledWith("resume-autosave", [
-      expect.objectContaining({
-        items: [expect.objectContaining({ content: { text: "Second" } })],
-      }),
-    ])
+    expect(mockedSaveResume).toHaveBeenLastCalledWith(
+      "resume-autosave",
+      [
+        expect.objectContaining({
+          items: [expect.objectContaining({ content: { text: "Second" } })],
+        }),
+      ],
+      { baseVersion: 2 }
+    )
     expect(useResumeStore.getState().isDirty).toBe(false)
   })
 

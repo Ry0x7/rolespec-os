@@ -134,6 +134,7 @@ export default async function ResumeEditorPage({ params, searchParams }: Props) 
   const data: ResumeData = {
     id: resume.id,
     title: resume.title,
+    version: resume.version,
     targetRole: resume.targetRole,
     targetCompany: resume.targetCompany,
     template: resume.template,

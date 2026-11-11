@@ -183,6 +183,9 @@ export async function generateResume(
       success: true,
       templateUrls: allUrls,
       sections: optimizedFull,
+      // The persisted content is one revision newer; the editor adopts this so
+      // its next save is not rejected as stale.
+      version: resume.version + 1,
       optimized: optimization.optimized,
       optimizeFallbackReason: optimization.reason,
     }

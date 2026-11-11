@@ -42,12 +42,24 @@ async function saveFromStore() {
   useResumeStore.getState().setSaveStatus("saving")
 
   try {
-    const result = await saveResume(resume.id, resume.sections)
+    // The version the editor loaded guards against a second tab (or an agent
+    // edit) landing between load and save. The server refuses a stale write
+    // instead of silently replacing the newer revision.
+    const result = await saveResume(
+      resume.id,
+      resume.sections,
+      resume.version === undefined ? undefined : { baseVersion: resume.version }
+    )
     const store = useResumeStore.getState()
     if (result?.error) {
       store.setSaveStatus("error")
       toast.error(result.error)
     } else {
+      // Adopt the server's new revision even when the user kept typing: the
+      // next save must be based on the row that just landed.
+      if (typeof result.version === "number") {
+        store.setResumeVersion(result.version)
+      }
       // Only the sections that were sent are saved. Edits typed while the
       // request was out keep the store dirty, and the effect below re-arms the
       // debounce for them once the status leaves "saving".

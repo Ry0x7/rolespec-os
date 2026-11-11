@@ -49,6 +49,8 @@ export const AI_USAGE_FEATURES = {
   INTERVIEW_QUESTIONS: "jobs.interview_questions",
   /** On-demand ghost-job / scam assessment for a tracked application. */
   JOB_RISK: "jobs.risk",
+  /** Optional model rerank of the deterministic discovery shortlist. */
+  RANKING_RERANK: "jobs.ranking_rerank",
   LINKEDIN_RATING: "linkedin.rating",
   LINKEDIN_ASSIST: "linkedin.assist",
   PORTFOLIO_RATING: "portfolio.rating",
