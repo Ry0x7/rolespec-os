@@ -71,34 +71,130 @@ function parseIpv4(host: string): number[] | null {
     : null
 }
 
-/** False for every address that is not ordinary public unicast. */
-export function isPublicIpAddress(address: string): boolean {
-  const ipv4 = parseIpv4(address)
-  if (ipv4) {
-    const [a, b, c] = ipv4
-    if (a === 0 || a === 10 || a === 127) return false
-    if (a === 100 && b >= 64 && b <= 127) return false // CGNAT / Tailscale
-    if (a === 169 && b === 254) return false // link local
-    if (a === 172 && b >= 16 && b <= 31) return false // private
-    if (a === 192 && b === 168) return false // private
-    if (a === 192 && b === 0 && (c === 0 || c === 2)) return false // IETF / TEST-NET-1
-    if (a === 198 && (b === 18 || b === 19)) return false // benchmarking
-    if (a === 198 && b === 51 && c === 100) return false // TEST-NET-2
-    if (a === 203 && b === 0 && c === 113) return false // TEST-NET-3
-    if (a >= 224) return false // multicast + reserved + broadcast
-    return true
+function isPublicIpv4Octets(octets: readonly number[]): boolean {
+  const [a, b, c] = octets
+  if (a === undefined || b === undefined || c === undefined) return false
+  if (a === 0 || a === 10 || a === 127) return false
+  if (a === 100 && b >= 64 && b <= 127) return false // CGNAT / Tailscale
+  if (a === 169 && b === 254) return false // link local (cloud metadata)
+  if (a === 172 && b >= 16 && b <= 31) return false // private
+  if (a === 192 && b === 168) return false // private
+  if (a === 192 && b === 0 && (c === 0 || c === 2)) return false // IETF / TEST-NET-1
+  if (a === 198 && (b === 18 || b === 19)) return false // benchmarking
+  if (a === 198 && b === 51 && c === 100) return false // TEST-NET-2
+  if (a === 203 && b === 0 && c === 113) return false // TEST-NET-3
+  if (a >= 224) return false // multicast + reserved + broadcast
+  return true
+}
+
+/**
+ * Expands an IPv6 literal to sixteen bytes. Handles `::` compression, a
+ * trailing dotted-quad, and a zone suffix. Returns null for anything that is
+ * not a valid literal, so the caller fails closed.
+ */
+function parseIpv6(host: string): number[] | null {
+  let value = host.toLowerCase()
+  const zone = value.indexOf("%")
+  if (zone !== -1) value = value.slice(0, zone)
+  if (!value.includes(":")) return null
+
+  const halves = value.split("::")
+  if (halves.length > 2) return null
+
+  const toGroups = (part: string): string[] | null => {
+    if (!part) return []
+    const groups = part.split(":")
+    const last = groups[groups.length - 1]
+    if (last && last.includes(".")) {
+      const v4 = parseIpv4(last)
+      if (!v4) return null
+      groups.splice(
+        groups.length - 1,
+        1,
+        ((v4[0]! << 8) | v4[1]!).toString(16),
+        ((v4[2]! << 8) | v4[3]!).toString(16)
+      )
+    }
+    return groups
   }
 
-  const normalised = address.toLowerCase()
-  if (normalised === "::" || normalised === "::1") return false
-  if (normalised.startsWith("fc") || normalised.startsWith("fd")) return false // unique local
-  if (/^fe[89ab]/.test(normalised)) return false // link local
-  if (normalised.startsWith("ff")) return false // multicast
-  if (normalised.startsWith("2001:db8")) return false // documentation
-  // IPv4-mapped/embedded forms: evaluate the embedded v4 address.
-  const embedded = normalised.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
-  if (embedded) return isPublicIpAddress(embedded[1])
-  return true
+  const head = toGroups(halves[0] ?? "")
+  const tail = halves.length === 2 ? toGroups(halves[1] ?? "") : null
+  if (!head || (halves.length === 2 && !tail)) return null
+  if (head.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null
+  if (tail?.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null
+
+  const explicit = head.length + (tail?.length ?? 0)
+  let groups: string[]
+  if (halves.length === 2) {
+    if (explicit > 7) return null
+    groups = [...head, ...Array<string>(8 - explicit).fill("0"), ...(tail ?? [])]
+  } else {
+    if (explicit !== 8) return null
+    groups = head
+  }
+
+  const bytes: number[] = []
+  for (const group of groups) {
+    const parsed = Number.parseInt(group, 16)
+    bytes.push((parsed >> 8) & 0xff, parsed & 0xff)
+  }
+  return bytes
+}
+
+/**
+ * False for every address that is not ordinary public unicast.
+ *
+ * IPv4-mapped (`::ffff:7f00:1`), IPv4-compatible, NAT64 and 6to4 forms are
+ * unwrapped before the decision. Rejecting only the dotted form would let an
+ * attacker encode 127.0.0.1 as `::ffff:7f00:1` and slip past the DNS guard.
+ */
+export function isPublicIpAddress(address: string): boolean {
+  const ipv4 = parseIpv4(address)
+  if (ipv4) return isPublicIpv4Octets(ipv4)
+
+  const bytes = parseIpv6(address)
+  if (!bytes) return false
+
+  const zeroPrefix = (length: number): boolean =>
+    bytes.slice(0, length).every((byte) => byte === 0)
+  const embeddedV4 = (offset: number): number[] => bytes.slice(offset, offset + 4)
+
+  // :: and ::1
+  if (zeroPrefix(16)) return false
+  if (zeroPrefix(15) && bytes[15] === 1) return false
+  // IPv4-mapped ::ffff:0:0/96 and IPv4-compatible ::/96.
+  if (zeroPrefix(10) && bytes[10] === 0xff && bytes[11] === 0xff) {
+    return isPublicIpv4Octets(embeddedV4(12))
+  }
+  if (zeroPrefix(12)) return isPublicIpv4Octets(embeddedV4(12))
+  // NAT64 64:ff9b::/96 embeds the destination IPv4 address.
+  if (
+    bytes[0] === 0x00 &&
+    bytes[1] === 0x64 &&
+    bytes[2] === 0xff &&
+    bytes[3] === 0x9b &&
+    bytes.slice(4, 12).every((byte) => byte === 0)
+  ) {
+    return isPublicIpv4Octets(embeddedV4(12))
+  }
+  // 6to4 2002::/16 embeds the IPv4 address in bytes 2..5.
+  if (bytes[0] === 0x20 && bytes[1] === 0x02) {
+    return isPublicIpv4Octets(bytes.slice(2, 6))
+  }
+
+  if ((bytes[0]! & 0xfe) === 0xfc) return false // unique local fc00::/7
+  if (bytes[0] === 0xfe && (bytes[1]! & 0xc0) === 0x80) return false // link local fe80::/10
+  if (bytes[0] === 0xff) return false // multicast
+  // Documentation 2001:db8::/32 and Teredo 2001:0::/32.
+  if (bytes[0] === 0x20 && bytes[1] === 0x01 && bytes[2] === 0x0d && bytes[3] === 0xb8) {
+    return false
+  }
+  if (bytes[0] === 0x20 && bytes[1] === 0x01 && bytes[2] === 0x00 && bytes[3] === 0x00) {
+    return false
+  }
+  // Only global unicast 2000::/3 is an ordinary public destination.
+  return bytes[0] !== undefined && (bytes[0] & 0xe0) === 0x20
 }
 
 interface ParsedTarget {

@@ -45,6 +45,15 @@ model User {
   apiTokens           ApiToken[]
   aiSettings          UserAiSettings?
   careerProfile       CareerProfile?
+  intakeRuns          IntakeRun[]
+  workflowRuns        WorkflowRun[]
+  reviewTasks         ReviewTask[]
+  resumeTailoringRuns ResumeTailoringRun[]
+  resumeSnapshots     ResumeSnapshot[]
+  resumeValidations   ResumeValidation[]
+  resumeEditEvents    ResumeEditEvent[]
+  atsPreparations     AtsPreparation[]
+  atsAnswers          AtsAnswer[]
 
   @@map("users")
 }
@@ -112,6 +121,17 @@ model Resume {
   sourceResume   Resume?           @relation("ResumeLineage", fields: [sourceResumeId], references: [id], onDelete: SetNull)
   derivedResumes Resume[]          @relation("ResumeLineage")
 
+  /// Durable tailoring attempts that produced this resume (when generated)
+  /// and attempts that read it as their source.
+  tailoringRuns       ResumeTailoringRun[] @relation("TailoringRunResume")
+  sourceTailoringRuns ResumeTailoringRun[] @relation("TailoringRunSource")
+  /// Immutable source payloads captured when this resume was generated.
+  snapshots           ResumeSnapshot[]
+  /// Every validation report produced for this resume, append-only.
+  validations         ResumeValidation[]
+  /// Append-only version history: manual saves, tailoring, rollback, restore.
+  editEvents          ResumeEditEvent[]
+
   // Target of the applications composite FK: the resume an application submits
   // must belong to the same user that owns the application row.
   @@unique([id, userId])
@@ -151,6 +171,122 @@ model ResumeSectionItem {
 
   @@index([sectionId, order])
   @@map("resume_section_items")
+}
+
+// ─────────────────────────────────────────────
+// RESUME TAILORING PROVENANCE
+// ─────────────────────────────────────────────
+
+/// One durable attempt to tailor a source resume for one tracked application.
+/// The run owns the requirement map, the immutable source snapshot and the
+/// validation report; the generated resume is a separate row so normal editing,
+/// export and rollback keep working without the workflow. `status` records the
+/// real outcome, not a progress percentage.
+model ResumeTailoringRun {
+  id               String                @id @default(cuid())
+  userId           String
+  /// Generated resume, once one exists. Null when validation failed before a
+  /// draft could be created.
+  resumeId         String?
+  sourceResumeId   String
+  jobApplicationId String?
+  status           ResumeTailoringStatus @default(PENDING)
+  /// MANUAL (editor action) or WORKFLOW (agent-assisted step).
+  mode             String                @default("MANUAL")
+  /// Model generations spent, including the initial one. Bounded by the caller.
+  attempts         Int                   @default(1)
+  /// The source resume's version when the snapshot was captured.
+  sourceVersion    Int
+  /// SHA-256 of the canonical snapshot payload.
+  snapshotHash     String
+  /// RequirementEvidence[] — the posting-to-candidate map used for this run.
+  requirementMap   Json?
+  /// TailoringValidationReport as produced.
+  validation       Json?
+  /// SourceSnapshotPayload, immutable.
+  snapshot         Json
+  lastError        String?               @db.Text
+  startedAt        DateTime              @default(now())
+  finishedAt       DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume         Resume?         @relation("TailoringRunResume", fields: [resumeId], references: [id], onDelete: SetNull)
+  sourceResume   Resume          @relation("TailoringRunSource", fields: [sourceResumeId], references: [id], onDelete: Cascade)
+  jobApplication JobApplication? @relation(fields: [jobApplicationId, userId], references: [id, userId], onDelete: Cascade)
+  validations    ResumeValidation[]
+
+  @@index([userId, createdAt])
+  @@index([resumeId])
+  @@index([sourceResumeId])
+  @@index([jobApplicationId])
+  @@map("resume_tailoring_runs")
+}
+
+/// Immutable source payload captured for one generated resume. Rollback restores
+/// THIS payload — never the live source resume, which the user may have edited
+/// since. Restoration marks the row but never rewrites the payload.
+model ResumeSnapshot {
+  id             String    @id @default(cuid())
+  resumeId       String
+  userId         String
+  sourceResumeId String
+  sourceVersion  Int
+  hash           String
+  payload        Json
+  capturedAt     DateTime  @default(now())
+  restoredAt     DateTime?
+  restoreCount   Int       @default(0)
+
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([resumeId, capturedAt])
+  @@index([sourceResumeId])
+  @@map("resume_snapshots")
+}
+
+/// One validation report for one resume revision. Append-only: a later run does
+/// not erase the fact that an earlier draft failed validation.
+model ResumeValidation {
+  id              String                 @id @default(cuid())
+  resumeId        String
+  userId          String
+  tailoringRunId  String?
+  status          ResumeValidationStatus
+  sourceHash      String?
+  report          Json
+  createdAt       DateTime               @default(now())
+
+  resume       Resume             @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tailoringRun ResumeTailoringRun? @relation(fields: [tailoringRunId], references: [id], onDelete: SetNull)
+
+  @@index([resumeId, createdAt])
+  @@index([userId, createdAt])
+  @@map("resume_validations")
+}
+
+/// Append-only edit history. `versionBefore/After` are the resume row's
+/// `version`, so a comparison UI can point at a real revision instead of a
+/// timestamp guess. Metadata carries counts and ids only — never resume text.
+model ResumeEditEvent {
+  id            String         @id @default(cuid())
+  resumeId      String
+  userId        String
+  kind          ResumeEditKind
+  versionBefore Int
+  versionAfter  Int
+  summary       String
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([resumeId, createdAt])
+  @@map("resume_edit_events")
 }
 
 // ─────────────────────────────────────────────
@@ -262,6 +398,10 @@ model JobApplication {
   statusEvents       ApplicationStatusEvent[]
   tailoredResumes    Resume[]            @relation("TailoredResumeSource")
   submittedResume    Resume?             @relation("SubmittedResume", fields: [resumeId, userId], references: [id, userId], onDelete: SetNull)
+  workflowRuns       WorkflowRun[]
+  reviewTasks        ReviewTask[]
+  tailoringRuns      ResumeTailoringRun[]
+  atsPreparations    AtsPreparation[]
 
   // Target of the resumes composite FK: a tailored resume's application must
   // belong to the same user that owns the resume row.
@@ -776,8 +916,454 @@ model CareerEvidenceCapability {
 }
 
 // ─────────────────────────────────────────────
+// INTAKE
+// ─────────────────────────────────────────────
+
+/// One attempt to gather career facts from one or more sources. The run owns
+/// the source attempts, the proposed patches and their conflicts; nothing here
+/// is trusted profile data until a patch is explicitly applied.
+model IntakeRun {
+  id               String          @id @default(cuid())
+  userId           String
+  status           IntakeRunStatus @default(PENDING)
+  requestedSources IntakeSource[]  @default([])
+  /// Client-supplied replay key. Unique per owner; null allows any number of
+  /// non-idempotent runs.
+  idempotencyKey   String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  error            String?         @db.Text
+  warnings         Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources   IntakeSourceRun[]
+  patches   IntakePatch[]
+  conflicts IntakeConflict[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([userId, status])
+  @@map("intake_runs")
+}
+
+/// One source's attempt inside a run. Progress is 0-100 and is updated by the
+/// adapter so the stream can show movement without inventing per-item events.
+model IntakeSourceRun {
+  id         String             @id @default(cuid())
+  runId      String
+  source     IntakeSource
+  status     IntakeSourceStatus @default(PENDING)
+  progress   Int                @default(0)
+  message    String?
+  error      String?            @db.Text
+  /// Validated adapter input needed for execution and retry: extracted document
+  /// text, transcript, URL and consent. Never raw file bytes or a provider
+  /// credential, and never returned by the run DTO.
+  input      Json?
+  metadata   Json?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  run     IntakeRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  patches IntakePatch[]
+
+  @@unique([runId, source])
+  @@index([runId, status])
+  @@map("intake_source_runs")
+}
+
+/// One candidate fact proposed by an adapter. `fingerprint` is the normalized
+/// identity used to find an existing profile row (and to preserve the claim
+/// when a date/detail differs); in-run dedupe uses a stricter exact-claim key.
+/// `payload` is validated by the canonical intake schema before insert.
+model IntakePatch {
+  id                String            @id @default(cuid())
+  runId             String
+  sourceRunId       String
+  source            IntakeSource
+  kind              IntakePatchKind
+  fingerprint       String
+  confidence        Int               @default(50)
+  payload           Json
+  provenance        Json
+  status            IntakePatchStatus @default(PENDING)
+  rejectionReason   String?           @db.Text
+  appliedTargetType String?
+  appliedTargetId   String?
+  correctedAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  run         IntakeRun          @relation(fields: [runId], references: [id], onDelete: Cascade)
+  sourceRun   IntakeSourceRun    @relation(fields: [sourceRunId], references: [id], onDelete: Cascade)
+  conflict    IntakeConflict?
+  corrections IntakeCorrection[]
+
+  @@index([runId, status])
+  @@index([runId, fingerprint])
+  @@index([appliedTargetType, appliedTargetId])
+  @@map("intake_patches")
+}
+
+/// A proposed fact collides with something already in the profile. Resolution
+/// is always an explicit user choice; nothing is overwritten silently.
+model IntakeConflict {
+  id           String                    @id @default(cuid())
+  runId        String
+  patchId      String                    @unique
+  existingType String
+  existingId   String?
+  field        String?
+  incoming     Json
+  existing     Json
+  status       IntakeConflictStatus      @default(OPEN)
+  resolution   IntakeConflictResolution?
+  resolvedAt   DateTime?
+  createdAt    DateTime                  @default(now())
+
+  run   IntakeRun   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  patch IntakePatch @relation(fields: [patchId], references: [id], onDelete: Cascade)
+
+  @@index([runId, status])
+  @@map("intake_conflicts")
+}
+
+/// Audit of a user correction before or after a patch was applied. The previous
+/// payload is kept so a correction is explainable and reversible by hand.
+model IntakeCorrection {
+  id               String   @id @default(cuid())
+  patchId          String
+  previousPayload  Json
+  correctedPayload Json
+  note             String?  @db.Text
+  createdAt        DateTime @default(now())
+
+  patch IntakePatch @relation(fields: [patchId], references: [id], onDelete: Cascade)
+
+  @@index([patchId, createdAt])
+  @@map("intake_corrections")
+}
+
+// ─────────────────────────────────────────────
+// WORKFLOWS
+// ─────────────────────────────────────────────
+
+/// One durable attempt to advance an application through the assisted pipeline.
+/// The run owns its steps, events and review tasks; it never owns the
+/// application's status, which stays a human record in `JobApplication`.
+model WorkflowRun {
+  id               String        @id @default(cuid())
+  userId           String
+  /// Null only for a run that is not attached to a tracked application.
+  jobApplicationId String?
+  kind             WorkflowKind  @default(APPLICATION)
+  mode             WorkflowMode  @default(AGENT_ASSISTED)
+  state            WorkflowState @default(MANUAL)
+  /// Immutable input snapshot: job title, company, target role, resume id.
+  input            Json?
+  /// Client replay key, unique per owner. Null allows repeated attempts.
+  idempotencyKey   String?
+  /// Lease holder and deadline. A run in ASSISTED without a live lease is
+  /// recoverable by the next worker tick.
+  leaseOwner       String?
+  leaseExpiresAt   DateTime?
+  /// Optimistic version, bumped by every state transition.
+  stateVersion     Int           @default(0)
+  lastError        String?       @db.Text
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobApplication JobApplication? @relation(fields: [jobApplicationId, userId], references: [id, userId], onDelete: Cascade)
+  steps          WorkflowStep[]
+  events         WorkflowEvent[]
+  reviewTasks    ReviewTask[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([state, leaseExpiresAt])
+  @@map("workflow_runs")
+}
+
+/// One named unit inside a run. Exactly one row per `(runId, name)`; retries
+/// increment `attempts` on that same row, so two workers cannot create parallel
+/// copies of the same work.
+model WorkflowStep {
+  id             String             @id @default(cuid())
+  runId          String
+  name           String
+  /// Position in the pipeline definition, fixed at creation.
+  order          Int
+  status         WorkflowStepStatus @default(PENDING)
+  /// A required step must complete before the run can complete; a non-required
+  /// failure is recorded and the rest of the pipeline continues.
+  required       Boolean            @default(true)
+  dependsOn      String[]           @default([])
+  attempts       Int                @default(0)
+  maxAttempts    Int                @default(3)
+  timeoutMs      Int                @default(60000)
+  /// `(runId, name)` in practice; unique so a replay returns the stored output.
+  idempotencyKey String
+  input          Json?
+  output         Json?
+  lastError      String?            @db.Text
+  nextAttemptAt  DateTime?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  run     WorkflowRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  events  WorkflowEvent[]
+
+  @@unique([runId, name])
+  @@index([runId, status])
+  @@index([status, nextAttemptAt])
+  @@map("workflow_steps")
+}
+
+/// Append-only history. Metadata is deliberately small: ids, counts, statuses
+/// and redacted messages — never raw profile text, answers or API keys.
+model WorkflowEvent {
+  id        String            @id @default(cuid())
+  runId     String
+  stepId    String?
+  type      WorkflowEventType
+  message   String
+  metadata  Json?
+  createdAt DateTime          @default(now())
+
+  run  WorkflowRun   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  step WorkflowStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+
+  @@index([runId, createdAt])
+  @@map("workflow_events")
+}
+
+/// A question the system must not answer itself. Open tasks are what keep a run
+/// in AWAITING_REVIEW; resolving the last one resumes the run. An extension-created
+/// ATS question carries `atsPreparationId`, which is how resolving it also records
+/// the reusable answer and its scope.
+model ReviewTask {
+  id               String           @id @default(cuid())
+  userId           String
+  runId            String?
+  stepId           String?
+  jobApplicationId String?
+  atsPreparationId String?
+  kind             ReviewTaskKind
+  status           ReviewTaskStatus @default(OPEN)
+  /// The exact question, not a generic failure sentence.
+  question         String           @db.Text
+  reason           String           @db.Text
+  category         String?
+  /// The supported manual path when the user cannot answer here.
+  fallback         String?          @db.Text
+  suggestedValue   Json?
+  answer           Json?
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  run            WorkflowRun?    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  jobApplication JobApplication? @relation(fields: [jobApplicationId, userId], references: [id, userId], onDelete: Cascade)
+  atsPreparation AtsPreparation? @relation(fields: [atsPreparationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([runId, status])
+  @@index([atsPreparationId, status])
+  @@map("review_tasks")
+}
+
+// ─────────────────────────────────────────────
+// ATS PREPARATION
+// ─────────────────────────────────────────────
+
+/// One user-triggered ATS form preparation. The browser extension creates it after
+/// detecting the page, reports field-level results, and — only when the user
+/// explicitly says so — records the application as submitted. The row never
+/// represents a submission the extension made.
+model AtsPreparation {
+  id               String               @id @default(cuid())
+  userId           String
+  jobApplicationId String?
+  workflowRunId    String?
+  /// Detected vendor key (`greenhouse`, `lever`, …) or `generic`.
+  vendor           String
+  sourceUrl        String               @db.Text
+  canonicalUrl     String               @db.Text
+  /// sha256(vendor + canonicalUrl); makes re-preparing the same form idempotent.
+  preparationKey   String
+  pageTitle        String?
+  jobTitle         String?
+  companyName      String?
+  status           AtsPreparationStatus @default(DRAFT)
+  /// Chosen resume. Validated as owned by the same user; no FK so an archived
+  /// resume never blocks the historical preparation record.
+  resumeId         String?
+  resumeTitle      String?
+  /// Detected fields and the server's per-field decision. No page HTML and no
+  /// file contents; values are limited to facts the fill plan may write.
+  plan             Json?
+  /// Per-field outcomes reported by the extension after filling.
+  results          Json?
+  reviewTaskIds    String[]             @default([])
+  fieldsDetected   Int                  @default(0)
+  fieldsFilled     Int                  @default(0)
+  fieldsBlocked    Int                  @default(0)
+  approvedAt       DateTime?
+  filledAt         DateTime?
+  submittedAt      DateTime?
+  submissionNote   String?              @db.Text
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobApplication JobApplication? @relation(fields: [jobApplicationId, userId], references: [id, userId], onDelete: Cascade)
+  answers        AtsAnswer[]
+  reviewTasks    ReviewTask[]
+
+  @@unique([userId, preparationKey])
+  @@index([userId, updatedAt])
+  @@index([jobApplicationId, userId])
+  @@map("ats_preparations")
+}
+
+/// An answer the user approved for a repeated ATS question. APPLICATION scope is
+/// reusable only while preparing that application; GLOBAL scope is reusable on any
+/// future form. Revoked rows stay for provenance but are never reused.
+model AtsAnswer {
+  id            String          @id @default(cuid())
+  userId        String
+  preparationId String?
+  questionKey   String
+  questionText  String          @db.Text
+  category      String
+  sensitivity   String
+  value         Json
+  scope         AtsAnswerScope  @default(APPLICATION)
+  source        AtsAnswerSource @default(USER_APPROVED)
+  /// `${scope}:${preparationId ?? "global"}:${questionKey}`; one live row per key.
+  dedupeKey     String
+  approvedAt    DateTime        @default(now())
+  revokedAt     DateTime?
+  lastUsedAt    DateTime?
+  useCount      Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preparation AtsPreparation? @relation(fields: [preparationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, questionKey])
+  @@index([preparationId, revokedAt])
+  @@map("ats_answers")
+}
+
+// ─────────────────────────────────────────────
 // ENUMS
 // ─────────────────────────────────────────────
+
+enum WorkflowKind {
+  APPLICATION
+  DISCOVERY
+  RESEARCH
+  TAILOR
+  AUTOFILL
+  FOLLOW_UP
+}
+
+enum WorkflowMode {
+  MANUAL
+  AGENT_ASSISTED
+}
+
+enum WorkflowState {
+  MANUAL
+  ASSISTED
+  AWAITING_REVIEW
+  PAUSED
+  FAILED
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkflowStepStatus {
+  PENDING
+  RUNNING
+  WAITING_FOR_USER
+  COMPLETED
+  FAILED
+  CANCELLED
+  SKIPPED
+}
+
+enum WorkflowEventType {
+  RUN_CREATED
+  RUN_STARTED
+  STEP_STARTED
+  STEP_COMPLETED
+  STEP_FAILED
+  STEP_SKIPPED
+  STEP_WAITING_FOR_USER
+  REVIEW_REQUESTED
+  REVIEW_RESOLVED
+  RUN_PAUSED
+  RUN_RESUMED
+  RUN_CANCELLED
+  RUN_COMPLETED
+  LEASE_RECLAIMED
+  RETRY_SCHEDULED
+}
+
+enum ReviewTaskStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+  EXPIRED
+}
+
+enum ReviewTaskKind {
+  SENSITIVE_ANSWER
+  UNKNOWN_FIELD
+  MISSING_PROFILE_FACT
+  RESTRICTED_ACCESS
+  AMBIGUOUS_TAILORING
+  SUBMISSION_CONFIRMATION
+  ESSAY_ANSWER
+  RESUME_ATTACHMENT
+  CONFLICTING_ANSWER
+  UNSUPPORTED_FIELD
+}
+
+enum AtsPreparationStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  READY_TO_SUBMIT
+  SUBMITTED
+  NOT_SUBMITTED
+  ABANDONED
+}
+
+enum AtsAnswerScope {
+  APPLICATION
+  GLOBAL
+}
+
+enum AtsAnswerSource {
+  USER_APPROVED
+  PROFILE_ACCEPTED
+  CARRIED_FORWARD
+}
 
 enum UserRole {
   USER
@@ -805,6 +1391,28 @@ enum ResumeStatus {
   DRAFT
   ACTIVE
   ARCHIVED
+}
+
+enum ResumeTailoringStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  NEEDS_REVIEW
+  FAILED
+  CANCELLED
+}
+
+enum ResumeValidationStatus {
+  PASS
+  NEEDS_REVIEW
+  FAIL
+}
+
+enum ResumeEditKind {
+  TAILORING_APPLIED
+  MANUAL_EDIT
+  ROLLBACK
+  RESTORE
 }
 
 enum ResumeVariant {
@@ -914,6 +1522,9 @@ enum CareerEvidenceSource {
   LINKEDIN_IMPORT_CANDIDATE
   GITHUB_IMPORT_CANDIDATE
   PORTFOLIO_IMPORT_CANDIDATE
+  /// Chat or voice intake, where the transcript is the document that made the
+  /// claim. Still a candidate until the user confirms it.
+  INTAKE_IMPORT_CANDIDATE
 }
 
 enum CareerEvidenceStatus {
@@ -938,4 +1549,58 @@ enum CareerCapabilitySelfRating {
 enum ATSAnalysisMode {
   QUALITY
   JOB_MATCH
+}
+
+enum IntakeSource {
+  RESUME
+  GITHUB
+  LINKEDIN
+  WEB
+  CHAT
+  VOICE
+}
+
+enum IntakeRunStatus {
+  PENDING
+  RUNNING
+  PARTIAL
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum IntakeSourceStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELLED
+  SKIPPED
+}
+
+enum IntakePatchKind {
+  CONTACT
+  EVIDENCE
+  SKILL
+  TARGET_ROLE
+}
+
+enum IntakePatchStatus {
+  PENDING
+  APPLIED
+  CONFLICT
+  REJECTED
+}
+
+enum IntakeConflictStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum IntakeConflictResolution {
+  KEEP_EXISTING
+  ACCEPT_INCOMING
+  KEEP_BOTH
 }

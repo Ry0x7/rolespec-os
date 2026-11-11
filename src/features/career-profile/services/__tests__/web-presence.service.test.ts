@@ -38,11 +38,25 @@ describe("isPublicIpAddress", () => {
     "ff02::1",
     "2001:db8::1",
     "::ffff:127.0.0.1",
+    "::ffff:7f00:1",
+    "::ffff:a9fe:a9fe",
+    "::127.0.0.1",
+    "64:ff9b::7f00:1",
+    "2002:7f00:1::",
+    "2001:0:4136:e378::1",
+    "fd12:3456::1%eth0",
   ])("rejects %s", (address) => {
     expect(isPublicIpAddress(address)).toBe(false)
   })
 
-  it.each(["8.8.8.8", "1.1.1.1", "93.184.216.34", "2606:4700:4700::1111"])(
+  it.each([
+    "8.8.8.8",
+    "1.1.1.1",
+    "93.184.216.34",
+    "2606:4700:4700::1111",
+    "2001:4860:4860::8888",
+    "::ffff:8.8.8.8",
+  ])(
     "accepts public address %s",
     (address) => {
       expect(isPublicIpAddress(address)).toBe(true)
@@ -79,6 +93,7 @@ describe("fetchPublicUrl guards", () => {
     "http://localhost:3000",
     "http://127.0.0.1",
     "http://[::1]/",
+    "http://[::ffff:7f00:1]/",
     "http://169.254.169.254/latest/meta-data",
     "http://10.0.0.1",
     "http://192.168.0.10",

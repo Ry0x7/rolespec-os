@@ -10,6 +10,7 @@ import { EvidenceCard } from "@/features/career-profile/components/evidence-card
 import { ImportLinkedinCard } from "@/features/career-profile/components/import-linkedin-card"
 import { ImportResumeCard } from "@/features/career-profile/components/import-resume-card"
 import { ImportWebSourcesCard } from "@/features/career-profile/components/import-web-sources-card"
+import { IntakePanel } from "@/features/intake/components/intake-panel"
 import { PreferencesForm } from "@/features/career-profile/components/preferences-form"
 import { ProfileDataTransfer } from "@/features/career-profile/components/profile-data-transfer"
 import { ProfileQuickActions } from "@/features/career-profile/components/profile-quick-actions"
@@ -22,6 +23,7 @@ import {
 } from "@/features/career-profile/lib/section-completeness"
 import { loadCareerProfile } from "@/features/career-profile/services/career-profile.service"
 import { listImportableResumes } from "@/features/career-profile/services/import-resume.service"
+import { listIntakeRuns } from "@/features/intake/services/intake-run.service"
 
 /** Only an http(s) address recorded by an importer is offered as a source link. */
 function evidenceSourceUrl(metadata: unknown): string | null {
@@ -41,9 +43,10 @@ export default async function CareerProfilePage({
 
   // Everything below is read through the session user's own profile id — there
   // is no route parameter to tamper with.
-  const [profile, importableResumes] = await Promise.all([
+  const [profile, importableResumes, intakeRuns] = await Promise.all([
     loadCareerProfile(session.user.id),
     listImportableResumes(session.user.id),
+    listIntakeRuns(session.user.id, 5),
   ])
   const { setup } = await searchParams
 
@@ -68,6 +71,16 @@ export default async function CareerProfilePage({
     capabilityCount: profile.capabilities.length,
   })
   const sectionSummary = summarizeSectionCompleteness(sectionItems)
+  // The chat tab uses these to ask for the next useful fact instead of
+  // repeating something the profile already records.
+  const intakeMissingFields = [
+    !profile.contactFullName ? "contactFullName" : null,
+    !profile.contactEmail ? "contactEmail" : null,
+    !profile.contactLocation ? "contactLocation" : null,
+    profile.targetRoles.filter((role) => role.active).length === 0 ? "targetRole" : null,
+    !profile.evidence.some((item) => item.kind === "EXPERIENCE") ? "experience" : null,
+    profile.capabilities.length === 0 ? "skills" : null,
+  ].filter((field): field is string => field !== null)
 
   if (pinned || (needsSetup && !declined)) {
     return (
@@ -192,6 +205,24 @@ export default async function CareerProfilePage({
               ? familyNameById.get(role.roleFamilyId) ?? null
               : null,
           }))}
+        />
+      </div>
+
+      {/*
+        One review surface for every intake source. It sits above the older
+        per-source cards, which remain as manual alternatives; applied facts
+        still land in the Evidence/Capabilities cards below.
+      */}
+      <div id="intake" className="scroll-mt-28">
+        <IntakePanel
+          initialRuns={intakeRuns}
+          resumes={importableResumes.map((resume) => ({
+            id: resume.id,
+            title: resume.title,
+          }))}
+          githubUrl={profile.githubUrl}
+          websiteUrl={profile.websiteUrl}
+          missingFields={intakeMissingFields}
         />
       </div>
 
