@@ -54,6 +54,7 @@ model User {
   resumeEditEvents    ResumeEditEvent[]
   atsPreparations     AtsPreparation[]
   atsAnswers          AtsAnswer[]
+  submissionAttempts  SubmissionAttempt[]
 
   @@map("users")
 }
@@ -402,6 +403,7 @@ model JobApplication {
   reviewTasks        ReviewTask[]
   tailoringRuns      ResumeTailoringRun[]
   atsPreparations    AtsPreparation[]
+  submissionAttempts SubmissionAttempt[]
 
   // Target of the resumes composite FK: a tailored resume's application must
   // belong to the same user that owns the resume row.
@@ -1081,9 +1083,10 @@ model WorkflowRun {
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobApplication JobApplication? @relation(fields: [jobApplicationId, userId], references: [id, userId], onDelete: Cascade)
-  steps          WorkflowStep[]
-  events         WorkflowEvent[]
-  reviewTasks    ReviewTask[]
+  steps             WorkflowStep[]
+  events            WorkflowEvent[]
+  reviewTasks       ReviewTask[]
+  submissionAttempt SubmissionAttempt?
 
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
@@ -1231,8 +1234,9 @@ model AtsPreparation {
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobApplication JobApplication? @relation(fields: [jobApplicationId, userId], references: [id, userId], onDelete: Cascade)
-  answers        AtsAnswer[]
-  reviewTasks    ReviewTask[]
+  answers           AtsAnswer[]
+  reviewTasks       ReviewTask[]
+  submissionAttempt SubmissionAttempt?
 
   @@unique([userId, preparationKey])
   @@index([userId, updatedAt])
@@ -1272,9 +1276,56 @@ model AtsAnswer {
   @@map("ats_answers")
 }
 
+/// One durable staging record for an application the user may submit. It is
+/// created by the workflow's SUBMISSION_STAGING step or by the ATS preparation
+/// lifecycle, and never implies that a submission happened. `SUBMITTED` is only
+/// set from an explicit user confirmation and is one-way.
+model SubmissionAttempt {
+  id               String                    @id @default(cuid())
+  userId           String
+  jobApplicationId String?
+  workflowRunId    String?                   @unique
+  atsPreparationId String?                   @unique
+  resumeId         String?
+  source           SubmissionSource          @default(WORKFLOW)
+  status           SubmissionAttemptStatus   @default(STAGED)
+  jobTitle         String?
+  companyName      String?
+  sourceUrl        String?                   @db.Text
+  /// Compact evidence references (ranks, validation states, answer ids).
+  /// Never raw resume text or answer values.
+  evidence         Json?
+  confirmedAt      DateTime?
+  confirmationNote String?                   @db.Text
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobApplication JobApplication? @relation(fields: [jobApplicationId, userId], references: [id, userId], onDelete: Cascade)
+  workflowRun    WorkflowRun?    @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+  atsPreparation AtsPreparation? @relation(fields: [atsPreparationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([jobApplicationId, createdAt])
+  @@map("submission_attempts")
+}
+
 // ─────────────────────────────────────────────
 // ENUMS
 // ─────────────────────────────────────────────
+
+enum SubmissionSource {
+  WORKFLOW
+  EXTENSION
+  MANUAL
+}
+
+enum SubmissionAttemptStatus {
+  STAGED
+  SUBMITTED
+  NOT_SUBMITTED
+  ABANDONED
+}
 
 enum WorkflowKind {
   APPLICATION

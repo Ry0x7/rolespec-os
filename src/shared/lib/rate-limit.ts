@@ -53,6 +53,8 @@ export const RATE_LIMIT_BUCKETS = {
   WORKFLOW_ADVANCE: "workflow:advance",
   /** Web review queue reads and answers, keyed on the owner id. */
   WEB_REVIEW_TASKS: "review:web",
+  /** Creating or confirming a durable submission staging record. */
+  SUBMISSION_WRITE: "submission:write",
   /** Resume↔job match scoring, keyed on the user id. */
   AI_JOB_MATCH: "ai:job-match",
   /** On-demand model second opinion on a posting's risk, keyed on the user id. */

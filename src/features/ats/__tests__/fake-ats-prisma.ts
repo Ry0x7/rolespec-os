@@ -9,6 +9,7 @@ export const store = {
   applications: [] as Row[],
   resumes: [] as Row[],
   statusEvents: [] as Row[],
+  submissionAttempts: [] as Row[],
 }
 
 let nextId = 1
@@ -19,6 +20,7 @@ export function resetAtsStore(): void {
   store.applications.length = 0
   store.resumes.length = 0
   store.statusEvents.length = 0
+  store.submissionAttempts.length = 0
   nextId = 1
 }
 
@@ -249,6 +251,30 @@ export const prisma: FakeClient = {
   playerProfile: { findUnique: async () => null },
   workflowRun: { findFirst: async () => null },
   workflowEvent: { create: async () => ({}) },
+  submissionAttempt: {
+    findFirst: async ({ where }: { where: Row }) =>
+      store.submissionAttempts.find((row) => matches(row, where)) ?? null,
+    create: async ({ data }: { data: Row }) => {
+      const row: Row = {
+        id: id("attempt"),
+        status: "STAGED",
+        source: "EXTENSION",
+        confirmedAt: null,
+        confirmationNote: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...data,
+      }
+      store.submissionAttempts.push(row)
+      return row
+    },
+    update: async ({ where, data }: { where: Row; data: Row }) => {
+      const row = store.submissionAttempts.find((entry) => matches(entry, where))
+      if (!row) throw new Error("Submission attempt not found")
+      Object.assign(row, data, { updatedAt: new Date() })
+      return row
+    },
+  },
   applicationStatusEvent: {
     create: async ({ data }: { data: Row }) => {
       store.statusEvents.push(data)

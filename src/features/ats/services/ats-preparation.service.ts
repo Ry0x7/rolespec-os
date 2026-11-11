@@ -2,6 +2,10 @@ import { createHash } from "node:crypto"
 
 import { prisma } from "@/shared/lib/prisma"
 import { decryptAnswerValue, encryptAnswerValue } from "@/shared/lib/answer-crypto"
+import {
+  applyAttemptConfirmation,
+  ensureStagedAttempt,
+} from "@/features/submissions/services/submission.service"
 import { logger, redactText } from "@/shared/lib/logger"
 import { canonicalizeUrl } from "@/features/discovery/services/normalize.service"
 import type {
@@ -954,6 +958,14 @@ export async function confirmAtsSubmission(
       jobApplicationId: true,
       workflowRunId: true,
       status: true,
+      vendor: true,
+      sourceUrl: true,
+      jobTitle: true,
+      companyName: true,
+      resumeId: true,
+      fieldsDetected: true,
+      fieldsFilled: true,
+      fieldsBlocked: true,
     },
   })
   if (!prep) throw new AtsError("ATS preparation not found.", "NOT_FOUND")
@@ -988,42 +1000,28 @@ export async function confirmAtsSubmission(
   let applicationStatus: string | null = null
 
   const preparation = await prisma.$transaction(async (tx) => {
-    if (input.submitted && prep.jobApplicationId) {
-      const application = await tx.jobApplication.findFirst({
-        where: { id: prep.jobApplicationId, userId },
-        select: { id: true, status: true, dateApplied: true },
-      })
-      if (application) {
-        applicationStatus = "APPLIED"
-        const previousStatus = application.status
-        if (previousStatus !== "APPLIED") {
-          await tx.jobApplication.update({
-            where: { id: application.id },
-            data: {
-              status: "APPLIED",
-              dateApplied:
-                application.dateApplied ??
-                new Date(
-                  Date.UTC(
-                    new Date().getUTCFullYear(),
-                    new Date().getUTCMonth(),
-                    new Date().getUTCDate()
-                  )
-                ),
-            },
-          })
-          await tx.applicationStatusEvent.create({
-            data: {
-              jobApplicationId: application.id,
-              fromStatus: previousStatus,
-              toStatus: "APPLIED",
-              note: note ?? "Submission confirmed by the user in the browser extension.",
-              source: "EXTENSION",
-            },
-          })
-        }
-      }
-    }
+    const attempt = await ensureStagedAttempt(tx, {
+      userId,
+      jobApplicationId: prep.jobApplicationId,
+      workflowRunId: prep.workflowRunId,
+      atsPreparationId: prep.id,
+      resumeId: prep.resumeId,
+      source: "EXTENSION",
+      jobTitle: prep.jobTitle,
+      companyName: prep.companyName,
+      sourceUrl: prep.sourceUrl,
+      evidence: {
+        vendor: prep.vendor,
+        fieldsDetected: prep.fieldsDetected,
+        fieldsFilled: prep.fieldsFilled,
+        fieldsBlocked: prep.fieldsBlocked,
+      },
+    })
+    const confirmation = await applyAttemptConfirmation(tx, userId, attempt, {
+      submitted: input.submitted,
+      note,
+    })
+    applicationStatus = confirmation.applicationStatus
 
     if (prep.workflowRunId) {
       await tx.workflowEvent

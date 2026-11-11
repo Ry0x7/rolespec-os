@@ -69,6 +69,12 @@ export const EXTENSION_ATS_REVIEW_RATE_LIMIT: RateLimitOptions = {
   windowMs: 10 * 60 * 1000,
 }
 
+/** Staging and confirming an application submission, keyed on the owner id. */
+export const SUBMISSION_WRITE_RATE_LIMIT: RateLimitOptions = {
+  max: 60,
+  windowMs: 10 * 60 * 1000,
+}
+
 /** Rendering a resume PDF for user-triggered attachment. CPU-bound. */
 export const EXTENSION_RESUME_PDF_RATE_LIMIT: RateLimitOptions = {
   max: 12,
