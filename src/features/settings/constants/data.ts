@@ -109,6 +109,15 @@ export const EXTENSION_QUALIFY_RATE_LIMIT: RateLimitOptions = { max: 60, windowM
 export const EXTENSION_COLD_EMAIL_RATE_LIMIT: RateLimitOptions = { max: 10, windowMs: 10 * 60 * 1000 }
 
 /**
+ * `POST /api/extension/essay-draft` blocks on one AI call per question, so it
+ * shares the outreach ceiling rather than the looser preparation limit.
+ */
+export const EXTENSION_ESSAY_DRAFT_RATE_LIMIT: RateLimitOptions = {
+  max: 10,
+  windowMs: 10 * 60 * 1000,
+}
+
+/**
  * `POST /api/extension/email-reply` has the same cost-and-AI profile as the
  * outreach route, so it gets the same ceiling on its own bucket.
  */
