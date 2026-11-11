@@ -2,7 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => {
-  const client: Record<string, Record<string, ReturnType<typeof vi.fn>>> = {
+  const client = {
+    $queryRaw: vi.fn(),
     intakePatch: { findFirst: vi.fn(), update: vi.fn() },
     intakeConflict: { upsert: vi.fn(), updateMany: vi.fn() },
     intakeCorrection: { create: vi.fn() },
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => {
     careerCapability: client.careerCapability,
     careerTargetRole: client.careerTargetRole,
     getOrCreateCareerProfileId: vi.fn(),
+    $queryRaw: client.$queryRaw,
     transaction: vi.fn((arg: unknown) =>
       Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(client)
     ),
@@ -92,6 +94,7 @@ const CONFLICT = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.$queryRaw.mockResolvedValue([{ id: "locked" }])
   mocks.getOrCreateCareerProfileId.mockResolvedValue("profile-1")
   mocks.intakePatch.findFirst.mockResolvedValue(patch())
   mocks.intakePatch.update.mockResolvedValue({})
@@ -196,6 +199,24 @@ describe("contact patches", () => {
         where: { patchId: "patch-1", status: "OPEN" },
         data: expect.objectContaining({ resolution: "ACCEPT_INCOMING" }),
       })
+    )
+  })
+
+  it("leaves the patch unapplied when the profile write fails, then retries cleanly", async () => {
+    mocks.careerProfile.update.mockRejectedValueOnce(new Error("database unavailable"))
+
+    await expect(applyIntakePatch("user-1", "patch-1")).rejects.toThrow(
+      "database unavailable"
+    )
+    // The target write and the status write share one transaction: a failed
+    // profile update must never leave a patch marked APPLIED.
+    expect(mocks.intakePatch.update).not.toHaveBeenCalled()
+
+    mocks.careerProfile.update.mockResolvedValue({})
+    const retried = await applyIntakePatch("user-1", "patch-1")
+    expect(retried.status).toBe("APPLIED")
+    expect(mocks.intakePatch.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "APPLIED" }) })
     )
   })
 })
