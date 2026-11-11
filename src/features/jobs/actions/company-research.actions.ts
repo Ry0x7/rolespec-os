@@ -4,16 +4,20 @@ import { revalidatePath } from "next/cache"
 import { auth } from "@/features/auth/config"
 import { logger } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
+import type { CompanyResearchResult } from "../services/company-research.service"
 import {
-  analyzeCompanyResearchAI,
-  type CompanyResearchResult,
-} from "../services/company-research.service"
+  researchJob,
+  type ThreeLayerResearch,
+} from "../services/three-layer-research.service"
 
 const log = logger("company-research-actions")
 
 export async function runCompanyResearch(
   jobApplicationId: string
-): Promise<{ success: true; research: CompanyResearchResult } | { success: false; error: string }> {
+): Promise<
+  | { success: true; research: CompanyResearchResult; layers: ThreeLayerResearch }
+  | { success: false; error: string }
+> {
   const session = await auth()
   if (!session?.user?.id) {
     return { success: false, error: "Authentication required" }
@@ -29,7 +33,10 @@ export async function runCompanyResearch(
   }
 
   try {
-    const research = await analyzeCompanyResearchAI({
+    // Three layers, one call: posting requirements, verified company facts and
+    // a source-linked culture read. The company result keeps the shape the job
+    // page already renders; the layer payload is stored beside it.
+    const layers = await researchJob({
       userId: session.user.id,
       companyName: application.job.companyName,
       jobTitle: application.job.title,
@@ -37,6 +44,7 @@ export async function runCompanyResearch(
       location: application.job.location,
       description: application.job.description,
     })
+    const research = layers.company
 
     const existingMatchResult =
       typeof application.matchResult === "object" && application.matchResult !== null && !Array.isArray(application.matchResult)
@@ -50,13 +58,14 @@ export async function runCompanyResearch(
           JSON.stringify({
             ...existingMatchResult,
             companyResearch: research,
+            researchLayers: layers,
           })
         ),
       },
     })
 
     revalidatePath(`/jobs/${jobApplicationId}`)
-    return { success: true, research }
+    return { success: true, research, layers }
   } catch (err) {
     // Provider and database errors can carry endpoint, key or query detail. The
     // action logs them for the operator and gives the user an actionable line.
