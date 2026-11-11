@@ -18,8 +18,8 @@ vi.mock("@/shared/lib/prisma", () => ({
   },
 }))
 vi.mock("next/cache", () => ({ revalidatePath: mockRevalidate }))
-vi.mock("@/features/jobs/services/company-research.service", () => ({
-  analyzeCompanyResearchAI: mockAnalyze,
+vi.mock("@/features/jobs/services/three-layer-research.service", () => ({
+  researchJob: mockAnalyze,
 }))
 
 import { runCompanyResearch } from "../company-research.actions"
@@ -40,6 +40,15 @@ const RESEARCH = {
   researchedAt: "2026-11-09T00:00:00.000Z",
 }
 
+const LAYERS = {
+  requirements: { required: [], preferred: [], flags: [], uncertainty: [] },
+  company: RESEARCH,
+  culture: { signals: [], confidence: "LOW" as const, explanation: "No sources.", conflicts: [] },
+  sourceSummary: { totalSources: 0, independentSources: 0, hosts: [] },
+  researchedAt: "2026-11-09T00:00:00.000Z",
+  cached: false,
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockAuth.mockResolvedValue({ user: { id: "u1" } })
@@ -54,7 +63,7 @@ beforeEach(() => {
       description: "Build things.",
     },
   })
-  mockAnalyze.mockResolvedValue(RESEARCH)
+  mockAnalyze.mockResolvedValue(LAYERS)
   mockUpdate.mockResolvedValue({})
 })
 
@@ -83,7 +92,7 @@ describe("runCompanyResearch", () => {
   it("merges research into matchResult without dropping the existing analysis", async () => {
     const result = await runCompanyResearch("app1")
 
-    expect(result).toEqual({ success: true, research: RESEARCH })
+    expect(result).toEqual({ success: true, research: RESEARCH, layers: LAYERS })
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "app1", userId: "u1" },
@@ -91,6 +100,7 @@ describe("runCompanyResearch", () => {
           matchResult: expect.objectContaining({
             summary: "keep me",
             companyResearch: RESEARCH,
+            researchLayers: LAYERS,
           }),
         },
       })
@@ -98,7 +108,7 @@ describe("runCompanyResearch", () => {
     expect(mockRevalidate).toHaveBeenCalledWith("/jobs/app1")
   })
 
-  it("does not leak provider detail when generation throws", async () => {
+  it("does not leak provider detail when research throws", async () => {
     mockAnalyze.mockRejectedValue(new Error("provider exploded at https://internal.example"))
     await expect(runCompanyResearch("app1")).resolves.toEqual({
       success: false,

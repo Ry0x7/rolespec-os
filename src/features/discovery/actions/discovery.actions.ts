@@ -85,13 +85,14 @@ import {
   type StoredQualification,
 } from "../services/qualification-snapshot.service"
 import {
-  countKeywordMentions,
   qualifyCandidate,
   toQualificationProfile,
   type Qualification,
   type QualificationPosting,
   type QualificationVerdict,
 } from "../services/qualify.service"
+import { rankJobPool } from "@/features/ranking/services/ranking.service"
+import type { RankedEntry, RankingProfile } from "@/features/ranking/types"
 import type { DiscoveryRunContext, NormalizedPosting, RawPosting } from "../types"
 
 /**
@@ -140,6 +141,12 @@ export interface DiscoveryCandidate extends Omit<NormalizedPosting, "postedAt"> 
    * purpose: fit is about the user, confidence is about the posting.
    */
   confidence: OpportunityConfidence
+  /**
+   * BM25 plus seven-factor ranking for this candidate. Deterministic and
+   * explainable; it never changes the qualification verdict and never removes
+   * a row from the list.
+   */
+  ranking?: RankedEntry
 }
 
 /** Sort order for the candidate list: the ones worth reading first come first. */
@@ -238,6 +245,52 @@ function summarizeSources(
 }
 
 /**
+ * The ranking slice of a loaded profile. Confirmed evidence and confirmed
+ * capabilities are the only profile text treated as query evidence; candidate
+ * rows never are.
+ */
+function toRankingProfile(profile: {
+  targetRoles?: Array<{ title: string; active: boolean }>
+  locations?: string[]
+  openToRelocation?: boolean
+  workModes?: RankingProfile["workModes"]
+  requiresSponsorship?: boolean | null
+  experienceLevel?: RankingProfile["experienceLevel"]
+  salaryMin?: number | null
+  salaryMax?: number | null
+  salaryPeriod?: RankingProfile["salaryPeriod"]
+  salaryCurrency?: RankingProfile["salaryCurrency"]
+  capabilities?: Array<{ name: string; confirmed: boolean }>
+  evidence?: Array<{ title: string; details: string | null; status: string }>
+}): RankingProfile {
+  // A narrow profile read must not crash a discovery run: every missing slice
+  // simply contributes no evidence, which reads as UNKNOWN rather than a fit.
+  return {
+    targetRoleTitles: (profile.targetRoles ?? [])
+      .filter((role) => role.active)
+      .map((role) => role.title),
+    locations: profile.locations ?? [],
+    openToRelocation: profile.openToRelocation ?? false,
+    workModes: profile.workModes ?? [],
+    requiresSponsorship: profile.requiresSponsorship ?? null,
+    experienceLevel: profile.experienceLevel ?? null,
+    salaryMin: profile.salaryMin ?? null,
+    salaryMax: profile.salaryMax ?? null,
+    salaryPeriod: profile.salaryPeriod ?? null,
+    salaryCurrency: profile.salaryCurrency ?? null,
+    capabilities: (profile.capabilities ?? []).map((capability) => ({
+      name: capability.name,
+      confirmed: capability.confirmed,
+    })),
+    evidence: (profile.evidence ?? []).map((entry) => ({
+      title: entry.title,
+      details: entry.details,
+      confirmed: entry.status === "CONFIRMED",
+    })),
+  }
+}
+
+/**
  * Runs every source adapter across every derived query and returns candidates.
  *
  * Nothing is written. `alreadySaved` is a read against the caller's own jobs,
@@ -258,11 +311,14 @@ export async function runDiscovery(): Promise<RunDiscoveryResult | { error: stri
 
   let queries: ReturnType<typeof deriveDiscoveryQueries>
   let qualificationProfile: ReturnType<typeof toQualificationProfile>
+  let rankingProfile: RankingProfile
   try {
     const profile = await loadCareerProfile(userId)
     queries = deriveDiscoveryQueries(profile.targetRoles, profile.capabilities)
-    // The same read the queries come from — qualification costs no extra query.
+    // The same read the queries come from — qualification and ranking cost no
+    // extra query.
     qualificationProfile = toQualificationProfile(profile)
+    rankingProfile = toRankingProfile(profile)
   } catch (err) {
     log.error("Failed to derive discovery queries", { err, userId })
     return { error: "Could not read your career profile. Please try again." }
@@ -395,9 +451,31 @@ export async function runDiscovery(): Promise<RunDiscoveryResult | { error: stri
     if (job.url) savedByKey.set(canonicalizeUrl(job.url) || job.url, applicationId)
   }
 
-  // Every query carries the same profile keywords; the union keeps that true
-  // even if a future change makes them per-role.
-  const keywords = [...new Set(queries.flatMap((query) => query.keywords ?? []))]
+  // Rank the whole pool once, before the per-candidate map, so every row sees
+  // the same corpus statistics. The id is the same dedupe key the pipeline
+  // already uses; ranking never writes it anywhere.
+  const postingIds = new Map<NormalizedPosting, string>()
+  for (const posting of normalized) {
+    postingIds.set(
+      posting,
+      posting.canonicalUrl || posting.url || `${posting.provider}:${posting.externalId}`
+    )
+  }
+  const ranking = rankJobPool({
+    postings: normalized.map((posting) => ({
+      id: postingIds.get(posting)!,
+      title: posting.title,
+      companyName: posting.companyName,
+      description: posting.description,
+      location: posting.location,
+      workType: posting.workType,
+      salaryText: posting.salaryText,
+      postedAt: posting.postedAt,
+      url: posting.url,
+    })),
+    profile: rankingProfile,
+  })
+  const rankingById = new Map(ranking.entries.map((entry) => [entry.postingId, entry]))
 
   const ranked = normalized.map((posting) => {
     const savedJobId = savedByKey.get(posting.canonicalUrl || posting.url)
@@ -416,18 +494,18 @@ export async function runDiscovery(): Promise<RunDiscoveryResult | { error: stri
           companyName: posting.companyName,
           description: posting.description,
         }),
+        ranking: rankingById.get(postingIds.get(posting)!),
       } satisfies DiscoveryCandidate,
-      // Ranking only: this never removes a posting from the list.
-      keywordHits: countKeywordMentions(posting, keywords),
     }
   })
 
   // Best first — with a LOW-confidence posting costing itself a band, so a thin
   // Strong fit does not outrank a solid posting the user could act on today —
   // then the ones that can hire where the user is, then the ones whose posting
-  // is worth the user's time, then the ones that mention more of the user's
-  // confirmed capabilities. `sort` is stable, so postings no key can tell apart
-  // keep the order the sources returned them in.
+  // is worth the user's time, then the hybrid BM25 + seven-factor score. The
+  // verdict band stays the outer order: a score can refine a band, never lift a
+  // BLOCKED posting above one the checks allowed. `sort` is stable, so postings
+  // no key can tell apart keep the order the sources returned them in.
   ranked.sort(
     (a, b) =>
       sortRank(a.candidate.qualification.verdict, a.candidate.confidence.level) -
@@ -436,7 +514,8 @@ export async function runDiscovery(): Promise<RunDiscoveryResult | { error: stri
         MARKET_FIT_RANK[b.candidate.qualification.marketFit.fit] ||
       CONFIDENCE_RANK[a.candidate.confidence.level] -
         CONFIDENCE_RANK[b.candidate.confidence.level] ||
-      b.keywordHits - a.keywordHits
+      (b.candidate.ranking?.score ?? -1) - (a.candidate.ranking?.score ?? -1) ||
+      (b.candidate.ranking?.coverage ?? 0) - (a.candidate.ranking?.coverage ?? 0)
   )
 
   const candidates: DiscoveryCandidate[] = ranked.map((entry) => entry.candidate)

@@ -355,26 +355,34 @@ describe("runDiscovery", () => {
     })
   })
 
-  it("ranks a keyword match above an equal posting, without dropping either", async () => {
+  it("ranks a lexical match above an equal posting, without dropping either", async () => {
     mockLoadCareerProfile.mockResolvedValue({
       targetRoles: [{ title: "Frontend Engineer", priority: 0, active: true }],
       capabilities: [{ name: "React", confirmed: true }],
     })
     mockSearch.mockResolvedValue([
-      rawPosting({ externalId: "1", url: "https://example.com/jobs/1" }),
+      rawPosting({
+        externalId: "1",
+        url: "https://example.com/jobs/1",
+        description: "Build accessible interfaces for our design system.",
+      }),
       rawPosting({
         externalId: "2",
         url: "https://example.com/jobs/2",
         title: "React Frontend Engineer",
+        description: "Build React interfaces for our design system.",
       }),
     ])
 
     const result = await runDiscovery()
     const candidates = "candidates" in result ? result.candidates : []
 
-    // Same verdict for both, so only the keyword hit can have reordered them —
-    // and the posting that misses the keyword is still on the list.
+    // Same verdict for both, so only BM25 over the descriptions can have
+    // reordered them — and the posting that misses the term is still listed.
     expect(candidates.map((c) => c.externalId)).toEqual(["2", "1"])
+    expect(candidates[0]?.ranking?.lexicalScore).toBeGreaterThan(
+      candidates[1]?.ranking?.lexicalScore ?? 0
+    )
     expect(new Set(candidates.map((c) => c.qualification.verdict)).size).toBe(1)
   })
 
