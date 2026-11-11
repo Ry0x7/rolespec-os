@@ -71,6 +71,8 @@ export type AiSurface = "app" | "extension"
 export interface AiTracking {
   feature: AiUsageFeature
   surface: AiSurface
+  /** Optional workflow stage; resolves a per-stage provider/model override. */
+  stage?: string
   /**
    * Required in practice: omitting it (or passing null) makes the resolver throw
    * `AiKeyRequiredError`, since a call with no user has no key to resolve.
@@ -282,7 +284,10 @@ async function recordUsage({
  * a provider, so a misconfigured deployment cannot burn a user's daily quota.
  */
 async function resolveSettings(options: TrackedCallOptions) {
-  const resolved = await getEffectiveAiConfigForUser(options.tracking.userId)
+  const resolved = await getEffectiveAiConfigForUser(
+    options.tracking.userId,
+    options.tracking.stage
+  )
 
   const cheapModel = AI_PROVIDER_META[resolved.provider].cheapModel
   const config =

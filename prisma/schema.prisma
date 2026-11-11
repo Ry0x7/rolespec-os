@@ -44,6 +44,7 @@ model User {
   aiSettingsUpdates   AiSettings[]
   apiTokens           ApiToken[]
   aiSettings          UserAiSettings?
+  aiStageSettings     UserAiStageSetting[]
   careerProfile       CareerProfile?
   intakeRuns          IntakeRun[]
   workflowRuns        WorkflowRun[]
@@ -637,6 +638,28 @@ model UserAiSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_ai_settings")
+}
+
+/// One per-user provider/model override for a workflow stage (research, tailoring,
+/// ranking, discovery, profile). The key is encrypted with the same secret-box as
+/// `UserAiSettings.apiKeyEnc`; a stage with no key falls back to the deployment
+/// key for that provider. This is what makes "research with provider A, tailor
+/// with provider B" real rather than aspirational.
+model UserAiStageSetting {
+  id        String   @id @default(cuid())
+  userId    String
+  /// Stable workflow-stage name, validated by `src/shared/lib/ai-stages.ts`.
+  stage     String
+  provider  String
+  model     String?
+  apiKeyEnc String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, stage])
+  @@map("user_ai_stage_settings")
 }
 
 /// Append-only record of one AI generation call: which feature asked for it, what

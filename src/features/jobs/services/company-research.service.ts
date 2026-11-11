@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { AI_USAGE_FEATURES, generateObjectTracked } from "@/shared/lib/ai-generate"
+import { AI_STAGES } from "@/shared/lib/ai-stages"
 import { fenceUntrusted, UNTRUSTED_CONTENT_RULES } from "@/shared/lib/prompts/untrusted"
 import { fetchPublicUrl } from "@/features/career-profile/services/web-presence.service"
 import { isVerifiedCompanyResearch } from "../lib/company-research"
@@ -456,6 +457,7 @@ export async function analyzeCompanyResearchAI(input: {
       prompt,
       tracking: {
         feature: AI_USAGE_FEATURES.JOB_MATCH,
+        stage: AI_STAGES.RESEARCH,
         surface: "app",
         userId,
       },
