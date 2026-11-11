@@ -57,6 +57,7 @@ model User {
   atsAnswers          AtsAnswer[]
   submissionAttempts  SubmissionAttempt[]
   followUpTasks       FollowUpTask[]
+  rankingSnapshots    RankingSnapshot[]
 
   @@map("users")
 }
@@ -1333,6 +1334,27 @@ model SubmissionAttempt {
   @@index([userId, status])
   @@index([jobApplicationId, createdAt])
   @@map("submission_attempts")
+}
+
+/// One persisted ranking computation. The payload is the exact response the API
+/// returned (posting ids, scores, factors and explanations), not a recomputation:
+/// a later leaderboard can compare what the user actually saw with the tracker.
+model RankingSnapshot {
+  id         String   @id @default(cuid())
+  userId     String
+  kind       String   @default("SAVED_JOBS")
+  topK       Int?
+  minScore   Int?
+  poolSize   Int
+  entryCount Int
+  reranked   Boolean  @default(false)
+  payload    Json
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("ranking_snapshots")
 }
 
 /// One durable, user-visible follow-up for an application. A task is a reminder

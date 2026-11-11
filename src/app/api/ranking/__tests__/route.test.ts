@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   isSameOriginRequest: vi.fn(),
   consumeRateLimit: vi.fn(),
   rankSavedJobs: vi.fn(),
+  saveRankingSnapshot: vi.fn(),
+  getLatestRankingSnapshot: vi.fn(),
 }))
 
 vi.mock("@/features/auth/api-auth", () => ({
@@ -22,7 +24,12 @@ vi.mock("@/features/ranking/services/job-ranking.service", () => ({
   rankSavedJobs: mocks.rankSavedJobs,
 }))
 
-import { POST } from "../route"
+vi.mock("@/features/ranking/services/ranking-snapshot.service", () => ({
+  saveRankingSnapshot: mocks.saveRankingSnapshot,
+  getLatestRankingSnapshot: mocks.getLatestRankingSnapshot,
+}))
+
+import { GET, POST } from "../route"
 
 const RESULT = {
   result: {
@@ -51,6 +58,8 @@ beforeEach(() => {
   mocks.isSameOriginRequest.mockReturnValue(true)
   mocks.consumeRateLimit.mockResolvedValue(true)
   mocks.rankSavedJobs.mockResolvedValue(RESULT)
+  mocks.saveRankingSnapshot.mockResolvedValue({ id: "snapshot-1" })
+  mocks.getLatestRankingSnapshot.mockResolvedValue(null)
 })
 
 describe("POST /api/ranking", () => {
@@ -134,6 +143,27 @@ describe("POST /api/ranking", () => {
     expect(body.poolSize).toBe(1)
     expect(body.reranked).toBe(false)
     expect(body.warnings).toEqual([])
+    expect(body.snapshotId).toBe("snapshot-1")
+    expect(mocks.saveRankingSnapshot).toHaveBeenCalledWith({
+      userId: "user-1",
+      result: RESULT.result,
+      reranked: false,
+      poolSize: 1,
+    })
+  })
+
+  it("reads the latest persisted snapshot for the owner", async () => {
+    mocks.getLatestRankingSnapshot.mockResolvedValue({
+      id: "snapshot-1",
+      kind: "SAVED_JOBS",
+      result: RESULT.result,
+    })
+    const res = await GET(new Request("http://localhost/api/ranking"))
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store")
+    expect(await res.json()).toMatchObject({ snapshot: { id: "snapshot-1" } })
+    expect(mocks.getLatestRankingSnapshot).toHaveBeenCalledWith("user-1")
   })
 
   it("returns a generic error without leaking the service failure", async () => {
