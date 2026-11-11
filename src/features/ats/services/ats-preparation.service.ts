@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 
 import { prisma } from "@/shared/lib/prisma"
+import { decryptAnswerValue, encryptAnswerValue } from "@/shared/lib/answer-crypto"
 import { logger, redactText } from "@/shared/lib/logger"
 import { canonicalizeUrl } from "@/features/discovery/services/normalize.service"
 import type {
@@ -354,11 +355,23 @@ async function loadAnswers(
   // specific answer, and later duplicates are deliberately ignored.
   for (const row of rows) {
     if (byKey.has(row.questionKey)) continue
-    if (typeof row.value !== "string" || !row.value.trim()) continue
+    let value: unknown
+    try {
+      value = decryptAnswerValue(row.value)
+    } catch (error) {
+      // An answer that cannot be decrypted is never sent to a form. The user
+      // can re-approve the question through the review queue.
+      log.warn("Skipping an unreadable stored ATS answer", {
+        answerId: row.id,
+        err: error,
+      })
+      continue
+    }
+    if (typeof value !== "string" || !value.trim()) continue
     byKey.set(row.questionKey, {
       id: row.id,
       questionKey: row.questionKey,
-      value: row.value,
+      value,
       scope: row.scope,
       category: row.category,
     })
@@ -1128,7 +1141,7 @@ function toAnswerView(answer: {
     questionText: answer.questionText,
     category: answer.category,
     sensitivity: answer.sensitivity,
-    value: asJson(answer.value) as Prisma.JsonValue,
+    value: asJson(decryptAnswerValue(answer.value)) as Prisma.JsonValue,
     scope: answer.scope,
     source: answer.source,
     approvedAt: answer.approvedAt.toISOString(),
@@ -1256,7 +1269,12 @@ export async function approveAtsAnswer(
     select: ANSWER_SELECT,
   })
 
-  if (existing && existing.revokedAt === null && JSON.stringify(existing.value) !== JSON.stringify(value)) {
+  const existingValue = existing ? decryptAnswerValue(existing.value) : null
+  if (
+    existing &&
+    existing.revokedAt === null &&
+    JSON.stringify(existingValue) !== JSON.stringify(value)
+  ) {
     if (!input.replace) {
       if (preparationId) {
         const category = `ats:${classification.category}`
@@ -1318,7 +1336,7 @@ export async function approveAtsAnswer(
             questionText,
             category: classification.category,
             sensitivity: classification.sensitivity,
-            value: json(value),
+            value: json(encryptAnswerValue(value)),
             source: "USER_APPROVED",
             approvedAt: new Date(),
             revokedAt: null,
@@ -1333,7 +1351,7 @@ export async function approveAtsAnswer(
             questionText,
             category: classification.category,
             sensitivity: classification.sensitivity,
-            value: json(value),
+            value: json(encryptAnswerValue(value)),
             scope,
             source: "USER_APPROVED",
             dedupeKey,
@@ -1359,7 +1377,7 @@ export async function approveAtsAnswer(
           where: { id: { in: tasks.map((task) => task.id) } },
           data: {
             status: "RESOLVED",
-            answer: json(value),
+            answer: json(encryptAnswerValue(value)),
             resolvedAt: new Date(),
             resolvedBy: userId,
           },
