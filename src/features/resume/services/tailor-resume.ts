@@ -127,6 +127,8 @@ export interface JobTailorInput {
    * never from the posting — which the caller re-grounds before keeping.
    */
   needsSummary?: boolean
+  /** Cancels the in-flight provider request when a workflow step times out. */
+  signal?: AbortSignal
   /**
    * Bounded repair context. Present only on a retry after deterministic
    * validation or a grounding rejection; it names the exact claim that failed
@@ -305,6 +307,7 @@ export async function generateJobTailorSuggestions(
         : ["`generatedSummary` MUST be null: this resume already has a summary target, which you rewrite through `suggestions` like any other target."]),
     ].join("\n"),
     prompt: promptParts.join("\n\n"),
+    ...(input.signal ? { abortSignal: input.signal } : {}),
   })
 
   return normalizeSuggestions(object)

@@ -58,6 +58,8 @@ export interface TailoringServiceInput {
   sourceResumeId?: string
   title?: string
   mode?: "MANUAL" | "WORKFLOW"
+  /** Cancels provider work and prevents persistence after a step timeout. */
+  signal?: AbortSignal
 }
 
 export type TailoringServiceOutcome =
@@ -199,6 +201,18 @@ function safeError(error: unknown): string {
 export async function tailorResumeForApplication(
   input: TailoringServiceInput
 ): Promise<TailoringServiceOutcome> {
+  // A step that was already aborted must not create a run or a draft. The
+  // worker has committed its timeout independently, so no local side effect is
+  // useful here.
+  if (input.signal?.aborted) {
+    return {
+      ok: false,
+      reason: "PROVIDER_FAILURE",
+      message: "The tailoring step was cancelled.",
+      retryable: false,
+    }
+  }
+
   const application = await prisma.jobApplication.findFirst({
     where: { id: input.jobApplicationId, userId: input.userId },
     select: {
@@ -341,6 +355,7 @@ export async function tailorResumeForApplication(
 
   try {
     for (let generation = 1; generation <= MAX_TAILORING_GENERATIONS; generation += 1) {
+      input.signal?.throwIfAborted()
       attempts = generation
       const generated: JobTailorSuggestions = await generateJobTailorSuggestions({
         userId: input.userId,
@@ -351,6 +366,7 @@ export async function tailorResumeForApplication(
         targetRole: source.targetRole ?? undefined,
         groundedKeywords: grounded,
         needsSummary,
+        ...(input.signal ? { signal: input.signal } : {}),
         ...(generation > 1
           ? {
               repair: {
@@ -361,6 +377,7 @@ export async function tailorResumeForApplication(
             }
           : {}),
       })
+      input.signal?.throwIfAborted()
 
       const applied = applyTailoringSuggestions({
         sections: sourceSections,
@@ -519,6 +536,25 @@ export async function tailorResumeForApplication(
     }
   }
 
+  // This is the last safe cancellation point: once the transaction starts, a
+  // committed draft is preferable to a half-written resume. Mark the run as
+  // cancelled rather than leaving it RUNNING after the worker timed out.
+  if (input.signal?.aborted) {
+    await prisma.resumeTailoringRun
+      .update({
+        where: { id: run.id },
+        data: { status: "CANCELLED", attempts, finishedAt: new Date(), lastError: "The step was cancelled." },
+      })
+      .catch(() => undefined)
+    return {
+      ok: false,
+      reason: "PROVIDER_FAILURE",
+      message: "The tailoring step was cancelled.",
+      runId: run.id,
+      retryable: false,
+    }
+  }
+
   const title = (input.title?.trim() || `${application.job.title} — ${source.title}`).slice(
     0,
     MAX_TITLE_LENGTH
@@ -527,6 +563,7 @@ export async function tailorResumeForApplication(
 
   try {
     const created = await prisma.$transaction(async (tx) => {
+      input.signal?.throwIfAborted()
       const resume = await tx.resume.create({
         data: {
           userId: input.userId,

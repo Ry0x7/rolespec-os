@@ -27,6 +27,7 @@ export const tailorExecutor: WorkflowExecutor = async (context) => {
     jobApplicationId: application.id,
     sourceResumeId: application.resumeId ?? context.input.resumeId,
     mode: "WORKFLOW",
+    signal: context.signal,
   })
 
   if (!outcome.ok) {

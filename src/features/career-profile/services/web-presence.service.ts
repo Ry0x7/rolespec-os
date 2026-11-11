@@ -291,8 +291,23 @@ export interface PublicFetchResult {
 }
 
 /** Fetch one already-validated target, with a hard body cap and timeout. */
-function requestOnce(target: ParsedTarget, headers: Record<string, string>): Promise<PublicFetchResult> {
+function abortError(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) return signal.reason
+  const error = new Error("The request was cancelled.")
+  error.name = "AbortError"
+  return error
+}
+
+function requestOnce(
+  target: ParsedTarget,
+  headers: Record<string, string>,
+  signal?: AbortSignal
+): Promise<PublicFetchResult> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError(signal))
+      return
+    }
     const transport = target.protocol === "https:" ? httpsRequest : httpRequest
     let settled = false
     const finish = (fn: () => void) => {
@@ -356,7 +371,16 @@ function requestOnce(target: ParsedTarget, headers: Record<string, string>): Pro
       finish(() => reject(new WebSourceError("TIMEOUT", "That page took too long to respond.")))
       req.destroy()
     })
-    req.on("error", (error) => finish(() => reject(mapNetworkError(error))))
+    const onAbort = () => {
+      const error = abortError(signal!)
+      finish(() => reject(error))
+      req.destroy(error)
+    }
+    signal?.addEventListener("abort", onAbort, { once: true })
+    req.on("error", (error) => {
+      if (signal?.aborted) finish(() => reject(abortError(signal)))
+      else finish(() => reject(mapNetworkError(error)))
+    })
     req.end()
   })
 }
@@ -376,11 +400,16 @@ function mapNetworkError(error: unknown): WebSourceError {
 /** Public-only GET with redirects revalidated at every hop. */
 export async function fetchPublicUrl(
   rawUrl: string,
-  options: { headers?: Record<string, string>; accept?: (contentType: string) => boolean } = {},
+  options: {
+    headers?: Record<string, string>
+    accept?: (contentType: string) => boolean
+    signal?: AbortSignal
+  } = {},
   depth = 0
 ): Promise<PublicFetchResult> {
+  if (options.signal?.aborted) throw abortError(options.signal)
   const target = parseTarget(rawUrl)
-  const result = await requestOnce(target, options.headers ?? {})
+  const result = await requestOnce(target, options.headers ?? {}, options.signal)
 
   if ([301, 302, 303, 307, 308].includes(result.status)) {
     if (depth >= MAX_REDIRECTS) {

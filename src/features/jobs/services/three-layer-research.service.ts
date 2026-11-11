@@ -442,7 +442,9 @@ export async function researchJob(input: {
   description?: string | null
   useAi?: boolean
   now?: Date
+  signal?: AbortSignal
 }): Promise<ThreeLayerResearch> {
+  input.signal?.throwIfAborted()
   const now = input.now ?? new Date()
   const key = cacheKey(input)
   const cached = cache.get(key)
@@ -476,8 +478,10 @@ export async function researchJob(input: {
             url: input.url,
             location: input.location,
             description: input.description,
+            ...(input.signal ? { signal: input.signal } : {}),
           })
   } catch (error) {
+    if (input.signal?.aborted) throw error
     failure = error instanceof Error ? error.message : "company lookup failed"
     company = extractDeterministicCompanyResearch({
       companyName: input.companyName,
@@ -488,6 +492,7 @@ export async function researchJob(input: {
     })
   }
 
+  input.signal?.throwIfAborted()
   const { culture, sourceSummary } = buildCultureLayer({
     companyName: input.companyName,
     description: input.description,
@@ -515,6 +520,7 @@ export async function researchJob(input: {
     cached: false,
   }
 
+  input.signal?.throwIfAborted()
   if (cache.size >= MAX_CACHE_ENTRIES) {
     const oldest = cache.keys().next()
     if (!oldest.done) cache.delete(oldest.value)

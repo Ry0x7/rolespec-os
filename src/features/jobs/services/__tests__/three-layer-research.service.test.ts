@@ -175,6 +175,26 @@ describe("researchJob — culture layer", () => {
   })
 })
 
+describe("researchJob — cancellation", () => {
+  it("stops before the company layer when the step signal is already aborted", async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      researchJob({
+        userId: "user-1",
+        companyName: "Acme",
+        jobTitle: "Engineer",
+        url: POSTING,
+        description: "Join our team.",
+        signal: controller.signal,
+      })
+    ).rejects.toMatchObject({ name: "AbortError" })
+    expect(mockAnalyze).not.toHaveBeenCalled()
+    expect(mockDeterministic).not.toHaveBeenCalled()
+  })
+})
+
 describe("researchJob — company layer and cache", () => {
   it("does not call the AI path when useAi is false", async () => {
     await researchJob({

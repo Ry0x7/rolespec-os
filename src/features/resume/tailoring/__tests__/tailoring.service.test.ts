@@ -273,4 +273,20 @@ describe("tailorResumeForApplication", () => {
     expect(mocks.findResume).not.toHaveBeenCalled()
     expect(mocks.createRun).not.toHaveBeenCalled()
   })
+
+  it("does no provider work or persistence after the step signal aborts", async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    const outcome = await tailorResumeForApplication({
+      userId: "user-1",
+      jobApplicationId: "app-1",
+      signal: controller.signal,
+    })
+
+    expect(outcome).toMatchObject({ ok: false, reason: "PROVIDER_FAILURE", retryable: false })
+    expect(mocks.generate).not.toHaveBeenCalled()
+    expect(mocks.createRun).not.toHaveBeenCalled()
+    expect(mocks.createResume).not.toHaveBeenCalled()
+  })
 })
