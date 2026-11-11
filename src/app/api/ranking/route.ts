@@ -4,6 +4,10 @@ import { isSameOriginRequest, resolveApiUserId } from "@/features/auth/api-auth"
 import { RANKING_RUN_RATE_LIMIT } from "@/features/ranking/constants/limits"
 import { rankingRequestSchema } from "@/features/ranking/schemas/ranking.schema"
 import { rankSavedJobs } from "@/features/ranking/services/job-ranking.service"
+import {
+  getLatestRankingSnapshot,
+  saveRankingSnapshot,
+} from "@/features/ranking/services/ranking-snapshot.service"
 import { logger } from "@/shared/lib/logger"
 import { RATE_LIMIT_BUCKETS, consumeRateLimit } from "@/shared/lib/rate-limit"
 
@@ -20,6 +24,24 @@ export const maxDuration = 60
  * what was excluded and why, and a rerank failure is a warning rather than a
  * failed request.
  */
+export async function GET(req: Request) {
+  const userId = await resolveApiUserId(req)
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
+  }
+  if (!(await consumeRateLimit(RATE_LIMIT_BUCKETS.RANKING_RUN, userId, RANKING_RUN_RATE_LIMIT))) {
+    return NextResponse.json(
+      { error: "Too many ranking requests. Please wait a few minutes.", code: "RATE_LIMITED" },
+      { status: 429 }
+    )
+  }
+  const snapshot = await getLatestRankingSnapshot(userId)
+  return NextResponse.json(
+    { snapshot },
+    { headers: { "Cache-Control": "private, no-store" } }
+  )
+}
+
 export async function POST(req: Request) {
   if (!isSameOriginRequest(req)) {
     return NextResponse.json(
@@ -60,11 +82,18 @@ export async function POST(req: Request) {
 
   try {
     const ranked = await rankSavedJobs({ userId, ...parsed.data })
+    const snapshot = await saveRankingSnapshot({
+      userId,
+      result: ranked.result,
+      reranked: ranked.reranked,
+      poolSize: ranked.poolSize,
+    })
     return NextResponse.json({
       ...ranked.result,
       reranked: ranked.reranked,
       warnings: ranked.warnings,
       poolSize: ranked.poolSize,
+      snapshotId: snapshot?.id ?? null,
     })
   } catch (error) {
     log.error("Ranking failed", { err: error, userId })
