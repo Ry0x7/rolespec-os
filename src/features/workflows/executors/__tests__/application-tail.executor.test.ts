@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   workflowStepFindFirst: vi.fn(),
   workflowStepFindMany: vi.fn(),
   applicationStatusEventCount: vi.fn(),
+  stageSubmissionAttempt: vi.fn(),
 }))
 
 vi.mock("@/shared/lib/prisma", () => ({
@@ -24,6 +25,10 @@ vi.mock("@/shared/lib/prisma", () => ({
     },
     applicationStatusEvent: { count: mocks.applicationStatusEventCount },
   },
+}))
+
+vi.mock("@/features/submissions/services/submission.service", () => ({
+  stageSubmissionAttempt: mocks.stageSubmissionAttempt,
 }))
 
 import { followUpExecutor } from "../follow-up.executor"
@@ -94,6 +99,12 @@ beforeEach(() => {
   })
   mocks.workflowStepFindMany.mockResolvedValue([])
   mocks.applicationStatusEventCount.mockResolvedValue(0)
+  mocks.stageSubmissionAttempt.mockResolvedValue({
+    id: "attempt-1",
+    status: "STAGED",
+    jobApplicationId: "app-1",
+    source: "WORKFLOW",
+  })
 })
 
 describe("prepareAtsExecutor", () => {
@@ -147,6 +158,7 @@ describe("stagingExecutor", () => {
     expect(outcome.retryable).toBe(false)
     expect(outcome.fallback).toContain("approve the human review")
     expect(mocks.jobApplicationUpdate).not.toHaveBeenCalled()
+    expect(mocks.stageSubmissionAttempt).not.toHaveBeenCalled()
   })
 
   it("stages an approved bundle with submitted: false and no application write", async () => {
@@ -173,6 +185,15 @@ describe("stagingExecutor", () => {
     if (outcome.status !== "COMPLETED") return
     expect(outcome.output.submitted).toBe(false)
     expect(outcome.output.staged).toBe(true)
+    expect(outcome.output.submissionAttemptId).toBe("attempt-1")
+    expect(mocks.stageSubmissionAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        jobApplicationId: "app-1",
+        workflowRunId: "run-1",
+        source: "WORKFLOW",
+      })
+    )
     expect(outcome.output.job).toMatchObject({
       id: "job-1",
       title: "Senior Backend Engineer",

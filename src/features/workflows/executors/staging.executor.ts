@@ -1,4 +1,5 @@
 import { prisma } from "@/shared/lib/prisma"
+import { stageSubmissionAttempt } from "@/features/submissions/services/submission.service"
 
 import type { JsonObject, WorkflowExecutor } from "../types"
 import {
@@ -98,12 +99,26 @@ export const stagingExecutor: WorkflowExecutor = async (context) => {
     blockedQuestions,
   }
 
+  const attempt = await stageSubmissionAttempt({
+    userId: context.userId,
+    jobApplicationId: application.id,
+    workflowRunId: context.runId,
+    resumeId: tailoredResumeId ?? application.resumeId,
+    source: "WORKFLOW",
+    jobTitle: application.job.title,
+    companyName: application.job.companyName,
+    sourceUrl: application.job.url,
+    evidence,
+  })
+
   return {
     status: "COMPLETED",
     summary: `Staged ${application.job.title} at ${application.job.companyName}; nothing was submitted.`,
     output: {
       staged: true,
       submitted: false,
+      submissionAttemptId: attempt.id,
+      submissionAttemptStatus: attempt.status,
       job: {
         id: application.job.id,
         title: application.job.title,
