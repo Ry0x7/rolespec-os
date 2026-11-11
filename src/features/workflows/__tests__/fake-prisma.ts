@@ -5,8 +5,12 @@
  * harness, not a production database abstraction.
  */
 
+import { Prisma } from "@/generated/prisma/client"
+
 type Row = Record<string, unknown>
 type Where = Record<string, unknown>
+
+const ACTIVE_STATES = ["MANUAL", "ASSISTED", "AWAITING_REVIEW", "PAUSED"]
 
 function valueMatches(value: unknown, condition: unknown): boolean {
   if (condition === undefined) return true
@@ -117,6 +121,23 @@ export function createFakePrisma(): FakePrisma {
     },
     workflowRun: {
       create: async ({ data }: { data: Row }) => {
+        // Mirrors the partial unique index on active application runs.
+        if (
+          data.jobApplicationId &&
+          ACTIVE_STATES.includes(String(data.state ?? "MANUAL")) &&
+          runs.some(
+            (run) =>
+              run.userId === data.userId &&
+              run.jobApplicationId === data.jobApplicationId &&
+              ACTIVE_STATES.includes(String(run.state))
+          )
+        ) {
+          throw new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+            code: "P2002",
+            clientVersion: "test",
+            meta: { target: ["workflow_runs_one_active_per_application"] },
+          })
+        }
         const row: Row = {
           id: nextId("run"),
           state: "MANUAL",

@@ -83,6 +83,27 @@ beforeEach(() => {
 })
 
 describe("workflow engine", () => {
+  it("allows only one active workflow per application under concurrent creates", async () => {
+    fake.applications.push({
+      id: "app-1",
+      userId: "user-1",
+      jobId: "job-1",
+      resumeId: null,
+    })
+
+    const results = await Promise.allSettled([
+      createWorkflow("user-1", { mode: "AGENT_ASSISTED", jobApplicationId: "app-1" }),
+      createWorkflow("user-1", { mode: "AGENT_ASSISTED", jobApplicationId: "app-1" }),
+    ])
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+    const rejected = results.find((result) => result.status === "rejected")
+    expect(rejected).toMatchObject({ reason: { code: "CONFLICT" } })
+    expect(
+      fake.runs.filter((run) => run.jobApplicationId === "app-1" && run.state === "MANUAL")
+    ).toHaveLength(1)
+  })
+
   it("creates one run per idempotency key", async () => {
     const first = await createWorkflow("user-1", {
       mode: "AGENT_ASSISTED",
