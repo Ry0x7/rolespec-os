@@ -40,6 +40,8 @@ export interface UserDataExport {
   reviewTasks: unknown[]
   atsPreparations: unknown[]
   atsAnswers: unknown[]
+  submissionAttempts: unknown[]
+  followUpTasks: unknown[]
   resumeTailoringRuns: unknown[]
   resumeSnapshots: unknown[]
   resumeValidations: unknown[]
@@ -109,6 +111,8 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
       reviewTasks: { orderBy: { createdAt: "asc" } },
       atsPreparations: true,
       atsAnswers: true,
+      submissionAttempts: true,
+      followUpTasks: { orderBy: { dueAt: "asc" } },
       resumeTailoringRuns: true,
       resumeSnapshots: true,
       resumeValidations: true,
@@ -137,6 +141,8 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     reviewTasks,
     atsPreparations,
     atsAnswers,
+    submissionAttempts,
+    followUpTasks,
     resumeTailoringRuns,
     resumeSnapshots,
     resumeValidations,
@@ -190,6 +196,8 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
       ...answer,
       value: decryptForExport(answer.value),
     })),
+    submissionAttempts,
+    followUpTasks,
     resumeTailoringRuns,
     resumeSnapshots,
     resumeValidations,

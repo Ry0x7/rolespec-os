@@ -10,6 +10,7 @@ export const store = {
   resumes: [] as Row[],
   statusEvents: [] as Row[],
   submissionAttempts: [] as Row[],
+  followUpTasks: [] as Row[],
 }
 
 let nextId = 1
@@ -21,6 +22,7 @@ export function resetAtsStore(): void {
   store.resumes.length = 0
   store.statusEvents.length = 0
   store.submissionAttempts.length = 0
+  store.followUpTasks.length = 0
   nextId = 1
 }
 
@@ -279,6 +281,33 @@ export const prisma: FakeClient = {
     create: async ({ data }: { data: Row }) => {
       store.statusEvents.push(data)
       return data
+    },
+  },
+  followUpTask: {
+    findFirst: async ({ where }: { where: Row }) =>
+      store.followUpTasks.find((row) => matches(row, where)) ?? null,
+    create: async ({ data }: { data: Row }) => {
+      const row: Row = {
+        id: id("followup"),
+        status: "PENDING",
+        completedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...data,
+      }
+      store.followUpTasks.push(row)
+      return row
+    },
+    update: async ({ where, data }: { where: Row; data: Row }) => {
+      const row = store.followUpTasks.find((entry) => matches(entry, where))
+      if (!row) throw new Error("Follow-up task not found")
+      Object.assign(row, data, { updatedAt: new Date() })
+      return row
+    },
+    updateMany: async ({ where, data }: { where: Row; data: Row }) => {
+      const rows = store.followUpTasks.filter((row) => matches(row, where))
+      for (const row of rows) Object.assign(row, data, { updatedAt: new Date() })
+      return { count: rows.length }
     },
   },
   $transaction: async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma),

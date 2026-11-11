@@ -55,6 +55,8 @@ export const RATE_LIMIT_BUCKETS = {
   WEB_REVIEW_TASKS: "review:web",
   /** Creating or confirming a durable submission staging record. */
   SUBMISSION_WRITE: "submission:write",
+  /** Marking a durable follow-up reminder done or dismissed. */
+  FOLLOW_UP_WRITE: "follow-up:write",
   /** Resume↔job match scoring, keyed on the user id. */
   AI_JOB_MATCH: "ai:job-match",
   /** On-demand model second opinion on a posting's risk, keyed on the user id. */

@@ -3,6 +3,10 @@ import type {
   SubmissionAttemptStatus,
   SubmissionSource,
 } from "@/generated/prisma/enums"
+import {
+  cancelFollowUpTasks,
+  scheduleFollowUpTasks,
+} from "@/features/jobs/services/follow-up-task.service"
 import { logger, redactText } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
 
@@ -250,6 +254,7 @@ export async function applyAttemptConfirmation(
             jobApplicationId: application.id,
             fromStatus,
             toStatus: "APPLIED",
+
             note:
               note ??
               (attempt.source === "EXTENSION"
@@ -262,6 +267,18 @@ export async function applyAttemptConfirmation(
                   ? "WORKFLOW"
                   : "USER",
           },
+        })
+      }
+
+      if (application.status !== "REJECTED" && application.status !== "WITHDRAWN") {
+        const now = new Date()
+        await scheduleFollowUpTasks(tx, {
+          userId,
+          jobApplicationId: application.id,
+          appliedOn:
+            application.dateApplied ??
+            new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+          source: attempt.source,
         })
       }
     }
