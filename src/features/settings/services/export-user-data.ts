@@ -42,6 +42,8 @@ export interface UserDataExport {
   atsAnswers: unknown[]
   submissionAttempts: unknown[]
   followUpTasks: unknown[]
+  outreachContacts: unknown[]
+  outreachSequences: unknown[]
   resumeTailoringRuns: unknown[]
   resumeSnapshots: unknown[]
   resumeValidations: unknown[]
@@ -113,6 +115,11 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
       atsAnswers: true,
       submissionAttempts: true,
       followUpTasks: { orderBy: { dueAt: "asc" } },
+      outreachContacts: { orderBy: { createdAt: "asc" } },
+      outreachSequences: {
+        include: { contact: true, touches: { orderBy: { order: "asc" } } },
+        orderBy: { createdAt: "asc" },
+      },
       resumeTailoringRuns: true,
       resumeSnapshots: true,
       resumeValidations: true,
@@ -143,6 +150,8 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     atsAnswers,
     submissionAttempts,
     followUpTasks,
+    outreachContacts,
+    outreachSequences,
     resumeTailoringRuns,
     resumeSnapshots,
     resumeValidations,
@@ -198,6 +207,8 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     })),
     submissionAttempts,
     followUpTasks,
+    outreachContacts,
+    outreachSequences,
     resumeTailoringRuns,
     resumeSnapshots,
     resumeValidations,

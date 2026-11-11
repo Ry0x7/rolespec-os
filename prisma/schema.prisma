@@ -58,6 +58,8 @@ model User {
   submissionAttempts  SubmissionAttempt[]
   followUpTasks       FollowUpTask[]
   rankingSnapshots    RankingSnapshot[]
+  outreachContacts    OutreachContact[]
+  outreachSequences   OutreachSequence[]
 
   @@map("users")
 }
@@ -1386,6 +1388,72 @@ model FollowUpTask {
   @@map("follow_up_tasks")
 }
 
+/// A recruiter or hiring contact for a named outreach plan. No message is sent
+/// from here; the sequence only schedules the user's own manual touches.
+model OutreachContact {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  role        String?
+  company     String?
+  email       String?
+  linkedinUrl String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sequences OutreachSequence[]
+
+  @@unique([id, userId])
+  @@index([userId, createdAt])
+  @@map("outreach_contacts")
+}
+
+/// One named, persisted outreach plan. `idempotencyKey` makes a repeated create
+/// return the same plan rather than duplicating the touch schedule.
+model OutreachSequence {
+  id             String                 @id @default(cuid())
+  userId         String
+  contactId      String
+  name           String
+  status         OutreachSequenceStatus @default(DRAFT)
+  idempotencyKey String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contact OutreachContact @relation(fields: [contactId, userId], references: [id, userId], onDelete: Cascade)
+  touches OutreachTouch[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, status, createdAt])
+  @@map("outreach_sequences")
+}
+
+/// One scheduled manual touch. `dueOn` is a calendar day, not an instant. No
+/// send exists anywhere in this model; DONE means the user reported doing it.
+model OutreachTouch {
+  id          String              @id @default(cuid())
+  sequenceId  String
+  order       Int
+  channel     FollowUpChannel
+  status      OutreachTouchStatus @default(PENDING)
+  dueOn       DateTime            @db.Date
+  note        String?             @db.Text
+  completedAt DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  sequence OutreachSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@unique([sequenceId, order])
+  @@index([sequenceId, status, dueOn])
+  @@map("outreach_touches")
+}
+
 // ─────────────────────────────────────────────
 // ENUMS
 // ─────────────────────────────────────────────
@@ -1412,6 +1480,20 @@ enum FollowUpStatus {
   PENDING
   DONE
   DISMISSED
+  CANCELLED
+}
+
+enum OutreachSequenceStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum OutreachTouchStatus {
+  PENDING
+  DONE
+  SKIPPED
   CANCELLED
 }
 

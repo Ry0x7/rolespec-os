@@ -87,6 +87,12 @@ export const FOLLOW_UP_WRITE_RATE_LIMIT: RateLimitOptions = {
   windowMs: 10 * 60 * 1000,
 }
 
+/** Outreach sequences are planning rows; no AI and no send, so this is loose. */
+export const OUTREACH_WRITE_RATE_LIMIT: RateLimitOptions = {
+  max: 60,
+  windowMs: 10 * 60 * 1000,
+}
+
 /** Rendering a resume PDF for user-triggered attachment. CPU-bound. */
 export const EXTENSION_RESUME_PDF_RATE_LIMIT: RateLimitOptions = {
   max: 12,
