@@ -1,4 +1,5 @@
 import { CareerEvidenceSource, CareerEvidenceStatus } from "@/generated/prisma/enums"
+import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/shared/lib/prisma"
 import { getOrCreateCareerProfileId } from "@/features/career-profile/services/career-profile.service"
 import {
@@ -127,10 +128,11 @@ function conflictDto(conflict: {
 }
 
 async function findExistingEvidence(
+  db: Prisma.TransactionClient,
   careerProfileId: string,
   data: EvidencePatchData
 ) {
-  const rows = await prisma.careerEvidence.findMany({
+  const rows = await db.careerEvidence.findMany({
     where: { careerProfileId, kind: data.evidenceKind },
     orderBy: { createdAt: "asc" },
     select: {
@@ -160,8 +162,12 @@ async function findExistingEvidence(
   )
 }
 
-async function findExistingSkill(careerProfileId: string, data: SkillPatchData) {
-  const rows = await prisma.careerCapability.findMany({
+async function findExistingSkill(
+  db: Prisma.TransactionClient,
+  careerProfileId: string,
+  data: SkillPatchData
+) {
+  const rows = await db.careerCapability.findMany({
     where: { careerProfileId },
     orderBy: { createdAt: "asc" },
     select: { id: true, name: true, category: true, confirmed: true },
@@ -171,10 +177,11 @@ async function findExistingSkill(careerProfileId: string, data: SkillPatchData) 
 }
 
 async function findExistingTargetRole(
+  db: Prisma.TransactionClient,
   careerProfileId: string,
   data: TargetRolePatchData
 ) {
-  const rows = await prisma.careerTargetRole.findMany({
+  const rows = await db.careerTargetRole.findMany({
     where: { careerProfileId },
     orderBy: { createdAt: "asc" },
     select: { id: true, title: true, active: true, priority: true },
@@ -197,13 +204,14 @@ type ExistingCollision = {
  * normalized identity inside the same profile.
  */
 async function findCollision(
+  db: Prisma.TransactionClient,
   careerProfileId: string,
   kind: IntakePatchKind,
   data: IntakePatchData
 ): Promise<ExistingCollision | null> {
   if (kind === "CONTACT") {
     const contact = data as ContactPatchData
-    const profile = await prisma.careerProfile.findUnique({
+    const profile = await db.careerProfile.findUnique({
       where: { id: careerProfileId },
       select: CONTACT_SELECT,
     })
@@ -221,7 +229,7 @@ async function findCollision(
   }
 
   if (kind === "EVIDENCE") {
-    const existing = await findExistingEvidence(careerProfileId, data as EvidencePatchData)
+    const existing = await findExistingEvidence(db, careerProfileId, data as EvidencePatchData)
     if (!existing) return null
     return {
       existingType: "career_evidence",
@@ -241,7 +249,7 @@ async function findCollision(
   }
 
   if (kind === "SKILL") {
-    const existing = await findExistingSkill(careerProfileId, data as SkillPatchData)
+    const existing = await findExistingSkill(db, careerProfileId, data as SkillPatchData)
     if (!existing) return null
     return {
       existingType: "career_capability",
@@ -253,6 +261,7 @@ async function findCollision(
   }
 
   const existing = await findExistingTargetRole(
+    db,
     careerProfileId,
     data as TargetRolePatchData
   )
@@ -267,12 +276,12 @@ async function findCollision(
 }
 
 async function recordConflict(
+  db: Prisma.TransactionClient,
   patchId: string,
   runId: string,
   collision: ExistingCollision
 ) {
-  const [conflict] = await prisma.$transaction([
-    prisma.intakeConflict.upsert({
+  const conflict = await db.intakeConflict.upsert({
       where: { patchId },
       create: {
         patchId,
@@ -294,32 +303,33 @@ async function recordConflict(
         resolution: null,
         resolvedAt: null,
       },
-    }),
-    prisma.intakePatch.update({
-      where: { id: patchId },
-      data: { status: "CONFLICT", rejectionReason: null },
-    }),
-  ])
+    })
+  await db.intakePatch.update({
+    where: { id: patchId },
+    data: { status: "CONFLICT", rejectionReason: null },
+  })
   return conflict
 }
 
 async function resolveConflict(
+  db: Prisma.TransactionClient,
   patchId: string,
   resolution: IntakeConflictResolution
 ) {
-  await prisma.intakeConflict.updateMany({
+  await db.intakeConflict.updateMany({
     where: { patchId, status: "OPEN" },
     data: { status: "RESOLVED", resolution, resolvedAt: new Date() },
   })
 }
 
 async function markApplied(
+  db: Prisma.TransactionClient,
   patchId: string,
   targetType: string,
   targetId: string,
   resolution?: IntakeConflictResolution
 ) {
-  await prisma.intakePatch.update({
+  await db.intakePatch.update({
     where: { id: patchId },
     data: {
       status: "APPLIED",
@@ -329,19 +339,20 @@ async function markApplied(
       correctedAt: null,
     },
   })
-  if (resolution) await resolveConflict(patchId, resolution)
+  if (resolution) await resolveConflict(db, patchId, resolution)
 }
 
 async function markRejected(
+  db: Prisma.TransactionClient,
   patchId: string,
   reason: string,
   resolution?: IntakeConflictResolution
 ) {
-  await prisma.intakePatch.update({
+  await db.intakePatch.update({
     where: { id: patchId },
     data: { status: "REJECTED", rejectionReason: reason },
   })
-  if (resolution) await resolveConflict(patchId, resolution)
+  if (resolution) await resolveConflict(db, patchId, resolution)
 }
 
 /**
@@ -353,246 +364,260 @@ export async function applyIntakePatch(
   patchId: string,
   disposition?: IntakeConflictResolution
 ): Promise<ApplyIntakePatchResult> {
-  const patch = await prisma.intakePatch.findFirst({
+  const owned = await prisma.intakePatch.findFirst({
     where: { id: patchId, run: { userId } },
-    include: { conflict: true },
+    select: { id: true },
   })
-  if (!patch) throw new IntakeApplyError(404, "Intake fact not found")
+  if (!owned) throw new IntakeApplyError(404, "Intake fact not found")
 
-  if (patch.status === "APPLIED") {
-    return {
-      status: "APPLIED",
-      patchId: patch.id,
-      appliedTargetType: patch.appliedTargetType,
-      appliedTargetId: patch.appliedTargetId,
-      conflict: patch.conflict ? conflictDto(patch.conflict) : null,
-      message: "This fact is already in the profile.",
-    }
-  }
-
-  const data = parsePatchData(patch.kind, patch.payload)
+  // The profile is created before the transaction because it is a per-user
+  // container, not a fact this patch owns. Both rows are then locked in a fixed
+  // order so concurrent applies cannot read the same collision and double-write.
   const careerProfileId = await getOrCreateCareerProfileId(userId)
-  const collision = await findCollision(careerProfileId, patch.kind, data)
 
-  if (collision && !disposition) {
-    const conflict = await recordConflict(patch.id, patch.runId, collision)
-    return {
-      status: "CONFLICT",
-      patchId: patch.id,
-      appliedTargetType: null,
-      appliedTargetId: null,
-      conflict: conflictDto(conflict),
-      message:
-        "This fact already exists with different details. Choose which version to keep.",
-    }
-  }
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "intake_patches" WHERE id = ${patchId} FOR UPDATE`
+    const patch = await tx.intakePatch.findFirst({
+      where: { id: patchId, run: { userId } },
+      include: { conflict: true },
+    })
+    if (!patch) throw new IntakeApplyError(404, "Intake fact not found")
 
-  if (collision && disposition === "KEEP_EXISTING") {
-    await markRejected(
-      patch.id,
-      "Kept the existing profile value; the imported version was not added.",
-      "KEEP_EXISTING"
-    )
-    return {
-      status: "REJECTED",
-      patchId: patch.id,
-      appliedTargetType: null,
-      appliedTargetId: null,
-      conflict: null,
-      message: "Kept the existing profile value.",
-    }
-  }
-
-  if (collision && disposition === "KEEP_BOTH" && patch.kind !== "EVIDENCE") {
-    throw new IntakeApplyError(
-      409,
-      patch.kind === "CONTACT"
-        ? "A contact field can hold only one value. Accept one version or correct the import."
-        : "This kind of fact must be unique. Accept one version instead of keeping both."
-    )
-  }
-
-  if (patch.kind === "CONTACT") {
-    const contact = data as ContactPatchData
-    if (collision && disposition === "ACCEPT_INCOMING") {
-      await prisma.careerProfile.update({
-        where: { id: careerProfileId },
-        data: contactUpdate(contact.field, contact.value),
-      })
-    } else if (!collision) {
-      await prisma.careerProfile.update({
-        where: { id: careerProfileId },
-        data: contactUpdate(contact.field, contact.value),
-      })
-    }
-    await markApplied(
-      patch.id,
-      "career_profile",
-      careerProfileId,
-      disposition ?? undefined
-    )
-    return {
-      status: "APPLIED",
-      patchId: patch.id,
-      appliedTargetType: "career_profile",
-      appliedTargetId: careerProfileId,
-      conflict: null,
-      message: `${contact.field} updated from ${patch.source.toLowerCase()} intake.`,
-    }
-  }
-
-  if (patch.kind === "EVIDENCE") {
-    const evidence = data as EvidencePatchData
-    const metadata = provenanceMetadata(patch)
-    let targetId: string
-
-    if (collision && disposition === "ACCEPT_INCOMING") {
-      const existing = await prisma.careerEvidence.findFirst({
-        where: { id: collision.existingId, careerProfileId },
-        select: { id: true, status: true, metadata: true },
-      })
-      if (!existing) throw new IntakeApplyError(404, "Existing evidence no longer exists")
-      if (existing.status === CareerEvidenceStatus.CONFIRMED) {
-        throw new IntakeApplyError(
-          409,
-          "That evidence is already confirmed. Keep both versions, or edit the confirmed row directly."
-        )
+    if (patch.status === "APPLIED") {
+      return {
+        status: "APPLIED" as const,
+        patchId: patch.id,
+        appliedTargetType: patch.appliedTargetType,
+        appliedTargetId: patch.appliedTargetId,
+        conflict: patch.conflict ? conflictDto(patch.conflict) : null,
+        message: "This fact is already in the profile.",
       }
-      await prisma.careerEvidence.update({
-        where: { id: existing.id },
-        data: {
-          title: evidence.title,
-          organization: evidence.organization,
-          details: evidence.details,
-          outcome: evidence.outcome,
-          startDate: toDate(evidence.startDate),
-          endDate: toDate(evidence.endDate),
-          metadata: {
-            ...(existing.metadata && typeof existing.metadata === "object"
-              ? (existing.metadata as Record<string, unknown>)
-              : {}),
-            ...metadata,
+    }
+
+    await tx.$queryRaw`SELECT id FROM "career_profiles" WHERE id = ${careerProfileId} FOR UPDATE`
+    const data = parsePatchData(patch.kind, patch.payload)
+    const collision = await findCollision(tx, careerProfileId, patch.kind, data)
+
+    if (collision && !disposition) {
+      const conflict = await recordConflict(tx, patch.id, patch.runId, collision)
+      return {
+        status: "CONFLICT" as const,
+        patchId: patch.id,
+        appliedTargetType: null,
+        appliedTargetId: null,
+        conflict: conflictDto(conflict),
+        message:
+          "This fact already exists with different details. Choose which version to keep.",
+      }
+    }
+
+    if (collision && disposition === "KEEP_EXISTING") {
+      await markRejected(
+        tx,
+        patch.id,
+        "Kept the existing profile value; the imported version was not added.",
+        "KEEP_EXISTING"
+      )
+      return {
+        status: "REJECTED" as const,
+        patchId: patch.id,
+        appliedTargetType: null,
+        appliedTargetId: null,
+        conflict: null,
+        message: "Kept the existing profile value.",
+      }
+    }
+
+    if (collision && disposition === "KEEP_BOTH" && patch.kind !== "EVIDENCE") {
+      throw new IntakeApplyError(
+        409,
+        patch.kind === "CONTACT"
+          ? "A contact field can hold only one value. Accept one version or correct the import."
+          : "This kind of fact must be unique. Accept one version instead of keeping both."
+      )
+    }
+
+    if (patch.kind === "CONTACT") {
+      const contact = data as ContactPatchData
+      if (!collision || disposition === "ACCEPT_INCOMING") {
+        await tx.careerProfile.update({
+          where: { id: careerProfileId },
+          data: contactUpdate(contact.field, contact.value),
+        })
+      }
+      await markApplied(
+        tx,
+        patch.id,
+        "career_profile",
+        careerProfileId,
+        disposition ?? undefined
+      )
+      return {
+        status: "APPLIED" as const,
+        patchId: patch.id,
+        appliedTargetType: "career_profile",
+        appliedTargetId: careerProfileId,
+        conflict: null,
+        message: `${contact.field} updated from ${patch.source.toLowerCase()} intake.`,
+      }
+    }
+
+    if (patch.kind === "EVIDENCE") {
+      const evidence = data as EvidencePatchData
+      const metadata = provenanceMetadata(patch)
+      let targetId: string
+
+      if (collision && disposition === "ACCEPT_INCOMING") {
+        const existing = await tx.careerEvidence.findFirst({
+          where: { id: collision.existingId, careerProfileId },
+          select: { id: true, status: true, metadata: true },
+        })
+        if (!existing) throw new IntakeApplyError(404, "Existing evidence no longer exists")
+        if (existing.status === CareerEvidenceStatus.CONFIRMED) {
+          throw new IntakeApplyError(
+            409,
+            "That evidence is already confirmed. Keep both versions, or edit the confirmed row directly."
+          )
+        }
+        await tx.careerEvidence.update({
+          where: { id: existing.id },
+          data: {
+            title: evidence.title,
+            organization: evidence.organization,
+            details: evidence.details,
+            outcome: evidence.outcome,
+            startDate: toDate(evidence.startDate),
+            endDate: toDate(evidence.endDate),
+            metadata: {
+              ...(existing.metadata && typeof existing.metadata === "object"
+                ? (existing.metadata as Record<string, unknown>)
+                : {}),
+              ...metadata,
+            },
           },
-        },
-      })
-      targetId = existing.id
-    } else {
-      const created = await prisma.careerEvidence.create({
-        data: {
-          careerProfileId,
-          kind: evidence.evidenceKind,
-          source: EVIDENCE_SOURCE_BY_INTAKE[patch.source],
-          status: CareerEvidenceStatus.CANDIDATE,
-          title: evidence.title,
-          organization: evidence.organization,
-          details: evidence.details,
-          outcome: evidence.outcome,
-          startDate: toDate(evidence.startDate),
-          endDate: toDate(evidence.endDate),
-          metadata,
-        },
-        select: { id: true },
-      })
-      targetId = created.id
+        })
+        targetId = existing.id
+      } else {
+        const created = await tx.careerEvidence.create({
+          data: {
+            careerProfileId,
+            kind: evidence.evidenceKind,
+            source: EVIDENCE_SOURCE_BY_INTAKE[patch.source],
+            status: CareerEvidenceStatus.CANDIDATE,
+            title: evidence.title,
+            organization: evidence.organization,
+            details: evidence.details,
+            outcome: evidence.outcome,
+            startDate: toDate(evidence.startDate),
+            endDate: toDate(evidence.endDate),
+            metadata,
+          },
+          select: { id: true },
+        })
+        targetId = created.id
+      }
+
+      await markApplied(
+        tx,
+        patch.id,
+        "career_evidence",
+        targetId,
+        disposition ?? undefined
+      )
+      return {
+        status: "APPLIED" as const,
+        patchId: patch.id,
+        appliedTargetType: "career_evidence",
+        appliedTargetId: targetId,
+        conflict: null,
+        message:
+          "Added as candidate evidence. Confirm it on the profile before it counts as verified.",
+      }
     }
 
-    await markApplied(
-      patch.id,
-      "career_evidence",
-      targetId,
-      disposition ?? undefined
-    )
-    return {
-      status: "APPLIED",
-      patchId: patch.id,
-      appliedTargetType: "career_evidence",
-      appliedTargetId: targetId,
-      conflict: null,
-      message:
-        "Added as candidate evidence. Confirm it on the profile before it counts as verified.",
+    if (patch.kind === "SKILL") {
+      const skill = data as SkillPatchData
+      let targetId: string
+      if (collision && disposition === "ACCEPT_INCOMING") {
+        const existing = await tx.careerCapability.findFirst({
+          where: { id: collision.existingId, careerProfileId },
+          select: { id: true, category: true },
+        })
+        if (!existing) throw new IntakeApplyError(404, "Existing skill no longer exists")
+        if (!existing.category && skill.category) {
+          await tx.careerCapability.update({
+            where: { id: existing.id },
+            data: { category: skill.category },
+          })
+        }
+        targetId = existing.id
+      } else {
+        const created = await tx.careerCapability.create({
+          data: {
+            careerProfileId,
+            name: skill.name,
+            category: skill.category,
+            confirmed: false,
+          },
+          select: { id: true },
+        })
+        targetId = created.id
+      }
+      await markApplied(
+        tx,
+        patch.id,
+        "career_capability",
+        targetId,
+        disposition ?? undefined
+      )
+      return {
+        status: "APPLIED" as const,
+        patchId: patch.id,
+        appliedTargetType: "career_capability",
+        appliedTargetId: targetId,
+        conflict: null,
+        message: "Skill added as unconfirmed. Confirm it on the profile when ready.",
+      }
     }
-  }
 
-  if (patch.kind === "SKILL") {
-    const skill = data as SkillPatchData
+    const role = data as TargetRolePatchData
     let targetId: string
     if (collision && disposition === "ACCEPT_INCOMING") {
-      const existing = await prisma.careerCapability.findFirst({
+      const existing = await tx.careerTargetRole.findFirst({
         where: { id: collision.existingId, careerProfileId },
-        select: { id: true, category: true },
+        select: { id: true, active: true },
       })
-      if (!existing) throw new IntakeApplyError(404, "Existing skill no longer exists")
-      if (!existing.category && skill.category) {
-        await prisma.careerCapability.update({
+      if (!existing) throw new IntakeApplyError(404, "Existing target role no longer exists")
+      if (!existing.active) {
+        await tx.careerTargetRole.update({
           where: { id: existing.id },
-          data: { category: skill.category },
+          data: { active: true },
         })
       }
       targetId = existing.id
     } else {
-      const created = await prisma.careerCapability.create({
-        data: {
-          careerProfileId,
-          name: skill.name,
-          category: skill.category,
-          confirmed: false,
-        },
+      const created = await tx.careerTargetRole.create({
+        data: { careerProfileId, title: role.title, active: true, priority: 0 },
         select: { id: true },
       })
       targetId = created.id
     }
     await markApplied(
+      tx,
       patch.id,
-      "career_capability",
+      "career_target_role",
       targetId,
       disposition ?? undefined
     )
     return {
-      status: "APPLIED",
+      status: "APPLIED" as const,
       patchId: patch.id,
-      appliedTargetType: "career_capability",
+      appliedTargetType: "career_target_role",
       appliedTargetId: targetId,
       conflict: null,
-      message: "Skill added as unconfirmed. Confirm it on the profile when ready.",
+      message: "Target role added to the profile.",
     }
-  }
-
-  const role = data as TargetRolePatchData
-  let targetId: string
-  if (collision && disposition === "ACCEPT_INCOMING") {
-    const existing = await prisma.careerTargetRole.findFirst({
-      where: { id: collision.existingId, careerProfileId },
-      select: { id: true, active: true },
-    })
-    if (!existing) throw new IntakeApplyError(404, "Existing target role no longer exists")
-    if (!existing.active) {
-      await prisma.careerTargetRole.update({
-        where: { id: existing.id },
-        data: { active: true },
-      })
-    }
-    targetId = existing.id
-  } else {
-    const created = await prisma.careerTargetRole.create({
-      data: { careerProfileId, title: role.title, active: true, priority: 0 },
-      select: { id: true },
-    })
-    targetId = created.id
-  }
-  await markApplied(
-    patch.id,
-    "career_target_role",
-    targetId,
-    disposition ?? undefined
-  )
-  return {
-    status: "APPLIED",
-    patchId: patch.id,
-    appliedTargetType: "career_target_role",
-    appliedTargetId: targetId,
-    conflict: null,
-    message: "Target role added to the profile.",
-  }
+  })
 }
 
 export async function rejectIntakePatch(
@@ -611,14 +636,16 @@ export async function rejectIntakePatch(
       "This fact is already in the profile. Edit the profile to change it."
     )
   }
-  await prisma.intakePatch.update({
-    where: { id: patch.id },
-    data: {
-      status: "REJECTED",
-      rejectionReason: reason?.trim() || "Rejected during review.",
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.intakePatch.update({
+      where: { id: patch.id },
+      data: {
+        status: "REJECTED",
+        rejectionReason: reason?.trim() || "Rejected during review.",
+      },
+    })
+    await resolveConflict(tx, patch.id, "KEEP_EXISTING")
   })
-  await resolveConflict(patch.id, "KEEP_EXISTING")
   return { status: "REJECTED" as const, patchId: patch.id }
 }
 
