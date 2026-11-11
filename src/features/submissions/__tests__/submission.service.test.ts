@@ -137,6 +137,22 @@ describe("stageSubmissionAttempt", () => {
     expect(mocks.submissionAttempt.create).not.toHaveBeenCalled()
   })
 
+  it("does not write a staging row after the step deadline fired", async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      stageSubmissionAttempt({
+        userId: "user-1",
+        jobApplicationId: "app-1",
+        workflowRunId: "run-1",
+        source: "WORKFLOW",
+        signal: controller.signal,
+      })
+    ).rejects.toMatchObject({ name: "AbortError" })
+    expect(mocks.submissionAttempt.create).not.toHaveBeenCalled()
+  })
+
   it("refuses to stage for another owner's application", async () => {
     mocks.jobApplication.findFirst.mockResolvedValue(null)
 

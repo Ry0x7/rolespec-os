@@ -201,6 +201,9 @@ export const validateExecutor: WorkflowExecutor = async (context) => {
       now: context.now,
     })
 
+    // The worker may already have timed this attempt out. Do not append a
+    // validation row for work whose result will be discarded by the fence.
+    context.signal?.throwIfAborted()
     await prisma.resumeValidation.create({
       data: {
         resumeId: resume.id,
