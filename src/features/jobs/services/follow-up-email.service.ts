@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { AI_USAGE_FEATURES, generateObjectTracked } from "@/shared/lib/ai-generate"
+import { AI_STAGES } from "@/shared/lib/ai-stages"
 import { HUMAN_VOICE_RULES } from "@/shared/lib/prompts/human-voice"
 import { fenceUntrusted, UNTRUSTED_CONTENT_RULES } from "@/shared/lib/prompts/untrusted"
 import { buildCandidateNameRules } from "@/shared/lib/prompts/candidate-name"
@@ -84,6 +85,7 @@ OUTPUT: Return ONLY valid JSON matching the schema.`
       prompt: promptParts.join("\n\n"),
       tracking: {
         feature: AI_USAGE_FEATURES.OUTREACH_EMAIL,
+        stage: AI_STAGES.OUTREACH,
         surface: "app",
         userId,
       },

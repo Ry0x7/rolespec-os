@@ -4,6 +4,7 @@ import {
   AI_USAGE_FEATURES,
   generateObjectTracked,
 } from "@/shared/lib/ai-generate"
+import { AI_STAGES } from "@/shared/lib/ai-stages"
 import { AiDailyLimitError, AiKeyRequiredError } from "@/shared/lib/ai-provider"
 import {
   fenceUntrusted,
@@ -138,6 +139,7 @@ export async function rerankShortlist(input: {
       temperature: 0,
       tracking: {
         feature: AI_USAGE_FEATURES.RANKING_RERANK,
+        stage: AI_STAGES.RANK,
         surface: "app",
         userId: input.userId,
       },

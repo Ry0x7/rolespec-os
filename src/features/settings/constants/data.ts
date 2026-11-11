@@ -75,6 +75,12 @@ export const SUBMISSION_WRITE_RATE_LIMIT: RateLimitOptions = {
   windowMs: 10 * 60 * 1000,
 }
 
+/** Writing per-stage AI provider overrides, keyed on the owner id. */
+export const AI_STAGE_SETTINGS_WRITE_RATE_LIMIT: RateLimitOptions = {
+  max: 30,
+  windowMs: 10 * 60 * 1000,
+}
+
 /** Closing one durable follow-up reminder, keyed on the owner id. */
 export const FOLLOW_UP_WRITE_RATE_LIMIT: RateLimitOptions = {
   max: 120,

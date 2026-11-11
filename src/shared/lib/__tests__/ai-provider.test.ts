@@ -479,10 +479,17 @@ describe("getEffectiveAiConfigForUser", () => {
       apiKeyEnc?: string | null
     } | null,
     aiDailyRequestLimit: number | null = null,
+    aiStageSettings: Array<{
+      stage: string
+      provider: string
+      model: string | null
+      apiKeyEnc: string | null
+    }> = [],
   ) {
     return {
       role,
       aiDailyRequestLimit,
+      aiStageSettings,
       aiSettings: aiSettings
         ? {
             provider: aiSettings.provider ?? null,
@@ -531,6 +538,63 @@ describe("getEffectiveAiConfigForUser", () => {
       apiKey: "sk-mine",
       modelPinned: true,
     })
+  })
+
+  it("routes a stage to its own provider, model and key", async () => {
+    const { encryptSecret } = await import("../secret-box")
+    mockUserFindUnique.mockResolvedValue(
+      userRow(
+        "USER",
+        { provider: "openai", apiKeyEnc: encryptSecret("sk-main") },
+        null,
+        [
+          {
+            stage: "TAILOR",
+            provider: "anthropic",
+            model: "claude-stage",
+            apiKeyEnc: encryptSecret("sk-stage"),
+          },
+        ],
+      ),
+    )
+    const { getEffectiveAiConfigForUser } = await import("../ai-provider")
+
+    await expect(getEffectiveAiConfigForUser("u1", "TAILOR")).resolves.toMatchObject(
+      {
+        provider: "anthropic",
+        model: "claude-stage",
+        source: "user",
+        apiKey: "sk-stage",
+        modelPinned: true,
+      },
+    )
+    await expect(getEffectiveAiConfigForUser("u1", "RESEARCH")).resolves.toMatchObject(
+      { provider: "openai", apiKey: "sk-main" },
+    )
+  })
+
+  it("never reuses the main key for a different stage provider", async () => {
+    const { encryptSecret } = await import("../secret-box")
+    mockUserFindUnique.mockResolvedValue(
+      userRow(
+        "USER",
+        { provider: "openai", apiKeyEnc: encryptSecret("sk-main") },
+        null,
+        [
+          {
+            stage: "RESEARCH",
+            provider: "anthropic",
+            model: null,
+            apiKeyEnc: null,
+          },
+        ],
+      ),
+    )
+    const { getEffectiveAiConfigForUser } = await import("../ai-provider")
+
+    await expect(getEffectiveAiConfigForUser("u1", "RESEARCH")).resolves.toMatchObject(
+      { provider: "anthropic", apiKey: undefined, model: "claude-opus-4-8" },
+    )
   })
 
   it("falls back to the provider default model when the user pinned none", async () => {

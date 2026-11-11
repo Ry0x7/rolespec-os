@@ -4,6 +4,7 @@ import {
   AI_USAGE_FEATURES,
   generateObjectTracked,
 } from "@/shared/lib/ai-generate"
+import { AI_STAGES } from "@/shared/lib/ai-stages"
 import type { GroundedKeywords } from "@/shared/lib/evidence-grounding"
 import { HUMAN_VOICE_LEXICON } from "@/shared/lib/prompts/human-voice"
 import {
@@ -263,6 +264,7 @@ export async function generateJobTailorSuggestions(
     schema: jobTailorSuggestionsSchema,
     tracking: {
       feature: AI_USAGE_FEATURES.RESUME_TAILOR,
+      stage: AI_STAGES.TAILOR,
       surface: "app",
       userId: input.userId,
     },

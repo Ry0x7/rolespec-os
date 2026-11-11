@@ -219,6 +219,14 @@ export interface ResolvedAiConfig {
   modelPinned: boolean
 }
 
+interface UserAiStageContext {
+  stage: string
+  provider: string
+  model: string | null
+  /** Ciphertext as stored — never decrypted into the cache. */
+  apiKeyEnc: string | null
+}
+
 interface UserAiContext {
   role: string
   aiDailyRequestLimit: number | null
@@ -226,6 +234,7 @@ interface UserAiContext {
   model: string | null
   /** Ciphertext as stored — never decrypted into the cache. */
   apiKeyEnc: string | null
+  stageSettings: UserAiStageContext[]
 }
 
 /**
@@ -253,6 +262,9 @@ async function readUserAiContext(userId: string): Promise<UserAiContext | null> 
       role: true,
       aiDailyRequestLimit: true,
       aiSettings: { select: { provider: true, model: true, apiKeyEnc: true } },
+      aiStageSettings: {
+        select: { stage: true, provider: true, model: true, apiKeyEnc: true },
+      },
     },
   })
 
@@ -263,6 +275,7 @@ async function readUserAiContext(userId: string): Promise<UserAiContext | null> 
         provider: user.aiSettings?.provider ?? null,
         model: user.aiSettings?.model ?? null,
         apiKeyEnc: user.aiSettings?.apiKeyEnc ?? null,
+        stageSettings: user.aiStageSettings ?? [],
       }
     : null
 
@@ -302,7 +315,8 @@ function personalConfig(ctx: UserAiContext): {
  * deployment/environment configuration.
  */
 export async function getEffectiveAiConfigForUser(
-  userId: string | null | undefined
+  userId: string | null | undefined,
+  stage?: string | null
 ): Promise<ResolvedAiConfig> {
   if (!userId) throw new AiKeyRequiredError()
 
@@ -314,6 +328,30 @@ export async function getEffectiveAiConfigForUser(
   const temperature = settings?.temperature ?? null
   const maxOutputTokens = settings?.maxOutputTokens ?? null
   const dailyRequestLimit = ctx?.aiDailyRequestLimit ?? null
+
+  // A stage override wins when it names a known provider. Its own encrypted key
+  // is used first; with none, the user's key is reusable only for the same
+  // provider, because an OpenAI key must never be sent to another provider.
+  const stageSetting = stage
+    ? ctx?.stageSettings.find((entry) => entry.stage === stage)
+    : undefined
+  if (stageSetting && isAiProvider(stageSetting.provider)) {
+    const provider = stageSetting.provider
+    const stageApiKey = tryDecryptSecret(stageSetting.apiKeyEnc) ?? undefined
+    const userApiKey = tryDecryptSecret(ctx?.apiKeyEnc ?? null) ?? undefined
+    const model = stageSetting.model?.trim() ? stageSetting.model.trim() : null
+    return {
+      provider,
+      model: model ?? defaultModelFor(provider),
+      source: "user",
+      temperature,
+      maxOutputTokens,
+      apiKey:
+        stageApiKey ?? (ctx?.provider === provider ? userApiKey : undefined),
+      dailyRequestLimit,
+      modelPinned: model !== null,
+    }
+  }
 
   if (ctx) {
     const personal = personalConfig(ctx)
