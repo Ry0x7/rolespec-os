@@ -55,7 +55,11 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
     startRollback(async () => {
       const res = await rollbackTailoredResume(resumeId)
       if (res.success) {
-        toast.success("Successfully rolled back to source resume")
+        toast.success(
+          res.restoredFrom === "snapshot"
+            ? "Restored the captured source revision"
+            : "Restored the live source resume (no snapshot existed)"
+        )
         onOpenChange(false)
         if (typeof window !== "undefined") {
           window.location.reload()

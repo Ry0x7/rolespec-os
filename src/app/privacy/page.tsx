@@ -33,7 +33,8 @@ export default function PrivacyPage() {
             certifications they contain; PDF or DOCX files you upload; a LinkedIn profile
             export if you import one; career-profile evidence and capabilities; job
             postings, applications, status history, cover letters, outreach drafts, notes
-            and to-dos; and any job description you paste in for analysis. Uploaded PDF and
+            and to-dos; workflow runs, review tasks, ATS preparation records and approved
+            answers; and any job description you paste in for analysis. Uploaded PDF and
             DOCX files are parsed and are not stored as files — only the text extracted from
             them, as part of your résumé.
           </li>
@@ -59,7 +60,8 @@ export default function PrivacyPage() {
             <strong>AI usage metadata.</strong> For each AI request: which feature ran, the
             provider and model, token counts and whether it succeeded — used to enforce the
             daily request cap and show your own usage. Prompts and generated output are not
-            stored in this record.
+            stored in this record. The machine-readable export includes these records and
+            your activity history alongside your career content.
           </li>
           <li>
             <strong>Extension pairing tokens.</strong> If you connect the browser extension,

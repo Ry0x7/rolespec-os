@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Download,
   Eye,
+  FileText,
   GitCompare,
   Loader2,
   Save,
@@ -86,7 +87,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
   const hasContent = !!resume?.sections?.some((s) => s.items.length > 0)
 
   // Plain PDF of the saved content — no AI, so it works without an API key.
-  async function handleDownload() {
+  async function handleDownload(singlePage = false) {
     if (!resume || isDownloading) return
     setIsDownloading(true)
     try {
@@ -98,11 +99,23 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
         groupAdditional,
         groupAdditionalTitle,
         customization,
+        singlePage,
       })
 
       if (!("success" in result) || !result.success) {
         toast.error(result.error ?? "Download failed")
         return
+      }
+
+      // The one-page option never fails the download when the content cannot
+      // fit; it says plainly that the tightest supported layout still spilled.
+      if (
+        singlePage &&
+        "singlePageSatisfied" in result &&
+        !result.singlePageSatisfied &&
+        result.warning
+      ) {
+        toast.warning(result.warning)
       }
 
       // Programmatic anchor rather than window.open: the click happens after an
@@ -135,7 +148,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
         // Generate persisted AI-optimized content; reflect it in the editor so
         // the preview shows (and paginates) what was actually exported. A
         // store with unsaved edits is left alone — the user's edits win.
-        applyGeneratedSections(result.sections)
+        applyGeneratedSections(result.sections, result.version)
         // The AI pass fails soft, so a "success" can still mean the files carry
         // the untouched content. Say which one happened.
         if (result.optimized === false) {
@@ -394,7 +407,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
           >
             {/* Always available: renders the current content, no AI key needed. */}
             <DropdownMenuItem
-              onClick={handleDownload}
+              onClick={() => handleDownload()}
               disabled={isDownloading || !hasContent}
               aria-label={isDownloading ? "Preparing PDF" : "Download PDF"}
               title={
@@ -411,6 +424,22 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
                 <Download className="h-3.5 w-3.5" />
               )}
               {isDownloading ? "Preparing..." : "Download PDF"}
+            </DropdownMenuItem>
+
+            {/* ATS-oriented option: same template and content, progressively
+                tighter presentation until the real PDF fits one page. */}
+            <DropdownMenuItem
+              onClick={() => handleDownload(true)}
+              disabled={isDownloading || !hasContent}
+              aria-label="Download one-page ATS PDF"
+              title="Fit this resume on one ATS-friendly page — no AI needed"
+            >
+              {isDownloading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5" />
+              )}
+              Download one-page PDF
             </DropdownMenuItem>
 
             {lastExport && (() => {

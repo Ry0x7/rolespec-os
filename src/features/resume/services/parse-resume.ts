@@ -252,6 +252,18 @@ async function partialOptimize(
 
 // ─── Main parse function ─────────────────────────────────────────────────────
 
+/**
+ * Text-only extraction. The intake upload routes use this and then run the
+ * deterministic parser so a PDF/DOCX is never sent to an AI provider unless the
+ * user explicitly asks for that path.
+ */
+export async function extractResumeText(
+  buffer: Uint8Array,
+  mimeType: string
+): Promise<string> {
+  return extractText(buffer, mimeType)
+}
+
 export interface ParseResumeOptions {
   /** AI structuring is opt-in. Plain import never contacts a provider. */
   useAi?: boolean

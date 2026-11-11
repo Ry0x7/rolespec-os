@@ -117,6 +117,8 @@ export type EnhanceMutationResult =
 export interface ResumeData {
   id: string
   title: string
+  /** Server revision loaded into the editor, sent back for optimistic concurrency. */
+  version?: number
   targetRole: string | null
   targetCompany: string | null
   template: string
@@ -241,6 +243,8 @@ interface ResumeStore {
   reorderSectionItems: (sectionId: string, orderedItemIds: string[]) => void
   updateTemplate: (template: string) => void
   setSaveStatus: (status: SaveStatus) => void
+  /** Adopts the version the server returned after a successful save. */
+  setResumeVersion: (version: number) => void
   markClean: () => void
   setGenerateStatus: (status: GenerateStatus) => void
   setLastExport: (lastExport: LastExport | null) => void
@@ -291,7 +295,7 @@ interface ResumeStore {
    * ran against the last-saved content, so applying over a dirty store would
    * silently discard whatever the user typed while it ran.
    */
-  applyGeneratedSections: (sections: Section[]) => void
+  applyGeneratedSections: (sections: Section[], version?: number) => void
 }
 
 /**
@@ -641,6 +645,8 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
     }),
 
   setSaveStatus: (saveStatus) => set({ saveStatus }),
+  setResumeVersion: (version) =>
+    set((state) => (state.resume ? { resume: { ...state.resume, version } } : state)),
   // Saving persists content; it does not regenerate the export files, so a
   // clean save deliberately leaves `exportStale` alone.
   markClean: () => set({ isDirty: false, saveStatus: "saved", lastSavedAt: new Date() }),
@@ -786,12 +792,18 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
       return { customization }
     }),
 
-  applyGeneratedSections: (sections) =>
+  applyGeneratedSections: (sections, version) =>
     set((state) => {
       // Content is already persisted server-side, so the store stays clean;
       // a dirty store means newer local edits, which win.
       if (!state.resume || state.isDirty) return state
-      return { resume: { ...state.resume, sections } }
+      return {
+        resume: {
+          ...state.resume,
+          sections,
+          ...(typeof version === "number" ? { version } : {}),
+        },
+      }
     }),
 
   reconcileTempIds: (idMap) =>

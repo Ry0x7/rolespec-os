@@ -24,6 +24,19 @@ import {
   type TailorTarget,
 } from "../services/tailor-resume"
 import { createJobTailoredResumeSchema } from "../schemas/resume.schema"
+import { validateTailoredResume } from "../tailoring/claim-validator"
+import {
+  mapRequirements,
+  resumeEvidenceAtoms,
+} from "../tailoring/evidence-map"
+import {
+  buildSourceSnapshot,
+  hashSourceSnapshot,
+} from "../tailoring/snapshot"
+import {
+  recordManualTailoringArtifacts,
+} from "../tailoring/tailoring.service"
+import type { ResumeSectionSnapshot } from "../tailoring/types"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -266,17 +279,21 @@ export async function createJobTailoredResume(formData: FormData) {
     },
     select: {
       id: true,
+      version: true,
+      title: true,
       targetRole: true,
+      targetCompany: true,
       template: true,
       roleFamilyId: true,
       sections: {
         select: {
+          id: true,
           type: true,
           title: true,
           order: true,
           visible: true,
           items: {
-            select: { content: true, metadata: true, order: true },
+            select: { id: true, content: true, metadata: true, order: true },
             orderBy: { order: "asc" },
           },
         },
@@ -590,6 +607,46 @@ export async function createJobTailoredResume(formData: FormData) {
     }
   }
 
+  // ── Evidence validation before any write ─────────────────────────────────
+  // The generation loop already discarded individual suggestions it could not
+  // ground; this is the second, whole-document check. A failure means no
+  // resume is created at all, so an unsupported claim can never be presented
+  // as a ready draft.
+  const sourceSnapshot = buildSourceSnapshot({
+    id: source.id,
+    version: source.version,
+    title: source.title,
+    template: source.template,
+    targetRole: source.targetRole,
+    targetCompany: source.targetCompany,
+    sections: source.sections as unknown as ResumeSectionSnapshot[],
+  })
+  const snapshotHash = hashSourceSnapshot(sourceSnapshot)
+  const requirementMap = mapRequirements({
+    jobTitle: job.jobTitle,
+    jobDescription: job.jobDescription,
+    atoms: resumeEvidenceAtoms(sourceSnapshot.sections),
+  })
+  const validation = validateTailoredResume({
+    source: sourceSnapshot.sections,
+    tailored: sections as unknown as ResumeSectionSnapshot[],
+    requirements: requirementMap,
+    sourceHash: snapshotHash,
+  })
+  if (validation.status === "FAIL") {
+    const first = validation.issues.find((issue) => issue.severity === "error")
+    log.warn("Refused to save a tailored resume that failed evidence validation", {
+      jobApplicationId: application.id,
+      issues: validation.issues.length,
+    })
+    return {
+      error: `The tailoring result could not be verified against your resume${
+        first ? `: ${first.message}` : "."
+      } Please try again or tailor it manually.`,
+      validation,
+    }
+  }
+
   // One nested create makes the resume, sections, and items atomic. Only the
   // tailored section payload (existing facts, selected/reordered/rephrased)
   // crosses this boundary; the company target comes from the user's own
@@ -624,6 +681,34 @@ export async function createJobTailoredResume(formData: FormData) {
       },
     },
   })
+
+  // Provenance: immutable source snapshot, requirement map, validation report
+  // and the first edit event. Failure here does not invalidate the resume that
+  // was just created — it is still source-linked — but it is logged so the gap
+  // is visible rather than silently pretending the run was fully recorded.
+  const artifacts = await recordManualTailoringArtifacts({
+    userId: session.user.id,
+    resumeId: resume.id,
+    source: {
+      id: source.id,
+      version: source.version,
+      title: source.title,
+      template: source.template,
+      targetRole: source.targetRole,
+      targetCompany: source.targetCompany,
+      sections: source.sections as unknown as ResumeSectionSnapshot[],
+    },
+    tailoredSections: sections as unknown as ResumeSectionSnapshot[],
+    requirements: requirementMap,
+    report: validation,
+    jobApplicationId: application.id,
+    title: parsed.data.title,
+  })
+  if (!artifacts) {
+    log.warn("Tailored resume was saved without provenance artifacts", {
+      resumeId: resume.id,
+    })
+  }
 
   // Tailoring a resume for a job is the user saying "this is the one this job
   // gets", so it becomes the chosen resume — otherwise the new resume sits

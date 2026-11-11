@@ -3,13 +3,15 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 const { mockAuth, mockPrisma, mockRedirect } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
   mockPrisma: {
-    resume: { findUnique: vi.fn(), update: vi.fn() },
+    resume: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     resumeSectionItem: {
       create: vi.fn(),
       upsert: vi.fn(),
       deleteMany: vi.fn(),
       findMany: vi.fn(),
     },
+    resumeEditEvent: { create: vi.fn() },
+    $transaction: vi.fn(),
   },
   mockRedirect: vi.fn(),
 }))
@@ -23,6 +25,8 @@ import { saveResume } from "../save"
 /** One owned section holding one owned item. */
 const ownedResume = {
   id: "resume-1",
+  version: 3,
+  updatedAt: new Date("2026-11-11T00:00:00.000Z"),
   sections: [{ id: "sec-1", items: [{ id: "item-1" }] }],
 }
 
@@ -49,11 +53,20 @@ describe("saveResume ownership", () => {
     vi.clearAllMocks()
     mockAuth.mockResolvedValue({ user: { id: "user-1" } })
     mockPrisma.resume.findUnique.mockResolvedValue(ownedResume)
-    mockPrisma.resume.update.mockResolvedValue({ id: "resume-1" })
+    mockPrisma.resume.findFirst.mockResolvedValue({ version: 4 })
+    mockPrisma.resume.update.mockResolvedValue({ id: "resume-1", version: 4 })
+    mockPrisma.resume.updateMany.mockResolvedValue({ count: 1 })
+    mockPrisma.$transaction.mockImplementation(
+      async (arg: unknown) =>
+        typeof arg === "function"
+          ? (arg as (tx: typeof mockPrisma) => Promise<unknown>)(mockPrisma)
+          : Promise.all(arg as Promise<unknown>[])
+    )
     mockPrisma.resumeSectionItem.findMany.mockResolvedValue([])
     mockPrisma.resumeSectionItem.create.mockResolvedValue({ id: "created-1" })
     mockPrisma.resumeSectionItem.upsert.mockResolvedValue({ id: "item-1" })
     mockPrisma.resumeSectionItem.deleteMany.mockResolvedValue({ count: 0 })
+    mockPrisma.resumeEditEvent.create.mockResolvedValue({ id: "event-1" })
   })
 
   it("rejects when the resume does not belong to the caller", async () => {
@@ -108,6 +121,38 @@ describe("saveResume ownership", () => {
     expect(mockPrisma.resumeSectionItem.deleteMany).not.toHaveBeenCalled()
   })
 
+  it("refuses a stale save instead of overwriting a newer revision", async () => {
+    const result = await saveResume("resume-1", [section("sec-1", [item("item-1")])], {
+      baseVersion: 2,
+    })
+
+    expect(result).toMatchObject({
+      error: "This resume changed elsewhere. Reload the editor before saving.",
+      conflict: true,
+      currentVersion: 3,
+    })
+    expect(mockPrisma.resumeSectionItem.upsert).not.toHaveBeenCalled()
+    expect(mockPrisma.resumeSectionItem.deleteMany).not.toHaveBeenCalled()
+    expect(mockPrisma.resume.updateMany).not.toHaveBeenCalled()
+  })
+
+  it("refuses a transaction that lost the updatedAt race", async () => {
+    mockPrisma.resume.updateMany.mockResolvedValue({ count: 0 })
+    mockPrisma.resume.findFirst.mockResolvedValue({ version: 5 })
+
+    const result = await saveResume("resume-1", [
+      section("sec-1", [item("item-1")]),
+    ])
+
+    expect(result).toMatchObject({
+      error: "This resume changed elsewhere. Reload the editor before saving.",
+      conflict: true,
+      currentVersion: 5,
+    })
+    expect(mockPrisma.resumeSectionItem.upsert).not.toHaveBeenCalled()
+    expect(mockPrisma.resumeSectionItem.deleteMany).not.toHaveBeenCalled()
+  })
+
   it("rejects a payload that is not shaped like sections", async () => {
     const broken = [{ id: "sec-1", title: "Summary" }] as unknown as Parameters<
       typeof saveResume
@@ -126,11 +171,20 @@ describe("saveResume legitimate writes", () => {
     vi.clearAllMocks()
     mockAuth.mockResolvedValue({ user: { id: "user-1" } })
     mockPrisma.resume.findUnique.mockResolvedValue(ownedResume)
-    mockPrisma.resume.update.mockResolvedValue({ id: "resume-1" })
+    mockPrisma.resume.findFirst.mockResolvedValue({ version: 4 })
+    mockPrisma.resume.update.mockResolvedValue({ id: "resume-1", version: 4 })
+    mockPrisma.resume.updateMany.mockResolvedValue({ count: 1 })
+    mockPrisma.$transaction.mockImplementation(
+      async (arg: unknown) =>
+        typeof arg === "function"
+          ? (arg as (tx: typeof mockPrisma) => Promise<unknown>)(mockPrisma)
+          : Promise.all(arg as Promise<unknown>[])
+    )
     mockPrisma.resumeSectionItem.findMany.mockResolvedValue([])
     mockPrisma.resumeSectionItem.create.mockResolvedValue({ id: "real-2" })
     mockPrisma.resumeSectionItem.upsert.mockResolvedValue({ id: "item-1" })
     mockPrisma.resumeSectionItem.deleteMany.mockResolvedValue({ count: 0 })
+    mockPrisma.resumeEditEvent.create.mockResolvedValue({ id: "event-1" })
   })
 
   it("creates temp- items and returns the temp → real idMap", async () => {
@@ -138,7 +192,7 @@ describe("saveResume legitimate writes", () => {
       section("sec-1", [item("item-1", 0), item("temp-abc", 1)]),
     ])
 
-    expect(result).toEqual({ success: true, idMap: { "temp-abc": "real-2" } })
+    expect(result).toMatchObject({ success: true, idMap: { "temp-abc": "real-2" } })
     expect(mockPrisma.resumeSectionItem.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ sectionId: "sec-1", order: 1 }),
@@ -153,10 +207,34 @@ describe("saveResume legitimate writes", () => {
     })
   })
 
+  it("increments the version and records one edit event for changed content", async () => {
+    const result = await saveResume("resume-1", [section("sec-1", [item("item-1")])])
+
+    expect(result).toMatchObject({ success: true, version: 4, changed: true })
+    expect(mockPrisma.resume.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "resume-1",
+        userId: "user-1",
+        status: { not: "ARCHIVED" },
+        updatedAt: ownedResume.updatedAt,
+      },
+      data: { updatedAt: expect.any(Date), version: { increment: 1 } },
+    })
+    expect(mockPrisma.resumeEditEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        resumeId: "resume-1",
+        userId: "user-1",
+        kind: "MANUAL_EDIT",
+        versionBefore: 3,
+        versionAfter: 4,
+      }),
+    })
+  })
+
   it("allows a new item id that exists nowhere in the DB", async () => {
     const result = await saveResume("resume-1", [section("sec-1", [item("brand-new-id")])])
 
-    expect(result).toEqual({ success: true, idMap: {} })
+    expect(result).toMatchObject({ success: true, idMap: {} })
     expect(mockPrisma.resumeSectionItem.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "brand-new-id" } })
     )

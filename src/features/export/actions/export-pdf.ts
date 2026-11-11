@@ -4,6 +4,11 @@ import { auth } from "@/features/auth/config"
 import { prisma } from "@/shared/lib/prisma"
 import { generatePdf } from "../services/generate-pdf"
 import { storeAllTemplateExports } from "../services/store-export"
+import {
+  SINGLE_PAGE_WARNING,
+  countPdfPages,
+  singlePageCustomizations,
+} from "../services/single-page"
 import type { Section } from "@/features/resume/hooks/use-resume-store"
 import { parseCustomization, type ResumeCustomization } from "@/features/resume/types/customization"
 import { logger } from "@/shared/lib/logger"
@@ -23,6 +28,12 @@ const log = logger("export-pdf")
  * Deliberately does NOT write a `ResumeExport` row: that row is what hydrates
  * `lastExport` on reload, and it is expected to carry all four templates from a
  * Generate run. A plain download renders one template and must not displace it.
+ *
+ * `singlePage` opts into the ATS-friendly one-page layout: the same template is
+ * re-rendered with progressively tighter presentation settings until the real
+ * PDF is one page. It never edits content and never swaps templates. If even
+ * the tightest layout spills, the last render is returned with a warning rather
+ * than failing the download.
  */
 export async function exportResumePdf(
   resumeId: string,
@@ -31,6 +42,8 @@ export async function exportResumePdf(
     groupAdditionalTitle?: string
     /** Preview customization. PDF output honours it. */
     customization?: ResumeCustomization
+    /** Try the tightest supported layouts until the PDF fits on one page. */
+    singlePage?: boolean
   }
 ) {
   const session = await auth()
@@ -70,19 +83,58 @@ export async function exportResumePdf(
       ? parseCustomization(options.customization)
       : undefined
 
-    const pdfBuffer = await generatePdf({
-      template,
-      sections,
-      groupAdditional: options?.groupAdditional,
-      groupAdditionalTitle: options?.groupAdditionalTitle,
-      customization,
-    })
+    if (!options?.singlePage) {
+      const pdfBuffer = await generatePdf({
+        template,
+        sections,
+        groupAdditional: options?.groupAdditional,
+        groupAdditionalTitle: options?.groupAdditionalTitle,
+        customization,
+      })
 
-    const urls = await storeAllTemplateExports(resumeId, [{ template, pdfBuffer }])
+      const urls = await storeAllTemplateExports(resumeId, [{ template, pdfBuffer }])
+      const pdfUrl = urls[template]?.pdfUrl
+      if (!pdfUrl) return { error: "Download failed. Please try again." }
+
+      return { success: true as const, pdfUrl, template }
+    }
+
+    let chosenBuffer: Buffer | null = null
+    let chosenPageCount: number | null = null
+    let layoutAttempts = 0
+
+    for (const candidate of singlePageCustomizations(customization)) {
+      layoutAttempts += 1
+      const pdfBuffer = await generatePdf({
+        template,
+        sections,
+        groupAdditional: options.groupAdditional,
+        groupAdditionalTitle: options.groupAdditionalTitle,
+        customization: candidate,
+      })
+      chosenBuffer = pdfBuffer
+      chosenPageCount = await countPdfPages(pdfBuffer)
+      if (chosenPageCount !== null && chosenPageCount <= 1) break
+    }
+
+    if (!chosenBuffer) return { error: "Download failed. Please try again." }
+
+    const urls = await storeAllTemplateExports(resumeId, [
+      { template, pdfBuffer: chosenBuffer },
+    ])
     const pdfUrl = urls[template]?.pdfUrl
     if (!pdfUrl) return { error: "Download failed. Please try again." }
 
-    return { success: true as const, pdfUrl, template }
+    const singlePageSatisfied = chosenPageCount !== null && chosenPageCount <= 1
+    return {
+      success: true as const,
+      pdfUrl,
+      template,
+      pageCount: chosenPageCount,
+      singlePageSatisfied,
+      layoutAttempts,
+      ...(singlePageSatisfied ? {} : { warning: SINGLE_PAGE_WARNING }),
+    }
   } catch (error) {
     log.error("Failed", { error })
     return { error: "Download failed. Please try again." }
