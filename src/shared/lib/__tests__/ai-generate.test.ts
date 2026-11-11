@@ -288,7 +288,7 @@ describe("per-user config, cheap tier and the daily cap", () => {
   it("builds the model from the caller's resolved provider, model and key", async () => {
     await generateObjectTracked({ schema, prompt: "q", tracking })
 
-    expect(mockConfig).toHaveBeenCalledWith("user-1")
+    expect(mockConfig).toHaveBeenCalledWith("user-1", undefined)
     expect(mockModel).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "openai",
@@ -296,6 +296,16 @@ describe("per-user config, cheap tier and the daily cap", () => {
         apiKey: "sk-user",
       }),
     )
+  })
+
+  it("forwards the workflow stage to the config resolver", async () => {
+    await generateObjectTracked({
+      schema,
+      prompt: "q",
+      tracking: { ...tracking, stage: "TAILOR" },
+    })
+
+    expect(mockConfig).toHaveBeenCalledWith("user-1", "TAILOR")
   })
 
   it("swaps in the provider's cheap model for a light-tier call", async () => {
