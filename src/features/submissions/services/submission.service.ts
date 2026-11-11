@@ -3,10 +3,7 @@ import type {
   SubmissionAttemptStatus,
   SubmissionSource,
 } from "@/generated/prisma/enums"
-import {
-  cancelFollowUpTasks,
-  scheduleFollowUpTasks,
-} from "@/features/jobs/services/follow-up-task.service"
+import { scheduleFollowUpTasks } from "@/features/jobs/services/follow-up-task.service"
 import { logger, redactText } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
 
@@ -232,7 +229,7 @@ export async function applyAttemptConfirmation(
   if (input.submitted && attempt.jobApplicationId) {
     const application = await tx.jobApplication.findFirst({
       where: { id: attempt.jobApplicationId, userId },
-      select: { id: true, status: true, dateApplied: true },
+      select: { id: true, status: true, dateApplied: true, followUpAt: true },
     })
     if (application) {
       const fromStatus = application.status
@@ -272,14 +269,24 @@ export async function applyAttemptConfirmation(
 
       if (application.status !== "REJECTED" && application.status !== "WITHDRAWN") {
         const now = new Date()
-        await scheduleFollowUpTasks(tx, {
+        const appliedOn =
+          application.dateApplied ??
+          new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+        const tasks = await scheduleFollowUpTasks(tx, {
           userId,
           jobApplicationId: application.id,
-          appliedOn:
-            application.dateApplied ??
-            new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+          appliedOn,
           source: attempt.source,
         })
+        const emailTask = tasks.find((task) => task.channel === "EMAIL")
+        // Keep the tracker's legacy follow-up field aligned with the durable
+        // email reminder. A user-set date is never overwritten.
+        if (fromStatus === "INTERESTED" && !application.followUpAt && emailTask) {
+          await tx.jobApplication.update({
+            where: { id: application.id },
+            data: { followUpAt: emailTask.dueAt },
+          })
+        }
       }
     }
   }
