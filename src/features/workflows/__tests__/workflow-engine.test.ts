@@ -77,6 +77,8 @@ async function startedRun(idempotencyKey?: string) {
 }
 
 beforeEach(() => {
+  process.env.AUTH_SECRET = "workflow-test-secret"
+  delete process.env.ENCRYPTION_KEY
   fake = createFakePrisma()
   holder.prisma = fake.prisma
   allExecutorsComplete()

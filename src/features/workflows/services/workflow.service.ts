@@ -8,6 +8,7 @@ import type {
   WorkflowStepStatus,
 } from "@/generated/prisma/enums"
 import { prisma } from "@/shared/lib/prisma"
+import { decryptAnswerValue, encryptAnswerValue } from "@/shared/lib/answer-crypto"
 
 import { APPLICATION_PIPELINE, stepDefinition } from "../pipeline"
 import type {
@@ -724,7 +725,7 @@ function reviewDto(task: {
     category: task.category,
     fallback: task.fallback,
     suggestedValue: asJsonValue(task.suggestedValue),
-    answer: asJsonValue(task.answer),
+    answer: asJsonValue(decryptAnswerValue(task.answer)),
     resolvedAt: task.resolvedAt?.toISOString() ?? null,
     createdAt: task.createdAt.toISOString(),
   }
@@ -834,7 +835,7 @@ export async function resolveReviewTask(
       where: { id: task.id, userId, status: "OPEN" },
       data: {
         status: "RESOLVED",
-        answer: json(answer),
+        answer: json(encryptAnswerValue(answer)),
         resolvedAt: new Date(),
         resolvedBy: userId,
       },
@@ -955,7 +956,13 @@ export async function dismissReviewTask(
         status: "DISMISSED",
         resolvedAt: new Date(),
         resolvedBy: userId,
-        ...(reason ? { answer: json({ dismissed: true, reason: reason.slice(0, 1000) }) } : {}),
+        ...(reason
+          ? {
+              answer: json(
+                encryptAnswerValue({ dismissed: true, reason: reason.slice(0, 1000) })
+              ),
+            }
+          : {}),
       },
     })
     if (changed.count === 0) {

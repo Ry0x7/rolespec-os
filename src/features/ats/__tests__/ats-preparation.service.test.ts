@@ -30,6 +30,8 @@ const FIELD = {
 }
 
 beforeEach(() => {
+  process.env.AUTH_SECRET = "ats-answer-test-secret"
+  delete process.env.ENCRYPTION_KEY
   resetAtsStore()
   store.applications.push({
     id: "app-1",
@@ -172,6 +174,12 @@ describe("approved answers", () => {
       value: "No",
       source: "USER_APPROVED",
     })
+    const stored = store.answers[0]!
+    expect(typeof stored.value).toBe("string")
+    expect(stored.value as string).toMatch(/^enc\.v1\./)
+    expect(stored.value as string).not.toContain('"No"')
+    const resolvedTask = store.tasks.find((task) => task.status === "RESOLVED")!
+    expect(resolvedTask.answer as string).toMatch(/^enc\.v1\./)
     expect(result.resolvedTaskIds).toHaveLength(1)
     expect(result.preparation?.openReviewTasks).toHaveLength(0)
     expect(result.preparation?.status).toBe("READY_TO_SUBMIT")

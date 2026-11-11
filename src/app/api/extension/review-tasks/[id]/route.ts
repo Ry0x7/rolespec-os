@@ -19,6 +19,7 @@ import { scheduleWorkflowTick } from "@/features/workflows/services/schedule"
 import {
   WorkflowError,
   dismissReviewTask,
+  getReviewTask,
   resolveReviewTask,
 } from "@/features/workflows/services/workflow.service"
 import { logger } from "@/shared/lib/logger"
@@ -147,17 +148,7 @@ export async function PATCH(
     // through the ordinary workflow path; a blocked field never blocks the queue.
     const result = answerRecorded
       ? {
-          task: await prisma.reviewTask.findFirst({
-            where: { id, userId },
-            select: {
-              id: true,
-              status: true,
-              kind: true,
-              question: true,
-              answer: true,
-              resolvedAt: true,
-            },
-          }),
+          task: await getReviewTask(userId, id),
           run: null,
         }
       : await resolveReviewTask(userId, id, parsed.data.value as never)

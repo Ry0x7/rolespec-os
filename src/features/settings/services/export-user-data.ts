@@ -1,4 +1,5 @@
 import { prisma } from "@/shared/lib/prisma"
+import { decryptAnswerValue } from "@/shared/lib/answer-crypto"
 
 /**
  * Assembles everything the app holds about one user, for the data-portability
@@ -149,6 +150,16 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     orderBy: { createdAt: "asc" },
   })
 
+  const decryptForExport = (value: unknown) => {
+    try {
+      return decryptAnswerValue(value)
+    } catch {
+      // Never export ciphertext as if it were an answer, and never fail the
+      // whole account export because one old row was written with another key.
+      return { unreadable: true }
+    }
+  }
+
   return {
     exportedAt: new Date().toISOString(),
     // Bumped if the shape changes, so a previously downloaded file stays readable.
@@ -170,9 +181,15 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     aiUsageEvents,
     intakeRuns,
     workflowRuns,
-    reviewTasks,
+    reviewTasks: reviewTasks.map((task) => ({
+      ...task,
+      answer: decryptForExport(task.answer),
+    })),
     atsPreparations,
-    atsAnswers,
+    atsAnswers: atsAnswers.map((answer) => ({
+      ...answer,
+      value: decryptForExport(answer.value),
+    })),
     resumeTailoringRuns,
     resumeSnapshots,
     resumeValidations,
