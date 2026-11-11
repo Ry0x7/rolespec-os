@@ -109,6 +109,7 @@ export const stagingExecutor: WorkflowExecutor = async (context) => {
     companyName: application.job.companyName,
     sourceUrl: application.job.url,
     evidence,
+    signal: context.signal,
   })
 
   return {

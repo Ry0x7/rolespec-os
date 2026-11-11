@@ -113,6 +113,8 @@ export interface StageSubmissionInput {
   companyName?: string | null
   sourceUrl?: string | null
   evidence?: unknown
+  /** The workflow step's deadline; checked before the staging transaction. */
+  signal?: AbortSignal
 }
 
 /**
@@ -178,6 +180,7 @@ export async function ensureStagedAttempt(
 export async function stageSubmissionAttempt(
   input: StageSubmissionInput
 ): Promise<SubmissionAttemptView> {
+  input.signal?.throwIfAborted()
   if (input.jobApplicationId) {
     const application = await prisma.jobApplication.findFirst({
       where: { id: input.jobApplicationId, userId: input.userId },
@@ -187,7 +190,11 @@ export async function stageSubmissionAttempt(
       throw new SubmissionError("Application not found.", "NOT_FOUND")
     }
   }
-  const row = await prisma.$transaction((tx) => ensureStagedAttempt(tx, input))
+  input.signal?.throwIfAborted()
+  const row = await prisma.$transaction((tx) => {
+    input.signal?.throwIfAborted()
+    return ensureStagedAttempt(tx, input)
+  })
   return toView(row)
 }
 

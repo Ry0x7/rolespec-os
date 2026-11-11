@@ -345,6 +345,20 @@ describe("validateExecutor", () => {
     })
   })
 
+  it("does not append a validation row after the step deadline fired", async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      validateExecutor({
+        ...CONTEXT,
+        stepName: "VALIDATE",
+        signal: controller.signal,
+      })
+    ).rejects.toMatchObject({ name: "AbortError" })
+    expect(mocks.createValidation).not.toHaveBeenCalled()
+  })
+
   it("keeps the legacy suggestion check for pre-existing runs", async () => {
     mocks.findStep.mockResolvedValue({
       status: "COMPLETED",
