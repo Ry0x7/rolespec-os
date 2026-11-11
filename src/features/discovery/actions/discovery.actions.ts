@@ -92,7 +92,13 @@ import {
   type QualificationVerdict,
 } from "../services/qualify.service"
 import { rankJobPool } from "@/features/ranking/services/ranking.service"
-import type { RankedEntry, RankingProfile } from "@/features/ranking/types"
+import { rerankShortlist } from "@/features/ranking/services/rerank.service"
+import type {
+  AiRerankJudgement,
+  RankedEntry,
+  RankingPosting,
+  RankingProfile,
+} from "@/features/ranking/types"
 import type { DiscoveryRunContext, NormalizedPosting, RawPosting } from "../types"
 
 /**
@@ -194,6 +200,35 @@ export interface RunDiscoveryResult {
   candidates: DiscoveryCandidate[]
   /** One entry per adapter in the registry, in registry order. */
   sources: DiscoverySourceReport[]
+  /**
+   * Present only when the caller asked for the optional model rerank. A
+   * provider failure leaves the deterministic order untouched and appears in
+   * `warnings`; it never fails the discovery run.
+   */
+  rerank?: {
+    requested: true
+    reranked: boolean
+    warnings: string[]
+  }
+}
+
+/** AI verdict only refines order inside a qualification/confidence band. */
+const AI_VERDICT_RANK: Record<AiRerankJudgement["verdict"], number> = {
+  FIT: 0,
+  PARTIAL: 1,
+  MISMATCH: 2,
+}
+
+/**
+ * Order two entries by their grounded AI judgement when BOTH have one. If the
+ * rerank did not cover the pool, the deterministic score remains authoritative.
+ */
+function aiVerdictOrder(
+  a: AiRerankJudgement | undefined,
+  b: AiRerankJudgement | undefined
+): number {
+  if (!a || !b) return 0
+  return AI_VERDICT_RANK[a.verdict] - AI_VERDICT_RANK[b.verdict]
 }
 
 /** One (adapter × query) call's outcome, before it is folded per provider. */
@@ -297,7 +332,10 @@ function toRankingProfile(profile: {
  * matched on either the canonical URL or the raw `jobLink` so jobs saved before
  * `canonicalUrl` existed (or clipped by the extension) still count.
  */
-export async function runDiscovery(): Promise<RunDiscoveryResult | { error: string }> {
+export async function runDiscovery(options: {
+  /** Opt-in grounded model rerank of the deterministic shortlist. */
+  aiRerank?: boolean
+} = {}): Promise<RunDiscoveryResult | { error: string }> {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
   const userId = session.user.id
@@ -461,21 +499,55 @@ export async function runDiscovery(): Promise<RunDiscoveryResult | { error: stri
       posting.canonicalUrl || posting.url || `${posting.provider}:${posting.externalId}`
     )
   }
+  const rankingPostings: RankingPosting[] = normalized.map((posting) => ({
+    id: postingIds.get(posting)!,
+    title: posting.title,
+    companyName: posting.companyName,
+    description: posting.description,
+    location: posting.location,
+    workType: posting.workType,
+    salaryText: posting.salaryText,
+    postedAt: posting.postedAt,
+    url: posting.url,
+  }))
   const ranking = rankJobPool({
-    postings: normalized.map((posting) => ({
-      id: postingIds.get(posting)!,
-      title: posting.title,
-      companyName: posting.companyName,
-      description: posting.description,
-      location: posting.location,
-      workType: posting.workType,
-      salaryText: posting.salaryText,
-      postedAt: posting.postedAt,
-      url: posting.url,
-    })),
+    postings: rankingPostings,
     profile: rankingProfile,
   })
-  const rankingById = new Map(ranking.entries.map((entry) => [entry.postingId, entry]))
+
+  let rankingEntries = ranking.entries
+  let rerank: RunDiscoveryResult["rerank"]
+  if (options.aiRerank === true && ranking.entries.length > 0) {
+    try {
+      const postingsById = new Map(
+        rankingPostings.map((posting) => [posting.id, posting])
+      )
+      const result = await rerankShortlist({
+        userId,
+        entries: ranking.entries,
+        postings: postingsById,
+      })
+      rankingEntries = result.entries
+      rerank = {
+        requested: true,
+        reranked: result.reranked,
+        warnings: result.warnings,
+      }
+    } catch (err) {
+      // A rerank must never turn a successful discovery run into a failure.
+      log.warn("Optional AI discovery rerank failed", { err, userId })
+      rerank = {
+        requested: true,
+        reranked: false,
+        warnings: [
+          "AI reranking was unavailable; showing the deterministic order.",
+        ],
+      }
+    }
+  }
+  const rankingById = new Map(
+    rankingEntries.map((entry) => [entry.postingId, entry])
+  )
 
   const ranked = normalized.map((posting) => {
     const savedJobId = savedByKey.get(posting.canonicalUrl || posting.url)
@@ -514,6 +586,7 @@ export async function runDiscovery(): Promise<RunDiscoveryResult | { error: stri
         MARKET_FIT_RANK[b.candidate.qualification.marketFit.fit] ||
       CONFIDENCE_RANK[a.candidate.confidence.level] -
         CONFIDENCE_RANK[b.candidate.confidence.level] ||
+      aiVerdictOrder(a.candidate.ranking?.ai, b.candidate.ranking?.ai) ||
       (b.candidate.ranking?.score ?? -1) - (a.candidate.ranking?.score ?? -1) ||
       (b.candidate.ranking?.coverage ?? 0) - (a.candidate.ranking?.coverage ?? 0)
   )
@@ -527,7 +600,12 @@ export async function runDiscovery(): Promise<RunDiscoveryResult | { error: stri
     candidates: candidates.length,
   })
 
-  return { queries: queries.map((query) => query.role), candidates, sources }
+  return {
+    queries: queries.map((query) => query.role),
+    candidates,
+    sources,
+    ...(rerank ? { rerank } : {}),
+  }
 }
 
 /** What a careers index page turned out to hold, so the UI can say so. */

@@ -127,6 +127,11 @@ describe("rerankShortlist", () => {
       "AI rerank (FIT, 90%): Reason for b"
     )
     expect(result.entries[0]!.explanation).toContain("deterministic line for b")
+    expect(result.entries[0]!.ai).toEqual({
+      verdict: "FIT",
+      confidence: 90,
+      reason: "Reason for b",
+    })
   })
 
   it("leaves entries beyond the top N untouched and in order", async () => {

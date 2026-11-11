@@ -91,6 +91,14 @@ export interface RankingOptions {
   now?: Date
 }
 
+/** A grounded model judgement about one shortlisted posting. */
+export interface AiRerankJudgement {
+  verdict: "FIT" | "PARTIAL" | "MISMATCH"
+  /** 0-100 confidence that the posting text supports the verdict. */
+  confidence: number
+  reason: string
+}
+
 export interface RankedEntry {
   postingId: string
   /** 1-based position after sorting. */
@@ -108,6 +116,8 @@ export interface RankedEntry {
   factors: FitFactor[]
   /** Plain sentences naming what helped, what hurt and what is unknown. */
   explanation: string[]
+  /** Present only when the optional model rerank accepted a grounded verdict. */
+  ai?: AiRerankJudgement
 }
 
 export interface RankingExclusion {
