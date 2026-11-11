@@ -9,6 +9,7 @@ const {
   mockRevalidatePath,
   mockFetchPosting,
   mockProbeBoards,
+  mockRerankShortlist,
 } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
   mockPrisma: {
@@ -26,11 +27,15 @@ const {
   mockRevalidatePath: vi.fn(),
   mockFetchPosting: vi.fn(),
   mockProbeBoards: vi.fn(),
+  mockRerankShortlist: vi.fn(),
 }))
 
 vi.mock("@/features/auth/config", () => ({ auth: mockAuth }))
 vi.mock("@/shared/lib/prisma", () => ({ prisma: mockPrisma }))
 vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }))
+vi.mock("@/features/ranking/services/rerank.service", () => ({
+  rerankShortlist: mockRerankShortlist,
+}))
 vi.mock("@/shared/lib/rate-limit", () => ({
   RATE_LIMIT_BUCKETS: { DISCOVERY_RUN: "discovery:run", DISCOVERY_ADD_URL: "discovery:add-url" },
   RATE_LIMIT_MESSAGE: "Too many attempts. Please try again later.",
@@ -149,6 +154,7 @@ beforeEach(() => {
   })
   mockPrisma.interviewQuestion.createMany.mockResolvedValue({ count: 1 })
   mockProbeBoards.mockResolvedValue([])
+  mockRerankShortlist.mockReset()
   mockFetchPosting.mockResolvedValue({
     ok: true,
     extractionMethod: "json-ld",
@@ -384,6 +390,59 @@ describe("runDiscovery", () => {
       candidates[1]?.ranking?.lexicalScore ?? 0
     )
     expect(new Set(candidates.map((c) => c.qualification.verdict)).size).toBe(1)
+  })
+
+  it("does not call the model unless the optional rerank is requested", async () => {
+    await runDiscovery()
+
+    expect(mockRerankShortlist).not.toHaveBeenCalled()
+  })
+
+  it("attaches grounded AI confidence to candidates when rerank is requested", async () => {
+    mockRerankShortlist.mockImplementation(
+      async ({ entries }: { entries: Array<Record<string, unknown>> }) => ({
+        reranked: true,
+        warnings: [],
+        entries: entries.map((entry) => ({
+          ...entry,
+          ai: { verdict: "FIT", confidence: 88, reason: "The posting names React." },
+          explanation: [...(entry.explanation as string[]), "AI rerank"],
+        })),
+      })
+    )
+
+    const result = await runDiscovery({ aiRerank: true })
+    const candidates = "candidates" in result ? result.candidates : []
+
+    expect(mockRerankShortlist).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1" })
+    )
+    expect("rerank" in result && result.rerank).toEqual({
+      requested: true,
+      reranked: true,
+      warnings: [],
+    })
+    expect(candidates[0]?.ranking?.ai).toEqual({
+      verdict: "FIT",
+      confidence: 88,
+      reason: "The posting names React.",
+    })
+    expect(candidates[0]?.ranking?.explanation).toContain("AI rerank")
+  })
+
+  it("keeps the deterministic order when the optional rerank throws", async () => {
+    mockRerankShortlist.mockRejectedValue(new Error("provider exploded"))
+
+    const result = await runDiscovery({ aiRerank: true })
+
+    expect("candidates" in result && result.candidates.length).toBe(1)
+    expect("rerank" in result && result.rerank).toEqual({
+      requested: true,
+      reranked: false,
+      warnings: [
+        "AI reranking was unavailable; showing the deterministic order.",
+      ],
+    })
   })
 
   it("marks a posting the user already saved, by canonical URL or raw link", async () => {

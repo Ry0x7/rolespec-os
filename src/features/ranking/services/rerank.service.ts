@@ -218,6 +218,11 @@ export async function rerankShortlist(input: {
       return {
         ...entry,
         rank: position + 1,
+        ai: {
+          verdict: judgement.verdict,
+          confidence: judgement.confidence,
+          reason: judgement.reason,
+        },
         explanation: [
           ...entry.explanation,
           `AI rerank (${judgement.verdict}, ${judgement.confidence}%): ${judgement.reason}`,
