@@ -255,16 +255,33 @@ export async function createWorkflow(
 
     return (await getWorkflow(userId, run.id))!
   } catch (error) {
-    if (
-      idempotencyKey &&
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      const existing = await prisma.workflowRun.findFirst({
-        where: { userId, idempotencyKey },
-        include: RUN_INCLUDE,
-      })
-      if (existing) return runDto(existing)
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      if (idempotencyKey) {
+        const existing = await prisma.workflowRun.findFirst({
+          where: { userId, idempotencyKey },
+          include: RUN_INCLUDE,
+        })
+        if (existing) return runDto(existing)
+      }
+      // The partial unique index is the real guard against two simultaneous
+      // creates for one application; the pre-check above only improves the
+      // common-case message.
+      if (input.jobApplicationId) {
+        const active = await prisma.workflowRun.findFirst({
+          where: {
+            userId,
+            jobApplicationId: input.jobApplicationId,
+            state: { in: ["MANUAL", "ASSISTED", "AWAITING_REVIEW", "PAUSED"] },
+          },
+          select: { id: true },
+        })
+        if (active) {
+          throw new WorkflowError(
+            "This application already has an active workflow.",
+            "CONFLICT"
+          )
+        }
+      }
     }
     throw error
   }
