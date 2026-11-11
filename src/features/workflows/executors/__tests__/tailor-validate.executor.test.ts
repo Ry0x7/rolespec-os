@@ -271,6 +271,7 @@ describe("tailorExecutor", () => {
       jobApplicationId: "app-1",
       sourceResumeId: "resume-1",
       mode: "WORKFLOW",
+      signal: expect.any(AbortSignal),
     })
   })
 })
