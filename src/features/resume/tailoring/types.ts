@@ -112,6 +112,7 @@ export type ValidationIssueCode =
   | "SKILL_SET_CHANGED"
   | "UNSUPPORTED_ADDED_ITEM"
   | "SEMANTIC_DRIFT"
+  | "BANNED_CLICHE"
   | "MISSING_EVIDENCE_REF"
 
 export interface ValidationIssue {

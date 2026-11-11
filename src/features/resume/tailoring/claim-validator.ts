@@ -11,6 +11,7 @@
  */
 
 import { diffBullets } from "@/features/resume/services/resume-diff.service"
+import { BANNED_RESUME_PHRASES } from "@/shared/lib/prompts/human-voice"
 
 import type {
   ClaimEvidence,
@@ -905,6 +906,31 @@ export function validateTailoredResume(input: {
           )
         }
       }
+    }
+  }
+
+  // A prompt rule is not enforcement. Scan only changed claims, and honor the
+  // ATS carve-out: a term the posting itself uses is allowed because matching
+  // its exact keyword is the point of tailoring.
+  const requirementText = input.requirements
+    .map((requirement) => requirement.text)
+    .join("\n")
+  for (const claim of collector.claims) {
+    if (!claim.tailoredText) continue
+    for (const phrase of BANNED_RESUME_PHRASES) {
+      if (!containsTerm(claim.tailoredText, phrase)) continue
+      if (containsTerm(claim.sourceText, phrase)) continue
+      if (containsTerm(requirementText, phrase)) continue
+      collector.addIssue(
+        "BANNED_CLICHE",
+        `The rewrite uses the banned cliché "${phrase}"; use the concrete verb or fact instead.`,
+        {
+          sectionType: claim.sectionType,
+          itemRef: claim.itemRef,
+          field: claim.field,
+          claim: claim.tailoredText.slice(0, 400),
+        }
+      )
     }
   }
 

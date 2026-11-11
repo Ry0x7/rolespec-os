@@ -275,4 +275,33 @@ describe("validateTailoredResume", () => {
       total: 3,
     })
   })
+
+  it("fails a generated cliché instead of trusting the prompt rule", () => {
+    const report = validateTailoredResume({
+      source: source([experience(["Built APIs."])]),
+      tailored: source([
+        experience(["Leveraged a proven track record to build APIs."]),
+      ]),
+      requirements: [],
+      sourceHash: HASH,
+    })
+
+    expect(report.status).toBe("FAIL")
+    expect(report.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "BANNED_CLICHE", severity: "error" }),
+      ]),
+    )
+  })
+
+  it("allows a banned term the target requirement itself uses", () => {
+    const report = validateTailoredResume({
+      source: source([experience(["Built APIs."])]),
+      tailored: source([experience(["Built dynamic APIs."])]),
+      requirements: [requirement({ text: "Dynamic API ownership" })],
+      sourceHash: HASH,
+    })
+
+    expect(report.issues.some((issue) => issue.code === "BANNED_CLICHE")).toBe(false)
+  })
 })
