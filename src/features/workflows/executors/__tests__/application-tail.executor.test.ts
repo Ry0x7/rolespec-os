@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   workflowStepFindFirst: vi.fn(),
   workflowStepFindMany: vi.fn(),
   applicationStatusEventCount: vi.fn(),
+  followUpTaskFindMany: vi.fn(),
   stageSubmissionAttempt: vi.fn(),
 }))
 
@@ -24,6 +25,7 @@ vi.mock("@/shared/lib/prisma", () => ({
       findMany: mocks.workflowStepFindMany,
     },
     applicationStatusEvent: { count: mocks.applicationStatusEventCount },
+    followUpTask: { findMany: mocks.followUpTaskFindMany },
   },
 }))
 
@@ -78,6 +80,7 @@ function context(stepName: string) {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.jobApplicationFindFirst.mockResolvedValue(APPLICATION)
+  mocks.followUpTaskFindMany.mockResolvedValue([])
   mocks.careerProfileFindUnique.mockResolvedValue({
     contactFullName: "Ada Lovelace",
     contactEmail: "ada@example.com",

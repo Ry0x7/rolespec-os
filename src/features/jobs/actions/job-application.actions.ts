@@ -24,6 +24,7 @@ import { auth } from "@/features/auth/config"
 import { logger } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
 import {
+  addBusinessDays,
   addCalendarDays,
   calendarDayStart,
   parseCalendarDate,
@@ -31,6 +32,10 @@ import {
 import { extractEmployerQuestions } from "../services/interview-questions.service"
 import { extractJobRequirements } from "../services/job-requirements.service"
 import { assessJobRiskHeuristics } from "../services/job-risk.service"
+import {
+  cancelFollowUpTasks,
+  scheduleFollowUpTasks,
+} from "../services/follow-up-task.service"
 import { FOLLOW_UP_STATUSES } from "../services/follow-up.service"
 import { isTerminalStatus } from "../services/outcome.service"
 import {
@@ -793,13 +798,20 @@ export async function updateJobApplicationStatus(
   try {
     const existing = await prisma.jobApplication.findUnique({
       where: { id, userId: session.user.id },
-      select: { id: true, status: true, dateApplied: true, outcomeAt: true },
+      select: {
+        id: true,
+        status: true,
+        dateApplied: true,
+        outcomeAt: true,
+        followUpAt: true,
+      },
     })
     if (!existing) return { error: "Not found" }
 
     const becameApplied =
       parsed.data === ApplicationStatus.APPLIED &&
       existing.status !== ApplicationStatus.APPLIED
+    const appliedOn = existing.dateApplied ?? resolveClientToday(clientToday)
 
     // Every status change in the app funnels through this action, so this is the
     // one place the end of an application can be dated without a modal getting
@@ -829,7 +841,12 @@ export async function updateJobApplicationStatus(
           // stamping the server instant made a 07:00 application in UTC+8 land on
           // yesterday's date once `@db.Date` truncated it in UTC.
           ...(becameApplied && !existing.dateApplied
-            ? { dateApplied: resolveClientToday(clientToday) }
+            ? { dateApplied: appliedOn }
+            : {}),
+          // The tracker's existing follow-up field stays useful: the email
+          // reminder is the same +5 business-day date as the durable task.
+          ...(becameApplied && existing.followUpAt === null
+            ? { followUpAt: addBusinessDays(appliedOn, 5) }
             : {}),
         },
       })
@@ -840,6 +857,21 @@ export async function updateJobApplicationStatus(
         toStatus: parsed.data,
         source: STATUS_EVENT_SOURCES.USER,
       })
+
+      if (becameApplied) {
+        await scheduleFollowUpTasks(tx, {
+          userId: session.user.id,
+          jobApplicationId: id,
+          appliedOn,
+          source: "AUTO",
+        })
+      }
+      if (isTerminalStatus(parsed.data)) {
+        await cancelFollowUpTasks(tx, {
+          userId: session.user.id,
+          jobApplicationId: id,
+        })
+      }
     })
 
     revalidatePath("/jobs")

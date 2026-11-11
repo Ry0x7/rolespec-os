@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import {
+  addBusinessDays,
   addCalendarDays,
   calendarDayStart,
   calendarDaysBetween,
@@ -57,6 +58,25 @@ describe("addCalendarDays", () => {
 
     expect(addCalendarDays(day, 7).toISOString()).toBe("2026-09-16T00:00:00.000Z")
     expect(addCalendarDays(day, -30).toISOString()).toBe("2026-08-10T00:00:00.000Z")
+  })
+})
+
+describe("addBusinessDays", () => {
+  it("skips weekends and counts five weekdays from a Friday", () => {
+    const friday = parseCalendarDate("2026-11-13")!
+    expect(addBusinessDays(friday, 5).toISOString()).toBe("2026-11-20T00:00:00.000Z")
+  })
+
+  it("counts twelve weekdays without including the starting day", () => {
+    const monday = parseCalendarDate("2026-11-16")!
+    expect(addBusinessDays(monday, 5).toISOString()).toBe("2026-11-23T00:00:00.000Z")
+    expect(addBusinessDays(monday, 12).toISOString()).toBe("2026-12-02T00:00:00.000Z")
+  })
+
+  it("returns the same day for zero or a negative count", () => {
+    const day = parseCalendarDate("2026-11-13")!
+    expect(addBusinessDays(day, 0).toISOString()).toBe(day.toISOString())
+    expect(addBusinessDays(day, -2).toISOString()).toBe(day.toISOString())
   })
 })
 

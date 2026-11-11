@@ -1,9 +1,11 @@
 import type { ApplicationStatus } from "@/generated/prisma/enums"
-import { localCalendarDateString } from "@/shared/lib/dates"
+import { addBusinessDays, addCalendarDays, localCalendarDateString } from "@/shared/lib/dates"
 
 export interface FollowUpScheduleAdvice {
   recommendedDate: string // YYYY-MM-DD
   recommendedDaysFromNow: number
+  /** True when the date was counted in weekdays, not calendar days. */
+  businessDays: boolean
   reason: string
   isDeadlineUrgent: boolean
   deadlineNote?: string
@@ -37,8 +39,9 @@ export function recommendFollowUpSchedule(input: {
   }
 
   // 2. Recommend follow-up timing based on status
-  let daysOffset = 7
-  let reason = "Standard 7-day follow-up after applying."
+  let daysOffset = 5
+  let businessDays = true
+  let reason = "Check in five business days after applying."
 
   if (input.status === "INTERVIEW") {
     // If interview happened today or recently, 1-day thank you note
@@ -58,21 +61,27 @@ export function recommendFollowUpSchedule(input: {
     }
   } else if (input.status === "SCREENING") {
     daysOffset = 4
+    businessDays = true
     reason = "Check in on recruiter screening results after 4-5 business days."
   } else if (input.status === "APPLIED") {
-    daysOffset = 7
-    reason = "Check in politely 1 week after submitting your application."
+    daysOffset = 5
+    businessDays = true
+    reason = "Check in politely five business days after submitting your application."
   } else if (input.status === "OFFER") {
     daysOffset = 3
+    businessDays = false
     reason = "Respond to offer questions or updates within 3 days."
   }
 
-  const targetDate = new Date(now.getTime() + daysOffset * 24 * 60 * 60 * 1000)
+  const targetDate = businessDays
+    ? addBusinessDays(now, daysOffset)
+    : addCalendarDays(now, daysOffset)
   const recommendedDate = localCalendarDateString(targetDate)
 
   return {
     recommendedDate,
     recommendedDaysFromNow: daysOffset,
+    businessDays,
     reason,
     isDeadlineUrgent,
     deadlineNote,

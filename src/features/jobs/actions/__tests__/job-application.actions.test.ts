@@ -18,6 +18,12 @@ const { mockAuth, mockPrisma } = vi.hoisted(() => ({
     job: { create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), findFirst: vi.fn() },
     resume: { findUnique: vi.fn() },
     applicationStatusEvent: { create: vi.fn() },
+    followUpTask: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }))
@@ -56,6 +62,19 @@ function lastJobUpdateData() {
 function jobCreateData() {
   return mockPrisma.job.create.mock.calls[0][0].data
 }
+
+beforeEach(() => {
+  // Automatic follow-up scheduling runs inside the status transaction. A
+  // pending row is the exception in these fixtures; the scheduling itself has
+  // its own service test.
+  mockPrisma.followUpTask.findFirst.mockResolvedValue(null)
+  mockPrisma.followUpTask.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+    id: `task-${data.channel}`,
+    status: "PENDING",
+    ...data,
+  }))
+  mockPrisma.followUpTask.updateMany.mockResolvedValue({ count: 0 })
+})
 
 describe("updateJobApplicationStatus", () => {
   beforeEach(() => {

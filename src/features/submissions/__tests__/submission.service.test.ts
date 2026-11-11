@@ -10,6 +10,12 @@ const mocks = vi.hoisted(() => {
     },
     jobApplication: { findFirst: vi.fn(), update: vi.fn() },
     applicationStatusEvent: { create: vi.fn() },
+    followUpTask: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
   }
   return {
     ...client,
@@ -26,6 +32,7 @@ vi.mock("@/shared/lib/prisma", () => ({
     submissionAttempt: mocks.submissionAttempt,
     jobApplication: mocks.jobApplication,
     applicationStatusEvent: mocks.applicationStatusEvent,
+    followUpTask: mocks.followUpTask,
     $transaction: mocks.transaction,
   },
 }))
@@ -76,6 +83,15 @@ beforeEach(() => {
   })
   mocks.jobApplication.update.mockResolvedValue({})
   mocks.applicationStatusEvent.create.mockResolvedValue({})
+  mocks.followUpTask.findFirst.mockResolvedValue(null)
+  mocks.followUpTask.create.mockImplementation(async ({ data }) => ({
+    id: `task-${data.channel}`,
+    status: "PENDING",
+    completedAt: null,
+    createdAt: new Date("2026-11-12T00:00:00.000Z"),
+    updatedAt: new Date("2026-11-12T00:00:00.000Z"),
+    ...data,
+  }))
 })
 
 describe("stageSubmissionAttempt", () => {

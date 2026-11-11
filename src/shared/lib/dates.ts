@@ -75,6 +75,22 @@ export function addCalendarDays(value: Date, days: number): Date {
 }
 
 /**
+ * `days` weekdays later, counting Monday through Friday. Weekend-only: no
+ * holiday calendar is assumed, so a due date can fall on a public holiday. The
+ * count starts the day after `value`, and a Friday + 1 is the following Monday.
+ */
+export function addBusinessDays(value: Date, days: number): Date {
+  const result = new Date(value.getTime())
+  let remaining = Math.max(0, Math.floor(days))
+  while (remaining > 0) {
+    result.setUTCDate(result.getUTCDate() + 1)
+    const weekday = result.getUTCDay()
+    if (weekday !== 0 && weekday !== 6) remaining -= 1
+  }
+  return result
+}
+
+/**
  * The UTC midnight of the day it currently is at `offsetMinutes`, the value a
  * browser's `Date.prototype.getTimezoneOffset()` returns (UTC+8 → -480). An
  * out-of-range offset is treated as absent, i.e. UTC.

@@ -55,6 +55,7 @@ model User {
   atsPreparations     AtsPreparation[]
   atsAnswers          AtsAnswer[]
   submissionAttempts  SubmissionAttempt[]
+  followUpTasks       FollowUpTask[]
 
   @@map("users")
 }
@@ -404,6 +405,7 @@ model JobApplication {
   tailoringRuns      ResumeTailoringRun[]
   atsPreparations    AtsPreparation[]
   submissionAttempts SubmissionAttempt[]
+  followUpTasks      FollowUpTask[]
 
   // Target of the resumes composite FK: a tailored resume's application must
   // belong to the same user that owns the resume row.
@@ -1310,6 +1312,35 @@ model SubmissionAttempt {
   @@map("submission_attempts")
 }
 
+/// One durable, user-visible follow-up for an application. A task is a reminder
+/// and a channel, never an outbound send: completing or dismissing it is the
+/// user's action. The unique key makes automatic scheduling idempotent.
+model FollowUpTask {
+  id               String          @id @default(cuid())
+  userId           String
+  jobApplicationId String
+  channel          FollowUpChannel
+  status           FollowUpStatus  @default(PENDING)
+  /// The day the follow-up is due, stored as UTC midnight like other calendar dates.
+  dueAt            DateTime        @db.Date
+  /// The application day the due date was counted from.
+  appliedOn        DateTime?       @db.Date
+  /// Why this task exists, e.g. "+5 business days after applying".
+  reason           String?         @db.Text
+  source           String          @default("AUTO")
+  completedAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobApplication JobApplication @relation(fields: [jobApplicationId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([jobApplicationId, channel])
+  @@index([userId, status, dueAt])
+  @@index([userId, jobApplicationId])
+  @@map("follow_up_tasks")
+}
+
 // ─────────────────────────────────────────────
 // ENUMS
 // ─────────────────────────────────────────────
@@ -1325,6 +1356,18 @@ enum SubmissionAttemptStatus {
   SUBMITTED
   NOT_SUBMITTED
   ABANDONED
+}
+
+enum FollowUpChannel {
+  EMAIL
+  LINKEDIN
+}
+
+enum FollowUpStatus {
+  PENDING
+  DONE
+  DISMISSED
+  CANCELLED
 }
 
 enum WorkflowKind {
