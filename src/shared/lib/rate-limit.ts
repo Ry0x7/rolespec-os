@@ -27,6 +27,14 @@ export const RATE_LIMIT_BUCKETS = {
   EXTENSION_JOBS: "extension:jobs",
   /** Resume listing for the extension's picker, keyed on the token's user id. */
   EXTENSION_RESUMES: "extension:resumes",
+  /** Creating or refreshing one ATS preparation from the extension. */
+  EXTENSION_ATS_PREPARE: "extension:ats-prepare",
+  /** Approving, editing or revoking remembered ATS answers. */
+  EXTENSION_ATS_ANSWERS: "extension:ats-answers",
+  /** Reading and resolving ATS review tasks from the extension. */
+  EXTENSION_ATS_REVIEW: "extension:ats-review",
+  /** Rendering a resume PDF for user-triggered ATS attachment. */
+  EXTENSION_RESUME_PDF: "extension:resume-pdf",
   /** Batch fit-badge qualification for the extension, keyed on the token's user id. */
   EXTENSION_QUALIFY: "extension:qualify",
   /** Outreach-email generation through the extension, keyed on the token's user id. */
@@ -37,6 +45,14 @@ export const RATE_LIMIT_BUCKETS = {
   DISCOVERY_RUN: "discovery:run",
   /** Adding one posting by its URL (one third-party page fetch), keyed on the user id. */
   DISCOVERY_ADD_URL: "discovery:add-url",
+  /** Ranking a saved-job pool; the optional rerank is the only AI cost. */
+  RANKING_RUN: "ranking:run",
+  /** Creating a durable workflow run and its full step set. */
+  WORKFLOW_CREATE: "workflow:create",
+  /** Start/pause/resume/retry/cancel and manual step completion. */
+  WORKFLOW_ADVANCE: "workflow:advance",
+  /** Web review queue reads and answers, keyed on the owner id. */
+  WEB_REVIEW_TASKS: "review:web",
   /** Resume↔job match scoring, keyed on the user id. */
   AI_JOB_MATCH: "ai:job-match",
   /** On-demand model second opinion on a posting's risk, keyed on the user id. */
@@ -53,6 +69,12 @@ export const RATE_LIMIT_BUCKETS = {
   CAREER_IMPORT: "career:import",
   /** Opt-in GitHub / portfolio scan, keyed on the user id. */
   CAREER_WEB_IMPORT: "career:web-import",
+  /** One unified intake run, however many sources it fans out to. */
+  INTAKE_RUN: "intake:run",
+  /** Resume / LinkedIn export upload extraction, keyed on the user id. */
+  INTAKE_UPLOAD: "intake:upload",
+  /** Conversational extraction preview, keyed on the user id. */
+  INTAKE_CHAT: "intake:chat",
   /** One-click enhance of a career-profile field, keyed on the user id. */
   AI_PROFILE_ENHANCE: "ai:profile-enhance",
   /** Polish pass run while creating a master resume, keyed on the user id. */

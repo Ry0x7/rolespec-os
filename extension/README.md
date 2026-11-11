@@ -17,7 +17,7 @@ npm install
 npm run build      # type-checks, then emits dist/
 ```
 
-Other scripts: `npm run dev` (Vite watch rebuild), `npm test` (extractor, LinkedIn extractor, connect, site-access and resume-picker unit tests),
+Other scripts: `npm run dev` (Vite watch rebuild), `npm test` (extractor, LinkedIn extractor, connect, site-access, resume-picker and ATS fixture/classifier unit tests),
 `npm run test:watch` (Vitest in watch mode), `npm run typecheck`.
 
 ## Load unpacked
@@ -97,23 +97,42 @@ extension; there the panel says so and offers no button.
 
 ### Autofill an application form
 
-The **Autofill** tab helps with an application form on a supported ATS: Greenhouse,
-Lever, Ashby, Workable, BambooHR, SmartRecruiters, Jobvite, iCIMS, Taleo, Workday,
-Recruitee, Teamtailor and Personio.
+The **Autofill** tab prepares an application on a supported ATS. Ingestion and form
+filling are separate: every listed vendor can be clipped, but only Greenhouse, Lever
+and Ashby are fixture-tested fill paths. Workable, BambooHR, SmartRecruiters, Jobvite,
+iCIMS, Workday, Recruitee, Teamtailor and Personio are **assisted** — scan each step and
+verify every value. Taleo and unrecognised forms use the manual fallback. The full
+matrix and its limits are in [ATS_SUPPORT.md](../docs/ATS_SUPPORT.md).
 
 1. Open the employer's application form, switch to **Autofill**, then press **Scan this
-   page**. RoleSpec OS asks for site access the first time; the grant is per origin, and
-   only the form's field labels are read — never the values already in it.
-2. The panel shows how many fields it can fill from your RoleSpec OS contact details. Press
-   **Fill fields**, check the preview, then press **Confirm fill**. Nothing is written
-   before that second press.
+   page**. RoleSpec OS asks for site access the first time; the grant is per origin. The
+   scanner runs in every frame, reads visible enabled controls, and reads only labels,
+   names, types and options — never a value already in a field.
+2. The server builds the fill plan and returns the questions it will not answer. The
+   panel shows how many fields it can fill from your stored contact details and approved
+   answers. Press **Fill fields**, check the preview, then press **Confirm fill**. Nothing
+   is written before that second press, and a form that changed since planning is
+   refused instead of filled with a stale plan.
 3. Work authorization, visa sponsorship, salary expectations, demographic questions,
-   criminal-history questions, file uploads and free-text essays are **never filled**.
-   They appear in the **Review queue**. Type an answer and press **Save answer**; it is
-   reused for the same question on later forms. Sensitive answers are stored only in
-   `chrome.storage.local` on this browser profile.
-4. RoleSpec OS never clicks Submit, never accepts terms and never sends an application.
-   Review every value on the page and submit it yourself.
+   criminal-history questions, free-text essays, choice controls and file uploads are
+   **never filled**. Each becomes a persistent review task. Type an answer and approve it;
+   choose **this application only** or **all applications**, edit it later with an
+   explicit replace, or revoke it. A revoked answer is never reused and its question
+   returns to the queue. Answers live on your RoleSpec OS server per token owner; the
+   local cache is only a convenience copy.
+4. To attach a resume, pick one in the panel and press **Attach**. RoleSpec OS renders it
+   and stages the PDF into the page's file input on that press. If the page refuses the
+   file, the same PDF downloads so you can choose it manually. The chosen resume is
+   recorded on the preparation.
+5. The preparation is saved as a draft record with the form URL, vendor, plan, field
+   results, review task ids and timestamps. It survives closing the panel or the browser.
+6. While a prepared fill is active, a temporary submit guard blocks a form submit, Enter
+   inside a form, or a click on a submit-looking control. Press **Release submit guard**
+   when you are ready. RoleSpec OS never clicks Submit, never accepts terms and never
+   sends an application. Review every value on the page and submit it yourself. The panel
+   then asks whether it was actually submitted; only an explicit **yes** marks the
+   preparation submitted and, when linked to a tracked application, moves it to
+   **Applied**.
 
 The filler has no host permissions of its own: it uses the same optional per-origin
 grant as clipping, and runs only after the user presses Scan. It does not run on a
@@ -394,11 +413,15 @@ extension/
     job-risk.test.ts         vitest tests for that parser
     __fixtures__/            JSON-LD / @graph / no-data / malformed / LinkedIn fixtures,
                              plus trimmed real job-board markup (badge-*.html)
+    ats-adapters.ts        vendor support matrix (ingestion vs form filling)
+    ats-adapters.test.ts
+    ats-api.ts             typed ATS preparation/review/PDF network calls
+    ats-fixtures.test.ts   maintained Greenhouse/Lever/Ashby markup fixtures
     autofill-core.ts       pure field classification + fill planning
     autofill-core.test.ts
-    autofill-page.ts       self-contained page scan/fill functions (executeScript)
+    autofill-page.ts       self-contained page scan/fill/attach functions (executeScript)
     autofill-page.test.ts
-    autofill-panel.ts      Autofill tab controller + review queue
+    autofill-panel.ts      Autofill tab controller + persistent review queue
     approved-answers.ts    local chrome.storage answer cache
     approved-answers.test.ts
     sidepanel.ts, options.ts entry scripts
