@@ -53,6 +53,8 @@ export const RATE_LIMIT_BUCKETS = {
   WORKFLOW_CREATE: "workflow:create",
   /** Start/pause/resume/retry/cancel and manual step completion. */
   WORKFLOW_ADVANCE: "workflow:advance",
+  /** Creating and updating durable outreach sequences. */
+  OUTREACH_WRITE: "outreach:write",
   /** Web review queue reads and answers, keyed on the owner id. */
   WEB_REVIEW_TASKS: "review:web",
   /** Creating or confirming a durable submission staging record. */
