@@ -44,6 +44,8 @@ export const AI_USAGE_FEATURES = {
   OUTREACH_EMAIL: "jobs.outreach_email",
   APPLICATION_EMAIL: "jobs.application_email",
   REPLY_EMAIL: "jobs.reply_email",
+  /** Review-only draft for one free-text ATS question. */
+  ESSAY_DRAFT: "jobs.essay_draft",
   JOB_MATCH: "jobs.match",
   /** On-demand interview questions for a tracked application. */
   INTERVIEW_QUESTIONS: "jobs.interview_questions",

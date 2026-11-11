@@ -37,6 +37,8 @@ export const RATE_LIMIT_BUCKETS = {
   EXTENSION_RESUME_PDF: "extension:resume-pdf",
   /** Batch fit-badge qualification for the extension, keyed on the token's user id. */
   EXTENSION_QUALIFY: "extension:qualify",
+  /** Essay drafting through the extension, keyed on the token's user id. */
+  EXTENSION_ESSAY_DRAFT: "extension:essay-draft",
   /** Outreach-email generation through the extension, keyed on the token's user id. */
   EXTENSION_COLD_EMAIL: "extension:cold-email",
   /** Reply drafting through the extension, keyed on the token's user id. */
