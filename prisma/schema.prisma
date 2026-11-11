@@ -1107,6 +1107,9 @@ model WorkflowStep {
   dependsOn      String[]           @default([])
   attempts       Int                @default(0)
   maxAttempts    Int                @default(3)
+  /// Consecutive worker crashes recovered for this step. Bounded so a
+  /// deterministic crash cannot retry forever; reset on an explicit retry.
+  recoveryCount  Int                @default(0)
   timeoutMs      Int                @default(60000)
   /// `(runId, name)` in practice; unique so a replay returns the stored output.
   idempotencyKey String

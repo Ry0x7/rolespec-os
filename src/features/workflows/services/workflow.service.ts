@@ -525,6 +525,7 @@ export async function retryWorkflow(
       data: {
         status: "PENDING",
         attempts: 0,
+        recoveryCount: 0,
         lastError: null,
         nextAttemptAt: new Date(),
         startedAt: null,
@@ -884,6 +885,7 @@ export async function resolveReviewTask(
         data: {
           status: "PENDING",
           attempts: 0,
+          recoveryCount: 0,
           nextAttemptAt: new Date(),
           lastError: null,
           input: json({ ...previous, reviewAnswer: answer }),

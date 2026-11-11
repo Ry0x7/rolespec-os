@@ -22,6 +22,8 @@ export const MAX_CONCURRENT_STEPS = 2
 const RETRY_BASE_MS = 2_000
 const RETRY_MAX_MS = 30_000
 const MAX_RUNS_PER_TICK = 3
+/** Repeated worker deaths on one step stop being "transient" after this. */
+export const MAX_CRASH_RECOVERIES = 3
 
 const WORKER_ID = `worker-${process.pid}-${randomUUID()}`
 
@@ -39,6 +41,7 @@ type DbStep = {
   dependsOn: string[]
   attempts: number
   maxAttempts: number
+  recoveryCount: number
   timeoutMs: number
   nextAttemptAt: Date | null
 }
@@ -103,9 +106,11 @@ async function releaseLease(runId: string): Promise<void> {
 }
 
 /**
- * Restart recovery. A `RUNNING` step whose worker died is put back to `PENDING`;
- * its attempt count is preserved, so a crash loop cannot retry forever. The
- * output was never committed, so replay is safe.
+ * Restart recovery. A `RUNNING` step whose worker died is put back to `PENDING`
+ * and the interrupted attempt is refunded, because it never committed. The
+ * refund is bounded by `recoveryCount`: a deterministic crash that kills the
+ * worker every time becomes a FAILED step with an actionable error instead of
+ * an endless retry loop. The output was never committed, so replay is safe.
  */
 export async function recoverExpiredLeases(now: Date = new Date()): Promise<number> {
   const expired = await prisma.workflowRun.findMany({
@@ -123,24 +128,69 @@ export async function recoverExpiredLeases(now: Date = new Date()): Promise<numb
       })
       if (cleared.count === 0) return 0
 
-      const reset = await tx.workflowStep.updateMany({
+      const running = await tx.workflowStep.findMany({
         where: { runId: run.id, status: "RUNNING" },
-        data: {
-          status: "PENDING",
-          // The interrupted attempt never committed, so it is refunded. A crash
-          // must not permanently exhaust a step whose attempt cap is one;
-          // deterministic failures still count because they commit first.
-          attempts: { decrement: 1 },
-          nextAttemptAt: new Date(),
-          startedAt: null,
-        },
+        select: { id: true, name: true, required: true, attempts: true, recoveryCount: true },
       })
+      let resetCount = 0
+      let failedCount = 0
+      let requiredFailed = false
+
+      for (const step of running) {
+        const nextRecovery = (step.recoveryCount ?? 0) + 1
+        if (nextRecovery >= MAX_CRASH_RECOVERIES) {
+          await tx.workflowStep.update({
+            where: { id: step.id },
+            data: {
+              status: "FAILED",
+              recoveryCount: nextRecovery,
+              lastError:
+                "The worker stopped mid-step repeatedly. Review the application and retry this step manually.",
+              startedAt: null,
+              finishedAt: new Date(),
+            },
+          })
+          failedCount += 1
+          if (step.required) requiredFailed = true
+          continue
+        }
+
+        await tx.workflowStep.update({
+          where: { id: step.id },
+          data: {
+            status: "PENDING",
+            attempts: { decrement: 1 },
+            recoveryCount: nextRecovery,
+            nextAttemptAt: new Date(),
+            startedAt: null,
+          },
+        })
+        resetCount += 1
+      }
+
+      if (requiredFailed) {
+        await tx.workflowRun.update({
+          where: { id: run.id },
+          data: {
+            state: "FAILED",
+            lastError:
+              "A required step repeatedly lost its worker. Retry the workflow or continue manually.",
+            leaseOwner: null,
+            leaseExpiresAt: null,
+            finishedAt: new Date(),
+            stateVersion: { increment: 1 },
+          },
+        })
+      }
+
       await tx.workflowEvent.create({
         data: {
           runId: run.id,
           type: "LEASE_RECLAIMED",
-          message: "Expired worker lease reclaimed on restart.",
-          metadata: { stepCount: reset.count },
+          message: requiredFailed
+            ? "Expired worker lease reclaimed; the crash-recovery limit was reached."
+            : "Expired worker lease reclaimed on restart.",
+          metadata: { stepCount: resetCount, failedCount },
         },
       })
       return 1
@@ -599,6 +649,7 @@ export async function executeWorkflowRun(runId: string): Promise<void> {
         dependsOn: true,
         attempts: true,
         maxAttempts: true,
+        recoveryCount: true,
         timeoutMs: true,
         nextAttemptAt: true,
       },

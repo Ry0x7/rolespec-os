@@ -303,11 +303,35 @@ describe("workflow engine", () => {
     expect(profile.status).toBe("PENDING")
     // The interrupted attempt is refunded; it never produced a result.
     expect(profile.attempts).toBe(0)
+    expect(profile.recoveryCount).toBe(1)
     expect(fake.events.some((event) => event.type === "LEASE_RECLAIMED")).toBe(true)
 
     // The reclaimed run can then finish normally.
     await tickWorkflowWorker()
     expect((await getWorkflow("user-1", run.id))?.state).toBe("COMPLETED")
+  })
+
+  it("fails a required step after the bounded crash-recovery limit, and retry resets it", async () => {
+    const run = await startedRun()
+    const runRow = fake.runs[0]!
+    runRow.leaseOwner = "dead-worker"
+    runRow.leaseExpiresAt = new Date(Date.now() - 120_000)
+    const profile = fake.steps.find((step) => step.name === "PROFILE")!
+    profile.status = "RUNNING"
+    profile.startedAt = new Date(Date.now() - 120_000)
+    profile.attempts = 1
+    profile.recoveryCount = 2
+
+    expect(await recoverExpiredLeases()).toBe(1)
+    expect(profile.status).toBe("FAILED")
+    expect(profile.lastError).toContain("repeatedly")
+    expect((await getWorkflow("user-1", run.id))?.state).toBe("FAILED")
+    expect(fake.events.at(-1)?.metadata).toMatchObject({ failedCount: 1 })
+
+    await retryWorkflow("user-1", run.id)
+    expect(profile.status).toBe("PENDING")
+    expect(profile.attempts).toBe(0)
+    expect(profile.recoveryCount).toBe(0)
   })
 
   it("allows exactly one claim for the same unattended run", async () => {
