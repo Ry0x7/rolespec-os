@@ -47,6 +47,29 @@ const REDACTED_KEY_PATTERNS = [
 
 const REDACTED = "[redacted]"
 
+/**
+ * Credentials that leak as substrings of an otherwise ordinary message: a
+ * provider error, a URL with a key query parameter, an authorization header.
+ * The key-based redaction above cannot see these, so stored event text and
+ * user-visible failure reasons go through this backstop too.
+ */
+const SECRET_TEXT_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\b(sk|pk|rk)-[A-Za-z0-9_-]{8,}\b/g, REDACTED],
+  [/\bAIza[A-Za-z0-9_-]{10,}\b/g, REDACTED],
+  [/\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi, `Bearer ${REDACTED}`],
+  [/([?&](?:api[_-]?key|key|token|access_token|secret)=)[^&\s]+/gi, `$1${REDACTED}`],
+]
+
+/** Redact credential-shaped substrings and cap the stored length. */
+export function redactText(value: string, max = 500): string {
+  let safe = value
+  for (const [pattern, replacement] of SECRET_TEXT_PATTERNS) {
+    safe = safe.replace(pattern, replacement)
+  }
+  safe = safe.replace(/\s+/g, " ").trim()
+  return safe.length > max ? `${safe.slice(0, max - 1)}…` : safe
+}
+
 function shouldRedact(key: string): boolean {
   const lower = key.toLowerCase()
   return REDACTED_KEY_PATTERNS.some((pattern) => lower.includes(pattern))
@@ -67,7 +90,9 @@ export function redactContext(context: LogContext, depth = 0): LogContext {
       continue
     }
     if (value instanceof Error) {
-      out[key] = { name: value.name, message: value.message }
+      // Provider and database errors routinely carry a key or bearer token in
+      // their message. Key-based redaction cannot see inside an Error object.
+      out[key] = { name: value.name, message: redactText(value.message, 1000) }
       continue
     }
     if (value && typeof value === "object" && !Array.isArray(value)) {

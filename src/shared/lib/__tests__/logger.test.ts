@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
-import { logger, redactContext } from "../logger"
+import { logger, redactContext, redactText } from "../logger"
 
 const spies = {
   log: vi.spyOn(console, "log"),
@@ -56,6 +56,18 @@ describe("redactContext", () => {
       err: Record<string, unknown>
     }
     expect(result.err).toEqual({ name: "TypeError", message: "boom" })
+  })
+
+  it("redacts a credential-shaped token inside an Error message", () => {
+    const result = redactContext({
+      err: new Error(
+        "POST https://api.example/v1?key=sk-live-1234567890 failed with Bearer abcdefghijklmnop"
+      ),
+    }) as { err: Record<string, unknown> }
+
+    expect(String(result.err.message)).not.toContain("sk-live-1234567890")
+    expect(String(result.err.message)).not.toContain("abcdefghijklmnop")
+    expect(String(result.err.message)).toContain("[redacted]")
   })
 
   it("stops recursing on a deep object instead of walking forever", () => {
@@ -130,6 +142,24 @@ describe("production output", () => {
   it("drops debug lines", () => {
     logger("x").debug("noisy")
     expect(spies.log).not.toHaveBeenCalled()
+  })
+})
+
+describe("redactText", () => {
+  it("removes credential-shaped substrings from failure text", () => {
+    const text = redactText(
+      "POST https://api.example/v1?key=sk-live-1234567890 failed with Bearer abcdefghijklmnop",
+      200
+    )
+
+    expect(text).not.toContain("sk-live-1234567890")
+    expect(text).not.toContain("abcdefghijklmnop")
+    expect(text).toContain("[redacted]")
+  })
+
+  it("collapses whitespace and caps stored text", () => {
+    expect(redactText("a\n\nb   c", 100)).toBe("a b c")
+    expect(redactText("x".repeat(40), 10)).toHaveLength(10)
   })
 })
 
