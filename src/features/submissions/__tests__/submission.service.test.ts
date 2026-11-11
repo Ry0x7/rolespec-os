@@ -80,6 +80,7 @@ beforeEach(() => {
     id: "app-1",
     status: "INTERESTED",
     dateApplied: null,
+    followUpAt: null,
   })
   mocks.jobApplication.update.mockResolvedValue({})
   mocks.applicationStatusEvent.create.mockResolvedValue({})

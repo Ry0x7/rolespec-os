@@ -1,7 +1,6 @@
 import { prisma } from "@/shared/lib/prisma"
 import { encryptSecret, secretLast4, tryDecryptSecret } from "@/shared/lib/secret-box"
 import {
-  AI_PROVIDER_META,
   USER_AI_PROVIDERS,
   isUserAiProvider,
   type UserAiProvider,
