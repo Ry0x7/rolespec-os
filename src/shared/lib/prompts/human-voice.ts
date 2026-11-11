@@ -31,8 +31,44 @@ export const HUMAN_VOICE_RULES = `VOICE — write like a person, not like an AI:
  * a resume that drops a job-description keyword to sound more human scores worse
  * on the thing the user actually came for.
  */
+/**
+ * The deterministic sibling of the prompt list below. A prompt can be ignored;
+ * this array is what the validator scans generated copy against. The ATS
+ * carve-out is applied by the caller, never by deleting a term from this list.
+ */
+export const BANNED_RESUME_PHRASES = [
+  "results-driven",
+  "detail-oriented",
+  "dynamic",
+  "passionate",
+  "spearheaded",
+  "leveraged",
+  "leverage",
+  "synergy",
+  "seasoned professional",
+  "proven track record",
+  "wealth of experience",
+  "cutting-edge",
+  "innovative mindset",
+  "thought leader",
+  "go-getter",
+  "self-starter",
+  "fast-paced environment",
+  "delve",
+  "elevate",
+  "empower",
+  "harness",
+  "unlock",
+  "transformative",
+  "game-changer",
+  "journey",
+  "landscape",
+  "tapestry",
+  "deep dive",
+] as const
+
 export const HUMAN_VOICE_LEXICON = `HUMAN VOICE — avoid AI-sounding professional copy:
-- NEVER use these buzzwords or phrases: results-driven, detail-oriented, dynamic, passionate, spearheaded, leveraged, leverage, synergy, seasoned professional, proven track record, wealth of experience, cutting-edge, innovative mindset, thought leader, go-getter, self-starter, fast-paced environment, delve, elevate, empower, harness, unlock, transformative, game-changer, journey, landscape, tapestry, "deep dive".
+- NEVER use these buzzwords or phrases: ${BANNED_RESUME_PHRASES.join(", ")}.
 - Do not write "responsible for" — it is weak. Use the verb for what was actually done ("ran", "built", "trained", "audited").
 - Do not write "utilize". Write "use".
 - In prose (summaries, About sections): no "It's not just X, it's Y" constructions. No triadic lists ("fast, reliable, and scalable"). At most one em dash per paragraph. Vary sentence length. No exclamation marks.
