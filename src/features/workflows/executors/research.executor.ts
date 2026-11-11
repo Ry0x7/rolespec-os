@@ -24,6 +24,7 @@ export const researchExecutor: WorkflowExecutor = async ({
   userId,
   jobApplicationId,
   now,
+  signal,
 }) => {
   const application = await loadWorkflowApplication(userId, jobApplicationId)
   if (!application) return missingApplicationOutcome("research")
@@ -38,6 +39,7 @@ export const researchExecutor: WorkflowExecutor = async ({
       description: application.job.description,
       useAi: true,
       now,
+      signal,
     })
 
     const uncertainty = [

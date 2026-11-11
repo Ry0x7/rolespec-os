@@ -273,6 +273,7 @@ async function fetchVerifiableSources(input: {
   companyName: string
   url?: string | null
   aiCitations: readonly { title: string; url: string; quote?: string }[]
+  signal?: AbortSignal
 }): Promise<VerifiedSource[]> {
   const candidates: CandidateCitation[] = []
   const seen = new Set<string>()
@@ -310,6 +311,7 @@ async function fetchVerifiableSources(input: {
           contentType.includes("application/xhtml") ||
           contentType.includes("text/plain") ||
           contentType.includes("application/json"),
+        ...(input.signal ? { signal: input.signal } : {}),
       })
       const html = response.body
       const text = htmlToReadableText(html).slice(0, MAX_SOURCE_TEXT)
@@ -432,8 +434,9 @@ export async function analyzeCompanyResearchAI(input: {
   url?: string | null
   location?: string | null
   description?: string | null
+  signal?: AbortSignal
 }): Promise<CompanyResearchResult> {
-  const { userId, companyName, jobTitle, url, location, description } = input
+  const { userId, companyName, jobTitle, url, location, description, signal } = input
 
   const prompt = [
     `Company: ${companyName}`,
@@ -456,18 +459,25 @@ export async function analyzeCompanyResearchAI(input: {
         surface: "app",
         userId,
       },
+      ...(signal ? { abortSignal: signal } : {}),
     })
     object = generated.object
-  } catch {
+  } catch (error) {
+    // A cancelled step must stop here; swallowing the abort would let the
+    // deterministic fallback and source fetches continue after the deadline.
+    if (signal?.aborted) throw error
     // The deterministic path still fetches and verifies the posting URL.
     object = null
   }
 
+  signal?.throwIfAborted()
   const sources = await fetchVerifiableSources({
     companyName,
     url,
     aiCitations: object?.citations ?? [],
+    ...(signal ? { signal } : {}),
   })
+  signal?.throwIfAborted()
 
   if (!object) {
     return extractDeterministicCompanyResearch({

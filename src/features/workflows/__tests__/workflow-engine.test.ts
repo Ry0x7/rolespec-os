@@ -269,7 +269,11 @@ describe("workflow engine", () => {
   })
 
   it("turns a step that ignores its abort signal into a bounded timeout", async () => {
-    holder.executors.PROFILE = () => new Promise<WorkflowStepOutcome>(() => undefined)
+    let receivedSignal: AbortSignal | undefined
+    holder.executors.PROFILE = (context) => {
+      receivedSignal = (context as { signal: AbortSignal }).signal
+      return new Promise<WorkflowStepOutcome>(() => undefined)
+    }
     const run = await startedRun()
     const profile = fake.steps.find((step) => step.name === "PROFILE")!
     profile.timeoutMs = 10
@@ -277,6 +281,7 @@ describe("workflow engine", () => {
     await tickWorkflowWorker()
 
     const finished = await getWorkflow("user-1", run.id)
+    expect(receivedSignal?.aborted).toBe(true)
     expect(finished?.state).toBe("FAILED")
     expect(profile.status).toBe("FAILED")
     expect(profile.lastError).toContain("timed out")
