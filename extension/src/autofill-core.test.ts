@@ -155,11 +155,30 @@ describe("buildFillPlan", () => {
     expect(plan.fills[0].value).toBe("Reyes")
   })
 
-  it("fills an approved answer for a sensitive question and keeps it marked", () => {
+  it("keeps a browser-wide sensitive answer as a suggestion, not a write", () => {
+    const label = "Will you require visa sponsorship?"
+    const plan = buildFillPlan(PROFILE, [field({ id: "af-9", label })], {
+      [answerKey(label)]: "Yes",
+    })
+
+    expect(plan.fills).toHaveLength(0)
+    expect(plan.review).toHaveLength(1)
+    expect(plan.review[0]).toMatchObject({
+      fieldId: "af-9",
+      category: "sponsorship",
+      suggestedValue: "Yes",
+    })
+    expect(plan.review[0].reason).toContain("need approval for this application")
+  })
+
+  it("fills a sensitive answer only when it was approved for this application", () => {
+    const label = "Will you require visa sponsorship?"
+    const key = answerKey(label)
     const plan = buildFillPlan(
       PROFILE,
-      [field({ id: "af-9", label: "Will you require visa sponsorship?" })],
-      { [answerKey("Will you require visa sponsorship?")]: "Yes" },
+      [field({ id: "af-9", label })],
+      { [key]: "Yes" },
+      { applicationApprovedKeys: new Set([key]) },
     )
 
     expect(plan.review).toHaveLength(0)
@@ -181,10 +200,12 @@ describe("buildFillPlan", () => {
 
   it("does not auto-fill a radio choice even with an approved answer", () => {
     const label = "Are you authorized to work?"
+    const key = answerKey(label)
     const plan = buildFillPlan(
       PROFILE,
       [field({ id: "af-4", label, type: "radio", tagName: "input" })],
-      { [answerKey(label)]: "Yes" },
+      { [key]: "Yes" },
+      { applicationApprovedKeys: new Set([key]) },
     )
     expect(plan.fills).toHaveLength(0)
     expect(plan.review[0].reason).toMatch(/cannot safely set/)

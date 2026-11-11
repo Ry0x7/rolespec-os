@@ -204,6 +204,7 @@
       </p>
 
       <p id="autofill-site" class="hint"></p>
+      <p id="autofill-vendor" class="hint" hidden></p>
 
       <div class="autofill-actions">
         <button id="autofill-scan" class="button" type="button">Scan this page</button>
@@ -211,12 +212,24 @@
           Allow RoleSpec OS to read this site
         </button>
         <button id="autofill-clear" class="button button-quiet button-mini" type="button">
-          Clear saved answers
+          Forget browser answers
         </button>
       </div>
 
       <p id="autofill-status" class="notice" role="status" hidden></p>
       <p id="autofill-summary" class="hint" hidden></p>
+
+      <div id="autofill-guard" class="notice notice-warn" hidden>
+        <p id="autofill-guard-text" class="hint"></p>
+        <button id="autofill-release-guard" class="button button-quiet button-mini" type="button">
+          Release submit guard
+        </button>
+      </div>
+
+      <div id="autofill-record" hidden>
+        <h2 class="review-title">Application record</h2>
+        <p id="autofill-record-text" class="hint"></p>
+      </div>
 
       <div id="autofill-fill-preview" hidden>
         <h2 class="review-title">Will be filled</h2>
@@ -232,10 +245,32 @@
       <div id="autofill-review" hidden>
         <h2 class="review-title">Review queue</h2>
         <p class="hint">
-          These fields were not filled. Save an answer once and it is reused for the same
-          question next time. Check every answer on the page before you submit.
+          These fields were not filled. Approve an answer for this application, or remember
+          it for future forms. Nothing is answered for you.
         </p>
         <ul id="autofill-review-list" class="review-list"></ul>
+      </div>
+
+      <div id="autofill-submit" hidden>
+        <h2 class="review-title">After you submit</h2>
+        <p class="hint">
+          RoleSpec never submits. Review the page and use the employer's own Submit button,
+          then tell RoleSpec what actually happened so your tracker stays truthful.
+        </p>
+        <label class="field">
+          <span>Note (optional)</span>
+          <textarea id="autofill-submit-note" rows="2" maxlength="2000"
+            placeholder="e.g. confirmation page shown"></textarea>
+        </label>
+        <div class="autofill-actions">
+          <button id="autofill-confirm-submitted" class="button" type="button">
+            I submitted this application
+          </button>
+          <button id="autofill-confirm-not-submitted" class="button button-quiet" type="button">
+            I did not submit
+          </button>
+        </div>
+        <p id="autofill-submit-status" class="hint" hidden></p>
       </div>
     </section>
 

@@ -26,9 +26,28 @@ export interface FillAssignment {
   value: string
 }
 
+export interface FieldFillResult {
+  id: string
+  status: "FILLED" | "FAILED"
+  reason?: string
+}
+
 export interface FillOutcome {
   filled: number
   missed: number
+  /** One entry per assignment, so the panel can report field-level outcomes. */
+  results: FieldFillResult[]
+}
+
+export interface PageGuardInfo {
+  submitControlCount: number
+  captchaDetected: boolean
+  formCount: number
+}
+
+export interface ResumeAttachOutcome {
+  attached: boolean
+  reason?: string
 }
 
 /**
@@ -167,6 +186,32 @@ export function scanAutofillFields(): ScannedField[] {
       if (text) return text
     }
 
+    // Lever and several Workday steps put the question in a sibling block
+    // rather than a <label>. Read that block before falling back to the input's
+    // machine name, which would otherwise become a review row called
+    // "cards[abc][field0]" and lose the meaning the classification depends on.
+    let questionNode = el.parentElement
+    while (questionNode && questionNode !== document.body) {
+      // Only question/field wrappers are searched, and only their direct
+      // children count: an unrelated heading on the form must not become this
+      // control's question.
+      if (
+        questionNode.matches(
+          '.application-question, .application-field, [class*="question" i], [class*="field" i]',
+        )
+      ) {
+        const candidates = questionNode.querySelectorAll(
+          ':scope > .application-label, :scope > label, :scope > legend, :scope > [class*="question-label" i]',
+        )
+        for (const candidate of Array.from(candidates)) {
+          if (candidate.querySelector("input, select, textarea, button")) continue
+          const text = textOf(candidate)
+          if (text) return text
+        }
+      }
+      questionNode = questionNode.parentElement
+    }
+
     const placeholder = clean(el.getAttribute("placeholder"))
     if (placeholder) return placeholder
 
@@ -285,6 +330,7 @@ export function scanAutofillFields(): ScannedField[] {
 export function fillAutofillFields(assignments: FillAssignment[]): FillOutcome {
   let filled = 0
   let missed = 0
+  const results: FieldFillResult[] = []
 
   function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
     const proto =
@@ -299,6 +345,7 @@ export function fillAutofillFields(assignments: FillAssignment[]): FillOutcome {
   for (const assignment of assignments.slice(0, 150)) {
     if (!/^af-\d+$/.test(assignment.id)) {
       missed += 1
+      results.push({ id: assignment.id, status: "FAILED", reason: "Invalid field id" })
       continue
     }
     const el = document.querySelector<HTMLElement>(
@@ -306,6 +353,7 @@ export function fillAutofillFields(assignments: FillAssignment[]): FillOutcome {
     )
     if (!el) {
       missed += 1
+      results.push({ id: assignment.id, status: "FAILED", reason: "Field left the page" })
       continue
     }
 
@@ -318,12 +366,14 @@ export function fillAutofillFields(assignments: FillAssignment[]): FillOutcome {
       )
       if (!option) {
         missed += 1
+        results.push({ id: assignment.id, status: "FAILED", reason: "No matching option" })
         continue
       }
       el.value = option.value
     } else if (el instanceof HTMLInputElement) {
       if (["radio", "checkbox", "file", "hidden", "password"].includes(el.type)) {
         missed += 1
+        results.push({ id: assignment.id, status: "FAILED", reason: "Control type is read-only" })
         continue
       }
       setNativeValue(el, assignment.value)
@@ -331,6 +381,7 @@ export function fillAutofillFields(assignments: FillAssignment[]): FillOutcome {
       setNativeValue(el, assignment.value)
     } else {
       missed += 1
+      results.push({ id: assignment.id, status: "FAILED", reason: "Unsupported control" })
       continue
     }
 
@@ -341,6 +392,7 @@ export function fillAutofillFields(assignments: FillAssignment[]): FillOutcome {
     el.style.outline = "2px solid #7c5cff"
     el.style.outlineOffset = "1px"
     filled += 1
+    results.push({ id: assignment.id, status: "FILLED" })
   }
 
   // The highlight is a review aid, not a permanent page change.
@@ -352,5 +404,164 @@ export function fillAutofillFields(assignments: FillAssignment[]): FillOutcome {
     }
   }, 5000)
 
-  return { filled, missed }
+  return { filled, missed, results }
+}
+
+/**
+ * Counts the controls that can submit, without touching them, and reports
+ * whether a CAPTCHA is present. The panel warns about both; neither is bypassed.
+ */
+export function inspectAutofillPage(): PageGuardInfo {
+  const submitControls = document.querySelectorAll(
+    'button[type="submit"], input[type="submit"], input[type="image"]',
+  )
+  const captcha = document.querySelector(
+    'iframe[src*="recaptcha" i], iframe[src*="hcaptcha" i], [class*="captcha" i], [id*="captcha" i], [data-sitekey]',
+  )
+  return {
+    submitControlCount: submitControls.length,
+    captchaDetected: Boolean(captcha),
+    formCount: document.querySelectorAll("form").length,
+  }
+}
+
+/**
+ * Arms a short-lived page guard that prevents an accidental submit while the
+ * user reviews the fill plan. It is installed by the side panel only, removed by
+ * the panel's "Release submit guard" button, and expires on its own. It never
+ * submits anything itself.
+ */
+export function armSubmitGuard(): number {
+  const KEY = "__rolespecSubmitGuard"
+  const win = window as unknown as Record<string, unknown>
+  const existing = win[KEY] as
+    | {
+        onSubmit: (event: Event) => void
+        onClick: (event: Event) => void
+        onKey: (event: KeyboardEvent) => void
+        timer: number
+        controlCount: number
+      }
+    | undefined
+
+  if (existing) {
+    window.clearTimeout(existing.timer)
+    existing.timer = window.setTimeout(() => {
+      document.removeEventListener("submit", existing.onSubmit, true)
+      document.removeEventListener("click", existing.onClick, true)
+      document.removeEventListener("keydown", existing.onKey, true)
+      delete win[KEY]
+    }, 5 * 60 * 1000)
+    return existing.controlCount
+  }
+
+  const onSubmit = (event: Event) => {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }
+
+  const onClick = (event: Event) => {
+    const target = event.target as Element | null
+    const control = target?.closest?.(
+      'button, input[type="submit"], input[type="image"], [role="button"]',
+    ) as HTMLElement | null
+    if (!control) return
+    const type = (control.getAttribute("type") ?? "").toLowerCase()
+    const text = (control.innerText || control.textContent || control.getAttribute("value") || "")
+      .replace(/\s+/g, " ")
+      .trim()
+    const looksLikeSubmit =
+      type === "submit" || type === "image" || /submit|send application|finish/i.test(text)
+    if (!looksLikeSubmit) return
+    // A submit button inside a form is the dangerous case. A naked "Apply" link
+    // that only navigates is left alone.
+    if (!control.closest("form") && type !== "submit" && type !== "image") return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }
+
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key !== "Enter") return
+    const target = event.target as HTMLElement | null
+    if (!target?.closest("form")) return
+    if (target.tagName === "TEXTAREA") return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }
+
+  const controlCount = document.querySelectorAll(
+    'button[type="submit"], input[type="submit"], input[type="image"]',
+  ).length
+  const timer = window.setTimeout(() => {
+    document.removeEventListener("submit", onSubmit, true)
+    document.removeEventListener("click", onClick, true)
+    document.removeEventListener("keydown", onKey, true)
+    delete win[KEY]
+  }, 5 * 60 * 1000)
+
+  document.addEventListener("submit", onSubmit, true)
+  document.addEventListener("click", onClick, true)
+  document.addEventListener("keydown", onKey, true)
+  win[KEY] = { onSubmit, onClick, onKey, timer, controlCount }
+  return controlCount
+}
+
+/** Removes the guard so the user can submit after reviewing the page. */
+export function disarmSubmitGuard(): boolean {
+  const KEY = "__rolespecSubmitGuard"
+  const win = window as unknown as Record<string, unknown>
+  const guard = win[KEY] as
+    | {
+        onSubmit: (event: Event) => void
+        onClick: (event: Event) => void
+        onKey: (event: KeyboardEvent) => void
+        timer: number
+      }
+    | undefined
+  if (!guard) return false
+  window.clearTimeout(guard.timer)
+  document.removeEventListener("submit", guard.onSubmit, true)
+  document.removeEventListener("click", guard.onClick, true)
+  document.removeEventListener("keydown", guard.onKey, true)
+  delete win[KEY]
+  return true
+}
+
+/**
+ * Attaches a chosen resume to one file input, after an explicit user press.
+ * `base64` crosses the extension message boundary because `executeScript`
+ * arguments are JSON. Returns a failure reason instead of throwing so the panel
+ * can offer the download + manual-select fallback.
+ */
+export function attachResumeToPage(
+  fieldId: string,
+  base64: string,
+  filename: string,
+): ResumeAttachOutcome {
+  if (!/^af-\d+$/.test(fieldId)) return { attached: false, reason: "Invalid field id" }
+  if (!base64 || base64.length > 24_000_000) {
+    return { attached: false, reason: "The PDF is too large to attach here" }
+  }
+  const el = document.querySelector<HTMLInputElement>(
+    `[data-rolespec-af="${fieldId}"]`,
+  )
+  if (!el || el.type !== "file") {
+    return { attached: false, reason: "No file input was found" }
+  }
+  try {
+    const binary = window.atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+    const file = new File([bytes], filename || "resume.pdf", {
+      type: "application/pdf",
+    })
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    el.files = transfer.files
+    el.dispatchEvent(new Event("input", { bubbles: true }))
+    el.dispatchEvent(new Event("change", { bubbles: true }))
+    return { attached: el.files.length === 1 }
+  } catch {
+    return { attached: false, reason: "This form rejected the file attachment" }
+  }
 }

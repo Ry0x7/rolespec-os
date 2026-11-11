@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { fillAutofillFields, scanAutofillFields } from "./autofill-page"
+import {
+  armSubmitGuard,
+  attachResumeToPage,
+  disarmSubmitGuard,
+  fillAutofillFields,
+  inspectAutofillPage,
+  scanAutofillFields,
+} from "./autofill-page"
 
 /**
  * jsdom reports no layout boxes, so every control would look hidden. The scanner
@@ -139,7 +146,11 @@ describe("fillAutofillFields", () => {
       { id: email.id, value: "marisol@example.com" },
     ])
 
-    expect(result).toEqual({ filled: 2, missed: 0 })
+    expect(result).toMatchObject({ filled: 2, missed: 0 })
+    expect(result.results).toEqual([
+      { id: first.id, status: "FILLED" },
+      { id: email.id, status: "FILLED" },
+    ])
     expect((document.getElementById("first") as HTMLInputElement).value).toBe("Marisol")
     expect((document.getElementById("email") as HTMLInputElement).value).toBe(
       "marisol@example.com",
@@ -160,13 +171,95 @@ describe("fillAutofillFields", () => {
 
   it("reports a missing or non-fillable target instead of throwing", () => {
     buildForm()
-    expect(fillAutofillFields([{ id: "af-999", value: "x" }])).toEqual({
+    expect(fillAutofillFields([{ id: "af-999", value: "x" }])).toMatchObject({
       filled: 0,
       missed: 1,
+      results: [{ id: "af-999", status: "FAILED" }],
     })
-    expect(fillAutofillFields([{ id: "not-an-id", value: "x" }])).toEqual({
+    expect(fillAutofillFields([{ id: "not-an-id", value: "x" }])).toMatchObject({
       filled: 0,
       missed: 1,
+      results: [{ id: "not-an-id", status: "FAILED" }],
     })
+  })
+})
+
+describe("submit guard", () => {
+  it("counts submit controls and refuses an accidental submit until released", () => {
+    buildForm()
+    const info = inspectAutofillPage()
+    expect(info.submitControlCount).toBe(1)
+    expect(info.captchaDetected).toBe(false)
+
+    expect(armSubmitGuard()).toBe(1)
+    const form = document.getElementById("application") as HTMLFormElement
+    const submit = new Event("submit", { bubbles: true, cancelable: true })
+    form.dispatchEvent(submit)
+    expect(submit.defaultPrevented).toBe(true)
+
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true })
+    document.getElementById("submit")!.dispatchEvent(click)
+    expect(click.defaultPrevented).toBe(true)
+
+    expect(disarmSubmitGuard()).toBe(true)
+    const after = new Event("submit", { bubbles: true, cancelable: true })
+    form.dispatchEvent(after)
+    expect(after.defaultPrevented).toBe(false)
+  })
+
+  it("detects a CAPTCHA without interacting with it", () => {
+    document.body.innerHTML = '<iframe src="https://www.google.com/recaptcha/api2/anchor"></iframe>'
+    expect(inspectAutofillPage().captchaDetected).toBe(true)
+  })
+})
+
+describe("resume attachment", () => {
+  it("attaches a chosen PDF to the matching file input", () => {
+    document.body.innerHTML =
+      '<label for="resume">Resume</label><input id="resume" type="file" />'
+    // jsdom has no DataTransfer and rejects a plain array on `input.files`;
+    // Chrome has both, so the test supplies only the missing platform pieces.
+    class FakeDataTransfer {
+      files: File[] = []
+      items = { add: (file: File) => this.files.push(file) }
+    }
+    vi.stubGlobal("DataTransfer", FakeDataTransfer)
+    const input = document.getElementById("resume") as HTMLInputElement
+    let files: File[] = []
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      get: () => files,
+      set: (next: File[]) => {
+        files = next
+      },
+    })
+
+    const field = scanAutofillFields()[0]
+    const outcome = attachResumeToPage(field.id, btoa("fake-pdf"), "marisol.pdf")
+
+    expect(outcome.attached).toBe(true)
+    expect(input.files).toHaveLength(1)
+    expect(input.files?.[0]?.name).toBe("marisol.pdf")
+  })
+
+  it("refuses a non-file input and reports the manual fallback reason", () => {
+    buildForm()
+    const field = scanAutofillFields().find((entry) => entry.label === "Email")!
+    const outcome = attachResumeToPage(field.id, btoa("fake-pdf"), "marisol.pdf")
+    expect(outcome.attached).toBe(false)
+    expect(outcome.reason).toContain("file input")
+  })
+})
+
+describe("Lever-style question blocks", () => {
+  it("reads the sibling question for a bare input so review keeps its meaning", () => {
+    document.body.innerHTML = `
+      <div class="application-question">
+        <div class="application-label">What are your salary expectations?</div>
+        <div class="application-field"><input name="cards[salary]" /></div>
+      </div>
+    `
+    const fields = scanAutofillFields()
+    expect(fields[0].label).toBe("What are your salary expectations?")
   })
 })

@@ -44,6 +44,38 @@ export const EXTENSION_JOBS_RATE_LIMIT: RateLimitOptions = { max: 30, windowMs: 
 export const EXTENSION_RESUMES_RATE_LIMIT: RateLimitOptions = { max: 30, windowMs: 10 * 60 * 1000 }
 
 /**
+ * Creating or refreshing one ATS preparation. Scans are cheap but write rows and
+ * review tasks, so a burst of re-scans is bounded per token owner.
+ */
+export const EXTENSION_ATS_PREPARE_RATE_LIMIT: RateLimitOptions = {
+  max: 40,
+  windowMs: 10 * 60 * 1000,
+}
+
+/** Approving, editing or revoking remembered answers. */
+export const EXTENSION_ATS_ANSWERS_RATE_LIMIT: RateLimitOptions = {
+  max: 80,
+  windowMs: 10 * 60 * 1000,
+}
+
+/** Reading and resolving the persistent review queue from the extension. */
+export const WEB_REVIEW_TASK_RATE_LIMIT: RateLimitOptions = {
+  max: 120,
+  windowMs: 10 * 60 * 1000,
+}
+
+export const EXTENSION_ATS_REVIEW_RATE_LIMIT: RateLimitOptions = {
+  max: 60,
+  windowMs: 10 * 60 * 1000,
+}
+
+/** Rendering a resume PDF for user-triggered attachment. CPU-bound. */
+export const EXTENSION_RESUME_PDF_RATE_LIMIT: RateLimitOptions = {
+  max: 12,
+  windowMs: 10 * 60 * 1000,
+}
+
+/**
  * `POST /api/extension/qualify` is a deterministic, AI-free read with no write,
  * batched up to 40 postings per call. A job board page draws badges for every
  * listing it shows, so it is looser than the job write; still per token owner so

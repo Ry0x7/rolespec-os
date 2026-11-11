@@ -50,6 +50,8 @@ export interface FieldDescriptor {
    * hidden selection), so free text would be discarded on blur. Always reviewed.
    */
   requiresSelection?: boolean
+  /** Chrome frame id the control was found in. Absent for the top frame. */
+  frameId?: number
 }
 
 export interface ProfileFacts {
@@ -90,6 +92,11 @@ export interface PlannedFill {
   /** True when the value came from the user's approved-answer cache. */
   approved: boolean
   category: AutofillCategory
+  frameId?: number
+  /** Id of the server answer backing this value, when there is one. */
+  answerId?: string
+  /** Provenance text shown in the final preview. */
+  source?: "profile" | "approved_answer"
 }
 
 export interface ReviewField {
@@ -105,6 +112,9 @@ export interface ReviewField {
   suggestedValue?: string
   /** True when the field is a file upload specifically for a resume or CV. */
   isResumeUpload?: boolean
+  frameId?: number
+  /** Server review task id, when the preparation created one. */
+  reviewTaskId?: string
 }
 
 export interface FillPlan {
@@ -357,8 +367,8 @@ function profileValue(
 function isFillable(field: FieldDescriptor): boolean {
   const tag = (field.tagName ?? "").toLowerCase()
   const type = (field.type ?? "").toLowerCase()
-  if (tag === "select") return true
-  if (tag === "textarea") return true
+  // Choice controls and free-text areas are never written, even with an
+  // approved answer: the option set and the wording stay the user's decision.
   if (tag !== "input") return false
   if (field.requiresSelection) return false
   return ["text", "email", "tel", "url", "search", ""].includes(type)
@@ -372,7 +382,8 @@ function isFillable(field: FieldDescriptor): boolean {
 export function buildFillPlan(
   profile: ProfileFacts,
   fields: FieldDescriptor[],
-  approvedAnswers: ApprovedAnswers = {}
+  approvedAnswers: ApprovedAnswers = {},
+  options: { applicationApprovedKeys?: ReadonlySet<string> } = {}
 ): FillPlan {
   const fills: PlannedFill[] = []
   const review: ReviewField[] = []
@@ -381,6 +392,11 @@ export function buildFillPlan(
   for (const field of fields) {
     const classification = classifyField(field)
     const approvedValue = approvedAnswers[classification.key]?.trim()
+    // A sensitive question needs an answer approved for THIS application. A
+    // browser-wide answer is a suggestion here, never a silent write.
+    const approvedForThisApplication =
+      classification.sensitivity !== "sensitive" ||
+      options.applicationApprovedKeys?.has(classification.key) === true
     const label = field.label.trim() || field.name?.trim() || "Untitled field"
 
     if (field.requiresSelection) {
@@ -393,6 +409,16 @@ export function buildFillPlan(
         ...toReview(field, classification),
         reason: "This form needs a value picked from its suggestions. Choose it yourself.",
         ...(suggestedValue ? { suggestedValue } : {}),
+      })
+      continue
+    }
+
+    if (approvedValue && !approvedForThisApplication) {
+      review.push({
+        ...toReview(field, classification),
+        reason:
+          "A saved answer exists, but work authorization, pay, demographic, legal and essay questions need approval for this application.",
+        suggestedValue: approvedValue,
       })
       continue
     }
@@ -414,6 +440,8 @@ export function buildFillPlan(
         value: approvedValue,
         approved: true,
         category: classification.category,
+        source: "approved_answer",
+        ...(typeof field.frameId === "number" ? { frameId: field.frameId } : {}),
       })
       continue
     }
@@ -430,6 +458,8 @@ export function buildFillPlan(
         value,
         approved: false,
         category: classification.category,
+        source: "profile",
+        ...(typeof field.frameId === "number" ? { frameId: field.frameId } : {}),
       })
       continue
     }
@@ -464,6 +494,7 @@ function toReview(field: FieldDescriptor, classification: FieldClassification): 
   }
   if (isResumeUpload) item.isResumeUpload = true
   if (field.options && field.options.length > 0) item.options = field.options.slice(0, 40)
+  if (typeof field.frameId === "number") item.frameId = field.frameId
   return item
 }
 
@@ -510,4 +541,30 @@ export function autofillHostFor(url: string | undefined | null): string | null {
 
 export function isAutofillSupportedUrl(url: string | undefined | null): boolean {
   return autofillHostFor(url) !== null
+}
+
+/**
+ * A deterministic signature of the form that produced a plan. The panel compares
+ * it immediately before writing: if a React form re-rendered and the field set
+ * changed, the old plan is refused instead of writing values into the wrong
+ * controls.
+ */
+export function formSignature(fields: FieldDescriptor[]): string {
+  const parts = fields
+    .map((field) =>
+      [
+        typeof field.frameId === "number" ? field.frameId : 0,
+        field.id,
+        field.label,
+        field.type ?? "",
+        field.tagName ?? "",
+        field.name ?? "",
+      ].join("\u0000"),
+    )
+    .sort()
+  let hash = 5381
+  for (const part of parts.join("\u0001")) {
+    hash = ((hash << 5) + hash + part.charCodeAt(0)) | 0
+  }
+  return `${fields.length}:${(hash >>> 0).toString(36)}`
 }
