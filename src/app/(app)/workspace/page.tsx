@@ -7,12 +7,23 @@ import { getUserDayStart } from "@/shared/lib/user-day"
 import { WorkspaceBoard } from "@/features/workspace/components/workspace-board"
 import { PageShell } from "@/shared/components/page-shell"
 import { buttonVariants } from "@/shared/ui/button"
+import { WorkspaceViews } from "@/features/workspace/components/workspace-views"
+import { WorkflowWorkspace } from "@/features/workflows/components/workflow-workspace"
+import { TrackingWorkspace } from "@/features/tracking/components/tracking-workspace"
 
-export default async function WorkspacePage() {
+export default async function WorkspacePage({ searchParams }: { searchParams: Promise<{ view?: string; run?: string }> }) {
   const session = await auth()
   if (!session?.user?.id) redirect("/unlock")
 
   const userId = session.user.id
+  const query = await searchParams
+  if (query.view === "runs" || query.view === "tracking") {
+    return <PageShell>
+      <div><h1 className="text-2xl font-bold">Workspace</h1><p className="mt-1 text-sm text-muted-foreground">Preparation, human decisions and application records in one place.</p></div>
+      <WorkspaceViews active={query.view} />
+      {query.view === "runs" ? <WorkflowWorkspace key={query.run || "runs"} initialRunId={query.run} /> : <TrackingWorkspace />}
+    </PageShell>
+  }
 
   // UTC day/week boundaries to match how dateApplied is persisted
   // (actions store `new Date("YYYY-MM-DD")` → UTC midnight).
@@ -92,6 +103,8 @@ export default async function WorkspacePage() {
           List
         </Link>
       </div>
+
+      <WorkspaceViews active="board" />
 
       <WorkspaceBoard
         jobs={jobRows}

@@ -59,7 +59,7 @@ describe("MobileNav focus management", () => {
   it("wraps Tab from the last focusable back to the first", async () => {
     await openDrawer()
     const closeButton = screen.getByRole("button", { name: "Close navigation" })
-    const last = screen.getByRole("link", { name: "Resumes" })
+    const last = screen.getByRole("button", { name: "Agent-assisted" })
     last.focus()
     fireEvent.keyDown(document, { key: "Tab" })
     expect(document.activeElement).toBe(closeButton)
@@ -71,7 +71,7 @@ describe("MobileNav focus management", () => {
     closeButton.focus()
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true })
     expect(document.activeElement).toBe(
-      screen.getByRole("link", { name: "Resumes" })
+      screen.getByRole("button", { name: "Agent-assisted" })
     )
   })
 

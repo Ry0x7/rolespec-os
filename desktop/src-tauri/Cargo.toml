@@ -1,6 +1,6 @@
 [package]
 name = "rolespec-desktop"
-version = "1.0.5"
+version = "2.0.0"
 description = "RoleSpec OS desktop shell by Chryypt"
 authors = ["Chryypt"]
 homepage = "https://rolespec.ry0x7.dev"

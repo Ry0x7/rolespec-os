@@ -23,9 +23,7 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [instructions, setInstructions] = useState(preferences.defaultAiInstructions)
-  const [emailNotifications, setEmailNotifications] = useState(
-    preferences.emailNotifications
-  )
+  const emailNotifications = preferences.emailNotifications
   const [preferredCurrency, setPreferredCurrency] = useState<PreferredCurrency>(
     preferences.preferredCurrency
   )
@@ -111,34 +109,9 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
         </p>
       </div>
 
-      <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/40 p-3">
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">Email notifications</p>
-          <p className="text-xs text-muted-foreground">
-            Receive product updates and job hunt reminders by email.
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={emailNotifications}
-          aria-label="Email notifications"
-          disabled={isPending}
-          onClick={() => {
-            const next = !emailNotifications
-            setEmailNotifications(next)
-            handleInstantSave({ emailNotifications: next, preferredCurrency })
-          }}
-          className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
-            emailNotifications ? "bg-brand-600" : "bg-input"
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
-              emailNotifications ? "translate-x-4" : "translate-x-0.5"
-            }`}
-          />
-        </button>
+      <div className="space-y-1 rounded-md border border-border bg-muted/40 p-3">
+        <p className="text-sm font-medium">Reminders stay in your workspace</p>
+        <p className="text-xs text-muted-foreground">Use the attention tray and Staging &amp; follow-ups to act on saved reminders. Email delivery is not connected. Your existing stored notification preference is preserved.</p>
       </div>
 
       <Button type="submit" disabled={isPending}>

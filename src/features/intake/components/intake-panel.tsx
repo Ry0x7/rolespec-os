@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import {
   AlertTriangle,
   Check,
@@ -32,6 +33,7 @@ import { Label } from "@/shared/ui/label"
 import { Progress } from "@/shared/ui/progress"
 import { Select } from "@/shared/ui/select"
 import { Textarea } from "@/shared/ui/textarea"
+import { apiRequest as api } from "@/shared/lib/api-client"
 
 import type {
   ChatExtractionResult,
@@ -55,6 +57,8 @@ export interface IntakePanelProps {
   githubUrl: string | null
   websiteUrl: string | null
   missingFields: string[]
+  /** Reuses persisted proposal operations without duplicating the import forms. */
+  reviewOnly?: boolean
 }
 
 const TERMINAL = new Set<IntakeRunStatus>([
@@ -122,24 +126,9 @@ interface Notice {
   text: string
 }
 
-class ApiFailure extends Error {}
-
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init)
-  const body = (await response.json().catch(() => ({}))) as {
-    error?: unknown
-  }
-  if (!response.ok) {
-    throw new ApiFailure(
-      typeof body.error === "string" ? body.error : `Request failed (${response.status})`
-    )
-  }
-  return body as T
-}
-
-function upsertRun(runs: IntakeRunDTO[], run: IntakeRunDTO): IntakeRunDTO[] {
+function upsertRun(runs: IntakeRunDTO[], run: IntakeRunDTO, limit = 10): IntakeRunDTO[] {
   const next = [run, ...runs.filter((item) => item.id !== run.id)]
-  return next.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 10)
+  return next.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit)
 }
 
 function formatDate(value: string | null): string {
@@ -229,6 +218,7 @@ interface SpeechRecognitionResultLike {
 }
 
 interface SpeechRecognitionEventLike {
+  resultIndex: number
   results: ArrayLike<SpeechRecognitionResultLike>
 }
 
@@ -253,11 +243,13 @@ function PatchRow({
   patch,
   onChanged,
   onNotice,
+  offline,
 }: {
   runId: string
   patch: IntakePatchDTO
   onChanged: () => Promise<void>
   onNotice: (notice: Notice) => void
+  offline: boolean
 }) {
   const [pending, setPending] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
@@ -269,6 +261,7 @@ function PatchRow({
   }
 
   async function act(label: string, action: () => Promise<{ message?: string }>) {
+    if (offline) return false
     setPending(label)
     try {
       const result = await action()
@@ -277,11 +270,13 @@ function PatchRow({
         text: result.message ?? "The intake fact was updated.",
       })
       await onChanged()
+      return true
     } catch (error) {
       onNotice({
         tone: "error",
         text: error instanceof Error ? error.message : "That action failed.",
       })
+      return false
     } finally {
       setPending(null)
     }
@@ -296,7 +291,12 @@ function PatchRow({
           headers: { "content-type": "application/json" },
           body: JSON.stringify(disposition ? { disposition } : {}),
         }
-      )
+      ).then((result) => {
+        if (result.status === "CONFLICT") {
+          return { message: result.message || "A different value already exists. Compare both values before choosing." }
+        }
+        return result
+      })
     )
   }
 
@@ -322,7 +322,7 @@ function PatchRow({
           correction: { kind: patch.kind, data: draft },
         }),
       })
-    ).then(() => setEditing(false))
+    ).then((saved) => { if (saved) setEditing(false) })
   }
 
   const conflict = patch.conflict?.status === "OPEN" ? patch.conflict : null
@@ -331,6 +331,7 @@ function PatchRow({
 
   return (
     <li className="rounded-md border border-border bg-background/40 p-3">
+      <fieldset disabled={offline || pending !== null} className="min-w-0">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -341,7 +342,7 @@ function PatchRow({
               {INTAKE_SOURCE_LABELS[patch.source]}
             </Badge>
             <Badge variant={confidenceBadge(patch.confidence)} size="sm">
-              {patch.confidence}% confidence
+              {patch.confidence}% confidence · extraction
             </Badge>
             {patch.status === "APPLIED" && (
               <Badge variant="success" size="sm">
@@ -369,7 +370,7 @@ function PatchRow({
             {humanize(patch.provenance.adapter)}
             {patch.provenance.fileName ? ` · ${patch.provenance.fileName}` : ""}
             {patch.provenance.locator ? ` · ${patch.provenance.locator}` : ""}
-            {patch.provenance.sourceUrl ? (
+            {patch.provenance.sourceUrl && /^https?:\/\//i.test(patch.provenance.sourceUrl) ? (
               <>
                 {" · "}
                 <a
@@ -383,6 +384,17 @@ function PatchRow({
               </>
             ) : null}
           </p>
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer py-2">Source provenance</summary>
+            <dl className="space-y-1 break-words">
+              <div><dt className="inline">Captured: </dt><dd className="inline">{formatDate(patch.provenance.fetchedAt)}</dd></div>
+              {patch.provenance.detail && <div><dt className="inline">Source detail: </dt><dd className="inline">{patch.provenance.detail}</dd></div>}
+              <div><dt className="inline">Run: </dt><dd className="inline break-all">{runId}</dd></div>
+              <div><dt className="inline">Proposal: </dt><dd className="inline break-all">{patch.id}</dd></div>
+              {patch.correctedAt && <div><dt className="inline">Corrected: </dt><dd className="inline">{formatDate(patch.correctedAt)}</dd></div>}
+              {patch.appliedTargetId && <div><dt className="inline">Applied to: </dt><dd className="inline break-all">{patch.appliedTargetType} · {patch.appliedTargetId}</dd></div>}
+            </dl>
+          </details>
           {patch.rejectionReason && patch.status === "REJECTED" && (
             <p className="text-xs text-muted-foreground">{patch.rejectionReason}</p>
           )}
@@ -505,8 +517,10 @@ function PatchRow({
               Correct applied fact
             </Button>
           )}
+          {patch.status === "APPLIED" && <Link href="/career-profile?setup=0#evidence" className="self-center text-xs text-brand-400 underline underline-offset-4">Edit or confirm in Career Profile</Link>}
         </div>
       )}
+      </fieldset>
     </li>
   )
 }
@@ -650,15 +664,32 @@ export function IntakePanel({
   githubUrl,
   websiteUrl,
   missingFields,
+  reviewOnly = false,
 }: IntakePanelProps) {
   const router = useRouter()
+  const sourceId = useId()
   const [runs, setRuns] = useState(initialRuns)
+  const [lastInitialRuns, setLastInitialRuns] = useState(initialRuns)
   const [activeId, setActiveId] = useState<string | null>(
     initialRuns[0]?.id ?? null
   )
   const [tab, setTab] = useState<IntakeSource>("RESUME")
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [offline, setOffline] = useState(false)
+  const [streamError, setStreamError] = useState(false)
+  useEffect(() => {
+    const update = () => setOffline(!navigator.onLine)
+    update()
+    window.addEventListener("online", update)
+    window.addEventListener("offline", update)
+    return () => { window.removeEventListener("online", update); window.removeEventListener("offline", update) }
+  }, [])
+  if (lastInitialRuns !== initialRuns) {
+    setLastInitialRuns(initialRuns)
+    setRuns(initialRuns)
+    setActiveId((current) => initialRuns.some((run) => run.id === current) ? current : initialRuns[0]?.id ?? null)
+  }
 
   const [resumeId, setResumeId] = useState(resumes[0]?.id ?? "")
   const [resumeFile, setResumeFile] = useState<File | null>(null)
@@ -687,9 +718,9 @@ export function IntakePanel({
   }, [runs])
   const activeRun = runs.find((run) => run.id === activeId) ?? null
 
-  function updateRun(run: IntakeRunDTO) {
-    setRuns((current) => upsertRun(current, run))
-  }
+  const updateRun = useCallback((run: IntakeRunDTO) => {
+    setRuns((current) => upsertRun(current, run, reviewOnly ? 50 : 10))
+  }, [reviewOnly])
 
   async function refreshRun(runId: string): Promise<void> {
     const result = await api<{ run: IntakeRunDTO }>(`/api/intake/${runId}`)
@@ -697,7 +728,7 @@ export function IntakePanel({
   }
 
   useEffect(() => {
-    if (!activeId) return
+    if (!activeId || offline) return
     const existing = runsRef.current.find((run) => run.id === activeId)
     if (existing && TERMINAL.has(existing.status)) return
 
@@ -706,6 +737,7 @@ export function IntakePanel({
     let poll: ReturnType<typeof setInterval> | null = null
 
     const handleRun = (run: IntakeRunDTO) => {
+      setStreamError(false)
       updateRun(run)
       if (TERMINAL.has(run.status)) {
         source?.close()
@@ -723,10 +755,8 @@ export function IntakePanel({
           .then((result) => {
             if (!stopped) handleRun(result.run)
           })
-          .catch(() => {
-            // A transient poll failure is expected; the next tick retries.
-          })
-      }, 1000)
+          .catch(() => { if (!stopped) setStreamError(true) })
+      }, 5000)
     }
 
     source = new EventSource(`/api/intake/${activeId}/stream`)
@@ -740,6 +770,7 @@ export function IntakePanel({
     source.addEventListener("progress", onProgress as EventListener)
     source.onerror = () => {
       source?.close()
+      setStreamError(true)
       if (!stopped) beginPolling()
     }
 
@@ -748,7 +779,7 @@ export function IntakePanel({
       source?.close()
       if (poll) clearInterval(poll)
     }
-  }, [activeId])
+  }, [activeId, offline, updateRun])
 
   useEffect(() => {
     return () => recognitionRef.current?.stop()
@@ -759,6 +790,7 @@ export function IntakePanel({
     input: Record<string, unknown>,
     label = "Intake"
   ) {
+    if (offline) { setNotice({ tone: "error", text: "Connect to start intake. Your input is retained; nothing is queued." }); return }
     setBusy(`start-${source}`)
     setNotice(null)
     try {
@@ -788,6 +820,7 @@ export function IntakePanel({
     file: File | null,
     useAi = false
   ) {
+    if (offline) { setNotice({ tone: "error", text: "Connect to upload this source. Your selected file is retained." }); return }
     if (!file) {
       setNotice({ tone: "error", text: "Choose a file first." })
       return
@@ -819,6 +852,7 @@ export function IntakePanel({
   }
 
   async function sendChat() {
+    if (offline) { setNotice({ tone: "error", text: "Connect to preview facts. Your message is retained." }); return }
     const content = chatInput.trim()
     if (!content) {
       setNotice({ tone: "error", text: "Write a message first." })
@@ -850,6 +884,8 @@ export function IntakePanel({
         ])
       }
     } catch (error) {
+      setChatTurns(chatTurns)
+      setChatInput((current) => current || content)
       setNotice({
         tone: "error",
         text:
@@ -894,7 +930,7 @@ export function IntakePanel({
     recognition.interimResults = false
     recognition.lang = "en-US"
     recognition.onresult = (event) => {
-      const text = Array.from(event.results)
+      const text = Array.from(event.results).slice(event.resultIndex)
         .map((result) => result[0]?.transcript ?? "")
         .join(" ")
         .trim()
@@ -975,7 +1011,7 @@ export function IntakePanel({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-brand-400" aria-hidden="true" />
-          Unified intake
+          {reviewOnly ? "Profile proposals" : "Unified intake"}
         </CardTitle>
         <CardDescription>
           Bring in what you already have from a resume, GitHub, a LinkedIn export,
@@ -985,6 +1021,9 @@ export function IntakePanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        {offline && <p role="status" className="rounded-md bg-muted p-3 text-sm">You’re offline. Showing the last loaded proposals. Changes are not queued.</p>}
+        {streamError && !offline && <p role="status" className="text-sm text-muted-foreground">Live source updates disconnected. Retrying persisted status reads; you can also refresh this run.</p>}
+        {!reviewOnly && <>
         <div
           role="tablist"
           aria-label="Intake source"
@@ -995,7 +1034,19 @@ export function IntakePanel({
               key={source}
               type="button"
               role="tab"
+              id={`${sourceId}-${source}`}
+              aria-controls={`${sourceId}-panel`}
+              tabIndex={tab === source ? 0 : -1}
               aria-selected={tab === source}
+              onKeyDown={event => {
+                const index = SOURCE_ORDER.indexOf(source)
+                const next = event.key === "ArrowRight" ? (index + 1) % SOURCE_ORDER.length : event.key === "ArrowLeft" ? (index + SOURCE_ORDER.length - 1) % SOURCE_ORDER.length : event.key === "Home" ? 0 : event.key === "End" ? SOURCE_ORDER.length - 1 : -1
+                if (next < 0) return
+                event.preventDefault()
+                setTab(SOURCE_ORDER[next])
+                setNotice(null)
+                document.getElementById(`${sourceId}-${SOURCE_ORDER[next]}`)?.focus()
+              }}
               onClick={() => {
                 setTab(source)
                 setNotice(null)
@@ -1012,6 +1063,7 @@ export function IntakePanel({
           ))}
         </div>
 
+        <div id={`${sourceId}-panel`} role="tabpanel" aria-labelledby={`${sourceId}-${tab}`} tabIndex={0} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {tab === "RESUME" && (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -1024,6 +1076,7 @@ export function IntakePanel({
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Select
                     id="intake-resume-select"
+                    className="min-w-0"
                     value={resumeId}
                     onChange={(event) => setResumeId(event.target.value)}
                   >
@@ -1035,6 +1088,7 @@ export function IntakePanel({
                   </Select>
                   <Button
                     type="button"
+                    className="sm:shrink-0"
                     variant="secondary"
                     loading={busy === "start-RESUME"}
                     disabled={!resumeId || busy !== null}
@@ -1056,6 +1110,7 @@ export function IntakePanel({
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   id="intake-resume-file"
+                  className="min-w-0"
                   type="file"
                   accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   onChange={(event) =>
@@ -1064,6 +1119,7 @@ export function IntakePanel({
                 />
                 <Button
                   type="button"
+                  className="sm:shrink-0"
                   loading={busy === "upload-RESUME"}
                   disabled={!resumeFile || busy !== null}
                   onClick={() => void uploadSource("RESUME", resumeFile)}
@@ -1365,8 +1421,9 @@ export function IntakePanel({
               </label>
             </div>
             <p className="text-xs text-muted-foreground">
-              Audio stays in your browser. Only the transcript is sent to RoleSpec,
-              and it is read for facts you explicitly state.
+              Your browser provides speech recognition and may use its own online
+              service to process audio. RoleSpec receives only the transcript.
+              You can type or paste instead.
             </p>
             <div className="flex justify-end">
               <Button
@@ -1390,6 +1447,8 @@ export function IntakePanel({
             </div>
           </div>
         )}
+        </div>
+        </>}
 
         {notice && (
           <p
@@ -1413,6 +1472,7 @@ export function IntakePanel({
         <div className="space-y-3 border-t border-border pt-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-medium text-foreground">Intake runs</h3>
+            {activeId && <Button type="button" variant="outline" size="sm" disabled={offline} onClick={() => void handleReviewChange()}>Refresh run</Button>}
             {runs.length > 0 && (
               <Select
                 aria-label="Choose an intake run"
@@ -1434,8 +1494,7 @@ export function IntakePanel({
 
           {!activeRun ? (
             <p className="text-xs text-muted-foreground">
-              No intake runs yet. Start one above; you can review every proposed
-              fact before it touches your profile.
+              No intake runs yet. {reviewOnly ? "Import a source from Career Profile; every proposed fact stays reviewable." : "Start one above; you can review every proposed fact before it touches your profile."}
             </p>
           ) : (
             <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
@@ -1460,6 +1519,7 @@ export function IntakePanel({
                       type="button"
                       variant="secondary"
                       size="sm"
+                      disabled={offline}
                       onClick={async () => {
                         try {
                           const result = await api<{ run: IntakeRunDTO }>(
@@ -1493,6 +1553,7 @@ export function IntakePanel({
                       type="button"
                       variant="secondary"
                       size="sm"
+                      disabled={offline}
                       onClick={async () => {
                         try {
                           const result = await api<{ run: IntakeRunDTO }>(
@@ -1549,7 +1610,7 @@ export function IntakePanel({
                       }
                       label={`${INTAKE_SOURCE_LABELS[source.source]} progress`}
                     />
-                    {(source.message || source.error) && (
+                    {(source.message || source.error) && !(source.error && activeRun.error?.includes(source.error)) && (
                       <p
                         className={
                           source.error
@@ -1571,7 +1632,7 @@ export function IntakePanel({
               )}
               {activeRun.warnings.length > 0 && (
                 <ul className="space-y-1">
-                  {activeRun.warnings.map((warning) => (
+                  {Array.from(new Set(activeRun.warnings)).filter(warning => warning !== activeRun.error).map((warning) => (
                     <li key={warning} className="text-xs text-muted-foreground">
                       {warning}
                     </li>
@@ -1605,6 +1666,7 @@ export function IntakePanel({
                           patch={patch}
                           onChanged={handleReviewChange}
                           onNotice={setNotice}
+                          offline={offline}
                         />
                       ))}
                     </ul>

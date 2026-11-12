@@ -59,21 +59,20 @@ feedback and portfolio showcasing do not require a hosted service.
    user-triggered resume upload and the manual file-selection fallback. The
    current live evidence is discovery and planning only; fixtures are not a
    substitute for a real fill.
-3. **First-party workflow and review UI.** Build the run timeline, review drawer
-   and `/workspace/review` queue described in
-   [FRONTEND_HANDOFF.md](FRONTEND_HANDOFF.md). Keep statuses persisted facts, not
-   simulated progress.
-4. **Dashboard leaderboard.** Expose the persisted `RankingSnapshot` and the
-   top-K/cutoff API in a dashboard view; no such screen exists today.
-5. **Production load/soak.** Re-run concurrency and large-pool benchmarks on the
+3. **Broader frontend qualification.** The workflow timeline, review queue,
+   dashboard leaderboard and tabbed layouts are implemented. Extend the
+   [frontend QA](FRONTEND_QA.md) to fresh onboarding, native WebView, other
+   browsers, screen readers and successful owned-source intake.
+4. **Production load/soak.** Re-run concurrency and large-pool benchmarks on the
    target deployment, including workflow ticks, cancellation, provider timeouts
    and restart recovery under load. The 2026-11-12 baseline is in
    [VERIFICATION.md](VERIFICATION.md); it is a synthetic single-process run, not
    a capacity guarantee.
-6. **AI-free and failure paths.** Walk profile → resume → discover → qualify →
+5. **AI-free and failure paths.** Walk profile → resume → discover → qualify →
    prepare → apply → follow-up with AI disabled, then repeat with a provider
    that fails mid-call; verify deterministic fallbacks, pause/cancel and restart.
-   The backend has tests for these paths; they were not part of the live run.
+   Manual preparation, provider failure/retry and restart recovery were exercised
+   in the frontend audit; broader device/provider combinations remain.
 7. **Discovery coverage.** Record which sources work, restrict access or are
    unavailable; verify Philippine coverage before adding adapters. Do not turn a
    heuristic listing signal into a factual claim.

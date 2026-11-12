@@ -157,6 +157,7 @@ describe("EditorHeader - plain PDF download", () => {
     const order: string[] = []
     const onSave = vi.fn(async () => {
       order.push("save")
+      useResumeStore.getState().markClean()
     })
     vi.mocked(exportResumePdf).mockImplementation(async () => {
       order.push("export")
@@ -192,6 +193,18 @@ describe("EditorHeader - plain PDF download", () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Resume not found"))
     expect(clickSpy).not.toHaveBeenCalled()
     clickSpy.mockRestore()
+  })
+
+  it("does not export stale saved content if saving leaves a conflict", async () => {
+    useResumeStore.getState().setResume(withContent())
+    useResumeStore.setState({ isDirty: true, saveStatus: "error" })
+    const onSave = vi.fn(async () => undefined)
+    render(<EditorHeader onSave={onSave} />)
+    openExportMenu()
+    fireEvent.click(screen.getByLabelText("Download PDF"))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Save your pending edits before downloading the PDF."))
+    expect(exportResumePdf).not.toHaveBeenCalled()
+    expect(useResumeStore.getState().isDirty).toBe(true)
   })
 })
 

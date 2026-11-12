@@ -99,7 +99,7 @@ export function ProfileDataTransfer({
       <CardHeader>
         <CardTitle className="text-base">Backup &amp; restore</CardTitle>
         <CardDescription>
-          CSV export and import — works fully offline, no AI needed.
+          Export loaded facts offline. Import needs a connection to RoleSpec; no AI needed.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">

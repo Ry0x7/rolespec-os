@@ -1,4 +1,8 @@
-# Verification and release-readiness audit
+# Backend and desktop verification history
+
+For current frontend coverage and release limitations, see [FRONTEND_QA.md](FRONTEND_QA.md).
+The measurements below predate the v2.0.0 frontend release; installer evidence
+explicitly names the version that was tested.
 
 Audited: 2026-11-12. Workspace: RoleSpec OS on Windows 11 x64, Node 24.18.0,
 Next.js 16.4.2, PostgreSQL 17 on loopback. This pass added real provider and

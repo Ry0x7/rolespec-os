@@ -14,7 +14,7 @@ import { IntakePanel } from "@/features/intake/components/intake-panel"
 import { PreferencesForm } from "@/features/career-profile/components/preferences-form"
 import { ProfileDataTransfer } from "@/features/career-profile/components/profile-data-transfer"
 import { ProfileQuickActions } from "@/features/career-profile/components/profile-quick-actions"
-import { ProfileSectionNav } from "@/features/career-profile/components/profile-section-nav"
+import { TaskTabs } from "@/shared/components/task-tabs"
 import { CareerSetupWizard } from "@/features/career-profile/components/setup/career-setup-wizard"
 import { TargetRolesCard } from "@/features/career-profile/components/target-roles-card"
 import {
@@ -141,11 +141,13 @@ export default async function CareerProfilePage({
         </Link>
       </div>
 
-      <ProfileQuickActions />
-
-      <ProfileDataTransfer evidence={profile.evidence} capabilities={profile.capabilities} />
-
-      <ProfileSectionNav items={sectionItems} />
+      <ProfileQuickActions keyboardOnly />
+      <TaskTabs label="Career profile tasks" items={[
+        { id: "contact", label: "Contact" }, { id: "preferences", label: "Preferences" },
+        { id: "target-roles", label: "Target roles" }, { id: "intake", label: "Import & review" },
+        { id: "evidence", label: "Evidence" }, { id: "capabilities", label: "Skills" },
+        { id: "profile-backup", label: "Backup" },
+      ]}>
 
       {/*
         Both forms below are keyed on the profile's own `updatedAt` so a
@@ -214,6 +216,8 @@ export default async function CareerProfilePage({
         still land in the Evidence/Capabilities cards below.
       */}
       <div id="intake" className="scroll-mt-28">
+      <TaskTabs label="Profile import method" items={[{ id: "unified-intake", label: "Unified intake" }, { id: "resume-import", label: "Manual resume import" }, { id: "linkedin-import", label: "LinkedIn PDF" }, { id: "web-import", label: "Public sources" }]}>
+      <div id="unified-intake">
         <IntakePanel
           initialRuns={intakeRuns}
           resumes={importableResumes.map((resume) => ({
@@ -243,6 +247,9 @@ export default async function CareerProfilePage({
           githubUrl={profile.githubUrl}
           websiteUrl={profile.websiteUrl}
         />
+      </div>
+
+      </TaskTabs>
       </div>
 
       <div id="evidence" className="scroll-mt-28">
@@ -295,6 +302,8 @@ export default async function CareerProfilePage({
           }))}
         />
       </div>
+      <div id="profile-backup"><ProfileDataTransfer evidence={profile.evidence} capabilities={profile.capabilities} /></div>
+      </TaskTabs>
     </PageShell>
   )
 }

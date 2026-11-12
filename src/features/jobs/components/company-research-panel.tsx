@@ -9,30 +9,41 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card"
 import type { CompanyResearchResult } from "../services/company-research.service"
 import { isSourceCheckedResearch, isVerifiedCompanyResearch } from "../lib/company-research"
 import { runCompanyResearch } from "../actions/company-research.actions"
+import type { ThreeLayerResearch } from "../services/three-layer-research.service"
+import { ResearchLayers } from "./research-layers"
 
 interface Props {
   jobApplicationId: string
   companyName: string
   initialResearch?: CompanyResearchResult | null
+  initialLayers?: ThreeLayerResearch | null
 }
 
 export function CompanyResearchPanel({
   jobApplicationId,
   companyName,
   initialResearch,
+  initialLayers,
 }: Props) {
   const [research, setResearch] = useState<CompanyResearchResult | null>(initialResearch ?? null)
   const [isPending, startTransition] = useTransition()
+  const [layers, setLayers] = useState(initialLayers ?? null)
+  const [error, setError] = useState<string | null>(null)
 
   function handleResearch() {
     startTransition(async () => {
+      setError(null)
+      try {
       const res = await runCompanyResearch(jobApplicationId)
       if (res.success) {
         setResearch(res.research)
+        setLayers(res.layers)
         toast.success(`Completed research for ${companyName}`)
       } else {
+        setError(res.error)
         toast.error(res.error)
       }
+      } catch { setError("Research could not connect. Your saved result is preserved; retry when connected.") }
     })
   }
 
@@ -74,8 +85,8 @@ export function CompanyResearchPanel({
 
   return (
     <Card id="research">
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <div className="flex items-center gap-2">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Building2 className="h-4 w-4 text-primary" aria-hidden="true" />
           <CardTitle className="text-base font-semibold">Company & Role Research</CardTitle>
           {research && confidenceBadge(research.confidence)}
@@ -101,22 +112,14 @@ export function CompanyResearchPanel({
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
+        {error && <p role="alert" className="text-sm text-error">{error} Use Research to retry.</p>}
         {!research ? (
           <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">No factual research generated yet</p>
+            <p className="font-medium text-foreground">No company report saved here</p>
             <p className="mt-1 text-xs">
-              Synthesize factual company overview, tech stack, verified citations, and interview pointers without hallucination.
+              Preparation runs keep their own compact research evidence. Use Research above to save a full company report here, including missing or conflicting sources.
             </p>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleResearch}
-              disabled={isPending}
-              className="mt-3 gap-1.5"
-            >
-              {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              Start Research
-            </Button>
+            <a href="#preparation" className="mt-3 inline-flex min-h-11 items-center text-brand-400 underline underline-offset-4">See preparation attempts</a>
           </div>
         ) : (
           <div className="space-y-4 text-sm">
@@ -147,19 +150,19 @@ export function CompanyResearchPanel({
               <p className="mt-1 leading-relaxed text-foreground">{research.overview}</p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span>
-                  📍 HQ:{" "}
+                  HQ:{" "}
                   <strong className={research.headquarters ? "text-foreground" : "font-normal italic"}>
                     {research.headquarters ?? "Not disclosed in verified sources"}
                   </strong>
                 </span>
                 <span>
-                  🏢 Industry:{" "}
+                  Industry:{" "}
                   <strong className={research.industry ? "text-foreground" : "font-normal italic"}>
                     {research.industry ?? "Not disclosed"}
                   </strong>
                 </span>
                 <span>
-                  👥 Size:{" "}
+                  Size:{" "}
                   <strong className={research.companySize ? "text-foreground" : "font-normal italic"}>
                     {research.companySize ?? "Not disclosed"}
                   </strong>
@@ -242,20 +245,20 @@ export function CompanyResearchPanel({
               {citations.length > 0 ? (
                 <div className="space-y-1.5">
                   {citations.map((cite, idx) => (
-                    <div key={idx} className="flex items-baseline justify-between gap-2 text-xs rounded bg-muted/20 px-2 py-1">
-                      <a
+                    <div key={idx} className="space-y-2 rounded bg-muted/20 px-2 py-2 text-xs">
+                      {/^https?:\/\//i.test(cite.url) ? <a
                         href={cite.url}
                         target="_blank"
                         rel="noreferrer noopener"
-                        className="text-primary hover:underline flex items-center gap-1 truncate max-w-[70%]"
+                        className="flex items-start gap-1 break-words text-brand-400 underline-offset-4 hover:underline"
                       >
                         <Globe className="h-3 w-3 shrink-0" />
                         {cite.title || cite.url}
                         <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-60" />
-                      </a>
-                      <span className="flex shrink-0 items-center gap-1.5">
+                      </a> : <span>Source URL unavailable</span>}
+                      <span className="flex flex-wrap items-start gap-1.5">
                         {cite.quote && (
-                          <span className="max-w-[220px] truncate text-[10px] italic text-muted-foreground" title={cite.quote}>
+                          <span className="min-w-0 flex-1 break-words italic text-muted-foreground">
                             &quot;{cite.quote}&quot;
                           </span>
                         )}
@@ -277,6 +280,7 @@ export function CompanyResearchPanel({
             </div>
           </div>
         )}
+        {layers && <ResearchLayers layers={layers} />}
       </CardContent>
     </Card>
   )

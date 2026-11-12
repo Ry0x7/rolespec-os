@@ -3,6 +3,7 @@ import { Header } from "@/shared/components/header"
 import { TimezoneSync } from "@/shared/components/timezone-sync"
 import { requireUser } from "@/features/auth/guards"
 import { canLockWorkspace } from "@/features/auth/config"
+import { ConnectionStatus } from "@/shared/components/connection-status"
 
 /**
  * Blanket duration budget for the authenticated tree. Most pages here invoke a
@@ -35,6 +36,7 @@ export default async function AppLayout({
             owner={{ name: session.user.name, email: session.user.email }}
             canLock={canLock}
           />
+          <ConnectionStatus />
           <main id="app-main" tabIndex={-1} className="flex-1 p-4 lg:p-6">{children}</main>
         </div>
       </div>

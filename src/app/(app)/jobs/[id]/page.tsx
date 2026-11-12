@@ -1,5 +1,8 @@
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
+import { PreparationPanel } from "@/features/workflows/components/preparation-panel"
+import { ApplicationTracking } from "@/features/tracking/components/application-tracking"
+import type { ThreeLayerResearch } from "@/features/jobs/services/three-layer-research.service"
 import { auth } from "@/features/auth/config"
 import { prisma } from "@/shared/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card"
@@ -12,7 +15,7 @@ import { JobEmailPanel } from "@/features/jobs/components/job-email-panel"
 import { JobDescriptionPanel } from "@/features/jobs/components/job-description-panel"
 import { InterviewQuestionsPanel } from "@/features/jobs/components/interview-questions-panel"
 import { JobDetailActions } from "@/features/jobs/components/job-detail-actions"
-import { JobDetailSectionNav } from "@/features/jobs/components/job-detail-section-nav"
+import { TaskTabs } from "@/shared/components/task-tabs"
 import { BackToJobsLink } from "@/features/jobs/components/back-to-jobs-link"
 import { JobResumePanel } from "@/features/jobs/components/job-resume-panel"
 import { CoverLetterDrawerButton } from "@/features/jobs/components/cover-letter-drawer-button"
@@ -586,7 +589,9 @@ export default async function JobApplicationDetailPage({ params }: Props) {
       </div>
 
       {/* Unified 8-stage job pipeline stepper */}
-      <JobPipelineStepper
+      <details className="rounded-lg border border-border p-3">
+      <summary className="cursor-pointer text-sm font-medium">Application milestones</summary>
+      <div className="mt-3"><JobPipelineStepper
         jobApplicationId={application.id}
         status={application.status}
         hasCareerProfile={hasCareerProfile}
@@ -603,14 +608,15 @@ export default async function JobApplicationDetailPage({ params }: Props) {
         hasFollowedUp={Boolean(row.lastFollowedUpAt)}
         isFollowUpDue={followUpOverdue}
         chosenResumeId={effectiveResumeId}
-      />
+      /></div>
+      </details>
 
       {/*
         Sixteen sibling blocks read as one undifferentiated column, so the page
         is grouped into the four questions it answers — decide, prepare, track,
         read the posting — with a sticky jump bar so no group is buried.
       */}
-      <JobDetailSectionNav />
+      <TaskTabs label="Job tasks" items={[{ id: "decide", label: "Decide" }, { id: "prepare", label: "Prepare" }, { id: "track", label: "Track" }, { id: "posting", label: "Posting" }]}>
 
       {/*
         Decide: is this one worth my time at all? Confidence (about the posting)
@@ -665,14 +671,19 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           Prepare
         </h2>
 
+        <TaskTabs label="Preparation tools" items={[{ id: "preparation", label: "Workflow" }, { id: "research", label: "Research" }, { id: "resume-tools", label: "Resume & match" }, { id: "application-drafts", label: "Letters & interview" }]}>
+        <div><PreparationPanel jobApplicationId={application.id} resumeId={chosenResumeId} resumeTitle={resumes.find(resume => resume.id === chosenResumeId)?.title} /></div>
+
         {/* Factual company and role research with verified citations. The card
             carries `id="research"`, the pipeline's stage-3 destination. */}
         <CompanyResearchPanel
           jobApplicationId={application.id}
           companyName={application.companyName}
           initialResearch={initialCompanyResearch}
+          initialLayers={(rawMatchResult?.researchLayers as ThreeLayerResearch | undefined) ?? null}
         />
 
+        <div id="resume-tools" className="space-y-4">
         <JobResumePanel
           jobApplicationId={application.id}
           selectedResumeId={chosenResumeId}
@@ -711,6 +722,8 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           chosenResumeId={effectiveResumeId}
         />
 
+        </div>
+        <div id="application-drafts" className="space-y-4">
         <JobEmailPanel
           jobApplicationId={application.id}
           resumeOptions={resumes}
@@ -768,6 +781,8 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           )}
           hasJobDescription={Boolean(application.jobDescription)}
         />
+        </div>
+        </TaskTabs>
       </section>
 
       {/*
@@ -778,6 +793,8 @@ export default async function JobApplicationDetailPage({ params }: Props) {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Track
         </h2>
+
+        <ApplicationTracking jobApplicationId={application.id} resumeId={chosenResumeId} />
 
         {hasApplicationDetails && (
         <Card>
@@ -1028,6 +1045,7 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           hasJobDescription={Boolean(application.jobDescription)}
         />
       </section>
+      </TaskTabs>
       </JobEditProvider>
     </PageShell>
   )

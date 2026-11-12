@@ -159,10 +159,7 @@ export function NextActionCard({ action }: { action: NextAction }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Next action
-        </p>
-        <h2 className="mt-1 text-sm font-semibold text-foreground">
+        <h2 className="text-base font-semibold text-foreground">
           {action.title}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">{action.description}</p>

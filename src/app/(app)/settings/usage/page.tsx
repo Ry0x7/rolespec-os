@@ -55,7 +55,7 @@ export default async function SettingsUsagePage() {
   return (
     <div className="space-y-8">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Your AI usage</h1>
+        <h2 className="text-2xl font-bold tracking-tight">Your AI usage</h2>
         <p className="text-sm text-muted-foreground">
           Tokens your account has used in the last {usage.windowDays} days, billed
           to your own provider key.

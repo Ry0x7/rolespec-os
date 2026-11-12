@@ -28,6 +28,7 @@ export const settingsTabGroups: SettingsTabGroup[] = [
       { label: "Appearance", href: "/settings/appearance", icon: Palette },
       { label: "API access", href: "/settings/api", icon: KeyRound },
       { label: "AI provider", href: "/settings/ai", icon: Sparkles },
+      { label: "AI stages", href: "/settings/ai-stages", icon: SlidersHorizontal },
       { label: "Usage", href: "/settings/usage", icon: Activity },
       { label: "Your data", href: "/settings/data", icon: Database },
     ],
