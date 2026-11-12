@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google"
 import { siteConfig } from "@/config/site"
 import { AppToaster } from "@/shared/components/app-toaster"
+import { AppMotionProvider } from "@/shared/components/app-motion-provider"
 import { ACCENT_INIT_SCRIPT } from "@/shared/lib/theme"
 import "./globals.css"
 
@@ -135,8 +136,10 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
-        {children}
-        <AppToaster />
+        <AppMotionProvider>
+          {children}
+          <AppToaster />
+        </AppMotionProvider>
       </body>
     </html>
   )

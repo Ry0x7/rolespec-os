@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Monitor, Moon, Sun } from "lucide-react"
+import { Check, EyeOff, Monitor, Moon, SlidersHorizontal, Sparkles, Sun } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -10,7 +10,14 @@ import {
 } from "@/shared/ui/card"
 import { useAccentTheme } from "@/shared/hooks/use-accent-theme"
 import { useThemeMode } from "@/shared/hooks/use-theme-mode"
-import { ACCENT_THEMES, THEME_MODES, type ThemeMode } from "@/shared/lib/theme"
+import { useMotionMode } from "@/shared/hooks/use-motion-mode"
+import {
+  ACCENT_THEMES,
+  THEME_MODES,
+  MOTION_MODES,
+  type ThemeMode,
+  type MotionMode,
+} from "@/shared/lib/theme"
 
 const MODE_ICONS: Record<ThemeMode, typeof Moon> = {
   dark: Moon,
@@ -18,9 +25,16 @@ const MODE_ICONS: Record<ThemeMode, typeof Moon> = {
   system: Monitor,
 }
 
+const MOTION_ICONS: Record<MotionMode, typeof Sparkles> = {
+  system: SlidersHorizontal,
+  reduced: EyeOff,
+  full: Sparkles,
+}
+
 export function AppearanceForm() {
   const { theme, setTheme } = useAccentTheme()
   const { mode, setMode } = useThemeMode()
+  const { motionMode, setMotionMode, isReducedMotion } = useMotionMode()
 
   return (
     <Card>
@@ -90,7 +104,50 @@ export function AppearanceForm() {
           </div>
         </div>
 
-        <p className="text-xs text-muted-foreground">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Motion & Animations</p>
+            <span className="text-xs text-muted-foreground">
+              {isReducedMotion ? "Reduced motion active" : "Full motion active"}
+            </span>
+          </div>
+          <div
+            role="group"
+            aria-label="Motion preference"
+            className="inline-flex flex-wrap gap-1 rounded-lg border border-border bg-muted p-1"
+          >
+            {MOTION_MODES.map((option) => {
+              const Icon = MOTION_ICONS[option.id]
+              const selected = option.id === motionMode
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={selected}
+                  title={option.description}
+                  onClick={() => setMotionMode(option.id)}
+                  className={`inline-flex h-11 min-w-[44px] items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${
+                    selected
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {motionMode === "reduced"
+              ? "All fluid particle canvases, spring layout animations, and transitions are minimized."
+              : motionMode === "full"
+                ? "Full ambient particles, spring physics, and Framer Motion transitions are enabled."
+                : "Automatically respects your operating system's reduced motion accessibility settings."}
+          </p>
+        </div>
+
+        <p className="text-xs text-muted-foreground pt-1">
           Applies instantly. Saved to this device.
         </p>
       </CardContent>
