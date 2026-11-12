@@ -125,14 +125,80 @@ export function storeMode(mode: ThemeMode): void {
 }
 
 /**
- * Blocking <head> script that applies the stored accent and mode before first
- * paint, so neither the accent nor the background flashes. Kept tiny and
+ * Motion preferences.
+ * - `system` follows the OS `prefers-reduced-motion` media query.
+ * - `reduced` disables non-essential animations, transitions, and fluid particle canvases.
+ * - `full` forces full animation and motion even if the OS requested reduced motion.
+ */
+export const MOTION_MODES = [
+  { id: "system", label: "System", description: "Follow device preference" },
+  { id: "reduced", label: "Reduced", description: "Disable animations and particle motion" },
+  { id: "full", label: "Full motion", description: "Enable full animation and particle effects" },
+] as const
+
+export type MotionMode = (typeof MOTION_MODES)[number]["id"]
+
+export const DEFAULT_MOTION_MODE: MotionMode = "system"
+
+export const MOTION_STORAGE_KEY = "rolespec-motion"
+
+export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
+
+export function isMotionMode(value: unknown): value is MotionMode {
+  return MOTION_MODES.some((mode) => mode.id === value)
+}
+
+/**
+ * Resolves whether reduced motion should be active for the given motion mode.
+ */
+export function resolveMotion(mode: MotionMode): boolean {
+  if (mode === "reduced") return true
+  if (mode === "full") return false
+  if (typeof window === "undefined" || !window.matchMedia) return false
+  return window.matchMedia(REDUCED_MOTION_QUERY).matches
+}
+
+/**
+ * Swaps `reduce-motion` and `motion-full` classes on <html>.
+ */
+export function applyMotion(mode: MotionMode): void {
+  if (typeof document === "undefined") return
+  const isReduced = resolveMotion(mode)
+  const root = document.documentElement
+  root.classList.toggle("reduce-motion", isReduced)
+  root.classList.toggle("motion-full", mode === "full")
+  root.setAttribute("data-motion", mode)
+}
+
+/** Reads the stored motion mode, falling back to the default on anything unexpected. */
+export function getStoredMotion(): MotionMode {
+  if (typeof window === "undefined") return DEFAULT_MOTION_MODE
+  try {
+    const stored = window.localStorage.getItem(MOTION_STORAGE_KEY)
+    return isMotionMode(stored) ? stored : DEFAULT_MOTION_MODE
+  } catch {
+    return DEFAULT_MOTION_MODE
+  }
+}
+
+export function storeMotion(mode: MotionMode): void {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(MOTION_STORAGE_KEY, mode)
+  } catch {
+    // Non-fatal: the mode still applies for this session.
+  }
+}
+
+/**
+ * Blocking <head> script that applies the stored accent, mode, and motion before
+ * first paint, so neither the accent, background, nor motion flash. Kept tiny and
  * dependency-free on purpose — it runs as a string, so it cannot import from
- * this module. Anything other than an explicit "light" resolves to dark, which
- * matches the class the server renders.
+ * this module.
  */
 export const ACCENT_INIT_SCRIPT = `try{var d=document.documentElement;var t=localStorage.getItem("${ACCENT_STORAGE_KEY}");var v=${JSON.stringify(
   ACCENT_THEMES.map((theme) => theme.id).filter(
     (id) => id !== DEFAULT_ACCENT_THEME
   )
-)};if(v.indexOf(t)>-1)d.classList.add("theme-"+t);var m=localStorage.getItem("${MODE_STORAGE_KEY}");if(m==="system")m=matchMedia("${DARK_SCHEME_QUERY}").matches?"dark":"light";if(m!=="light")m="dark";d.classList.toggle("dark",m==="dark");d.classList.toggle("light",m==="light")}catch(e){}`
+)};if(v.indexOf(t)>-1)d.classList.add("theme-"+t);var m=localStorage.getItem("${MODE_STORAGE_KEY}");if(m==="system")m=matchMedia("${DARK_SCHEME_QUERY}").matches?"dark":"light";if(m!=="light")m="dark";d.classList.toggle("dark",m==="dark");d.classList.toggle("light",m==="light");var mot=localStorage.getItem("${MOTION_STORAGE_KEY}");var red=(mot==="reduced")||(mot!=="full"&&matchMedia("${REDUCED_MOTION_QUERY}").matches);d.classList.toggle("reduce-motion",red);if(mot==="full")d.classList.add("motion-full");if(mot)d.setAttribute("data-motion",mot);}catch(e){}`
+

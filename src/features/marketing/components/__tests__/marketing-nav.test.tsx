@@ -81,4 +81,17 @@ describe("MarketingNav mobile menu", () => {
         .getAttribute("aria-expanded")
     ).toBe("false")
   })
+
+  it("toggles reduce motion when the motion button is clicked", () => {
+    render(<MarketingNav />)
+    const motionBtn = screen.getByRole("button", { name: /animations active|reduce motion/i })
+    expect(motionBtn).toBeDefined()
+    fireEvent.click(motionBtn)
+    expect(document.documentElement.classList.contains("reduce-motion")).toBe(true)
+
+    // Click again to toggle back to full motion
+    fireEvent.click(motionBtn)
+    expect(document.documentElement.classList.contains("motion-full")).toBe(true)
+    expect(document.documentElement.classList.contains("reduce-motion")).toBe(false)
+  })
 })

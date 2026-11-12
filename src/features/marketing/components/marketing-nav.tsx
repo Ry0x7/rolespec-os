@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X } from "lucide-react"
+import { EyeOff, Menu, Sparkles, X } from "lucide-react"
 import { siteConfig } from "@/config/site"
 import { Button, buttonVariants } from "@/shared/ui/button"
 import { useLazyMotionReady } from "@/shared/hooks/use-lazy-motion-ready"
+import { useMotionMode } from "@/shared/hooks/use-motion-mode"
 import { cn } from "@/shared/lib/utils"
 import { LogoMark } from "./logo-mark"
 
@@ -67,6 +68,16 @@ export function MarketingNav() {
     setOpen((prev) => !prev)
   }
 
+  const { setMotionMode, isReducedMotion } = useMotionMode()
+
+  function toggleMotion() {
+    if (isReducedMotion) {
+      setMotionMode("full")
+    } else {
+      setMotionMode("reduced")
+    }
+  }
+
   const menuLinks = (
     <ul className="mx-auto w-full max-w-6xl px-4 py-2 sm:px-6">
       {NAV_LINKS.map((link) => (
@@ -88,6 +99,21 @@ export function MarketingNav() {
         >
           Open workspace
         </Link>
+      </li>
+      <li className="pt-2 border-t border-border/50">
+        <button
+          type="button"
+          onClick={toggleMotion}
+          className="flex min-h-11 w-full items-center justify-between text-sm text-muted-foreground hover:text-foreground"
+        >
+          <span className="flex items-center gap-2">
+            {isReducedMotion ? <EyeOff className="h-4 w-4 text-brand-400" /> : <Sparkles className="h-4 w-4 text-brand-400" />}
+            <span>Reduce motion</span>
+          </span>
+          <span className="font-mono text-xs rounded bg-muted px-2 py-0.5">
+            {isReducedMotion ? "Enabled" : "Disabled"}
+          </span>
+        </button>
       </li>
     </ul>
   )
@@ -122,6 +148,36 @@ export function MarketingNav() {
         </ul>
 
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={toggleMotion}
+            aria-label={
+              isReducedMotion
+                ? "Reduced motion active. Click to enable full animations."
+                : "Full animations active. Click to enable reduced motion."
+            }
+            title={
+              isReducedMotion
+                ? "Reduced motion active (click to enable full motion)"
+                : "Full motion active (click to enable reduced motion)"
+            }
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground h-9 px-2.5 rounded-lg border border-border/40 hover:border-border"
+          >
+            {isReducedMotion ? (
+              <>
+                <EyeOff className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
+                <span>Reduced</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5 text-brand-400" aria-hidden="true" />
+                <span>Motion</span>
+              </>
+            )}
+          </Button>
+
           <Link
             href="/dashboard"
             className={cn(buttonVariants({ size: "sm" }), "min-h-11 px-3 sm:px-4")}

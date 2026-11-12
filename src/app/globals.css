@@ -614,24 +614,46 @@ html.light.theme-cyan {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-blob-brand,
-  .hero-blob-indigo,
-  .hero-blob-pink {
-    animation: none;
+  :root:not(.motion-full) .hero-blob-brand,
+  :root:not(.motion-full) .hero-blob-indigo,
+  :root:not(.motion-full) .hero-blob-pink {
+    animation: none !important;
   }
 
   /* Beats Framer's server-rendered initial inline style so reduced-motion
      users never see hidden hero content, even before hydration. */
-  .hero-reveal-item {
+  :root:not(.motion-full) .hero-reveal-item {
     opacity: 1 !important;
     transform: none !important;
   }
 
   /* Same guarantee for scroll-triggered section reveals. */
-  .scroll-reveal-item {
+  :root:not(.motion-full) .scroll-reveal-item {
     opacity: 1 !important;
     transform: none !important;
   }
+}
+
+/* Explicit user toggle enabling reduce motion */
+:root.reduce-motion .hero-blob-brand,
+:root.reduce-motion .hero-blob-indigo,
+:root.reduce-motion .hero-blob-pink,
+:root.reduce-motion [class*="animate-"] {
+  animation: none !important;
+}
+
+:root.reduce-motion .hero-reveal-item,
+:root.reduce-motion .scroll-reveal-item {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+:root.reduce-motion *,
+:root.reduce-motion *::before,
+:root.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
 }
 
 /* Belt-and-braces alongside the <noscript> block in the root layout: browsers

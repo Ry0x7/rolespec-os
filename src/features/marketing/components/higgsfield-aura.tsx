@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { useMotionMode } from "@/shared/hooks/use-motion-mode"
 
 interface Particle {
   x: number
@@ -17,19 +18,15 @@ interface Particle {
  * Higgsfield-style generative ambient canvas:
  * Floating organic neural particles interconnected by glowing radiant energy filaments
  * with gentle mouse interaction and ambient color drift.
- * Automatically respects prefers-reduced-motion.
+ * Automatically respects user-toggled motion preference and prefers-reduced-motion.
  */
 export function HiggsfieldAura() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const { isReducedMotion } = useMotionMode()
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
-
-    const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches
-    if (prefersReducedMotion) return
+    if (!canvas || isReducedMotion) return
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
@@ -163,7 +160,7 @@ export function HiggsfieldAura() {
       canvas.parentElement?.removeEventListener("mouseleave", handleMouseLeave)
       cancelAnimationFrame(animationFrameId)
     }
-  }, [])
+  }, [isReducedMotion])
 
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">

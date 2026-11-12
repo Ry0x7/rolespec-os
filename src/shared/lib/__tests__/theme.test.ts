@@ -15,6 +15,14 @@ import {
   resolveMode,
   storeMode,
   storeTheme,
+  DEFAULT_MOTION_MODE,
+  MOTION_MODES,
+  MOTION_STORAGE_KEY,
+  applyMotion,
+  getStoredMotion,
+  isMotionMode,
+  resolveMotion,
+  storeMotion,
 } from "../theme"
 
 beforeEach(() => {
@@ -165,5 +173,70 @@ describe("isThemeMode", () => {
     expect(isThemeMode("system")).toBe(true)
     expect(isThemeMode("dim")).toBe(false)
     expect(isThemeMode(null)).toBe(false)
+  })
+})
+
+describe("applyMotion", () => {
+  it("sets reduce-motion class when reduced is chosen", () => {
+    applyMotion("reduced")
+    expect(document.documentElement.classList.contains("reduce-motion")).toBe(true)
+    expect(document.documentElement.classList.contains("motion-full")).toBe(false)
+    expect(document.documentElement.getAttribute("data-motion")).toBe("reduced")
+  })
+
+  it("sets motion-full class when full is chosen", () => {
+    applyMotion("full")
+    expect(document.documentElement.classList.contains("reduce-motion")).toBe(false)
+    expect(document.documentElement.classList.contains("motion-full")).toBe(true)
+    expect(document.documentElement.getAttribute("data-motion")).toBe("full")
+  })
+
+  it("respects prefers-reduced-motion when system is chosen", () => {
+    mockPrefersDark(true) // stub matchMedia matches
+    applyMotion("system")
+    expect(document.documentElement.classList.contains("reduce-motion")).toBe(true)
+    expect(document.documentElement.getAttribute("data-motion")).toBe("system")
+  })
+})
+
+describe("resolveMotion", () => {
+  it("resolves reduced to true and full to false", () => {
+    expect(resolveMotion("reduced")).toBe(true)
+    expect(resolveMotion("full")).toBe(false)
+  })
+
+  it("resolves system using matchMedia", () => {
+    mockPrefersDark(true)
+    expect(resolveMotion("system")).toBe(true)
+    mockPrefersDark(false)
+    expect(resolveMotion("system")).toBe(false)
+  })
+})
+
+describe("getStoredMotion & storeMotion", () => {
+  it("returns default when nothing stored", () => {
+    expect(getStoredMotion()).toBe(DEFAULT_MOTION_MODE)
+  })
+
+  it("falls back to default for invalid value", () => {
+    window.localStorage.setItem(MOTION_STORAGE_KEY, "invalid-motion")
+    expect(getStoredMotion()).toBe(DEFAULT_MOTION_MODE)
+  })
+
+  it("round-trips all motion modes", () => {
+    for (const option of MOTION_MODES) {
+      storeMotion(option.id)
+      expect(getStoredMotion()).toBe(option.id)
+    }
+  })
+})
+
+describe("isMotionMode", () => {
+  it("validates shipped motion modes correctly", () => {
+    expect(isMotionMode("system")).toBe(true)
+    expect(isMotionMode("reduced")).toBe(true)
+    expect(isMotionMode("full")).toBe(true)
+    expect(isMotionMode("none")).toBe(false)
+    expect(isMotionMode(null)).toBe(false)
   })
 })
