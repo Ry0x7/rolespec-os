@@ -44,6 +44,7 @@ export interface UserDataExport {
   followUpTasks: unknown[]
   outreachContacts: unknown[]
   outreachSequences: unknown[]
+  rankingSnapshots: unknown[]
   resumeTailoringRuns: unknown[]
   resumeSnapshots: unknown[]
   resumeValidations: unknown[]
@@ -120,6 +121,7 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
         include: { contact: true, touches: { orderBy: { order: "asc" } } },
         orderBy: { createdAt: "asc" },
       },
+      rankingSnapshots: { orderBy: { createdAt: "asc" } },
       resumeTailoringRuns: true,
       resumeSnapshots: true,
       resumeValidations: true,
@@ -152,6 +154,7 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     followUpTasks,
     outreachContacts,
     outreachSequences,
+    rankingSnapshots,
     resumeTailoringRuns,
     resumeSnapshots,
     resumeValidations,
@@ -209,6 +212,7 @@ export async function exportUserData(userId: string): Promise<UserDataExport | n
     followUpTasks,
     outreachContacts,
     outreachSequences,
+    rankingSnapshots,
     resumeTailoringRuns,
     resumeSnapshots,
     resumeValidations,
