@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #07070a;
+  --surface-1: #0e0e14;
+  --surface-2: #14141e;
+  --surface-3: #1a1a28;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-bright: rgba(168, 85, 247, 0.35);
+  --text: #f4f4f7;
+  --text-muted: #9494a6;
+  --text-faint: #626274;
+  --brand-400: #c084fc;
+  --brand-500: #a855f7;
+  --brand-600: #9333ea;
+  --indigo-400: #818cf8;
+  --cyan-400: #22d3ee;
+  --emerald-400: #34d399;
+  --rose-400: #fb7185;
+  --glow-brand: rgba(168, 85, 247, 0.18);
+  --glow-cyan: rgba(34, 211, 238, 0.15);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Space Grotesk', var(--font-sans);
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--text);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.12) 0%, transparent 60%),
+              radial-gradient(circle at 10% 30%, rgba(34, 211, 238, 0.04) 0%, transparent 40%),
+              radial-gradient(circle at 90% 70%, rgba(168, 85, 247, 0.06) 0%, transparent 50%),
+              var(--background);
+}
+
+/* Glassmorphism */
+.glass {
+  background: rgba(14, 14, 20, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+}
+
+.glass-card {
+  background: linear-gradient(180deg, rgba(20, 20, 30, 0.8) 0%, rgba(14, 14, 20, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.glow-box {
+  position: relative;
+}
+.glow-box::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), transparent 40%, rgba(34, 211, 238, 0.3));
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+.glow-box:hover::after {
+  opacity: 1;
+}
+
+/* Typography utilities */
+.font-display { font-family: var(--font-display); }
+.font-mono { font-family: var(--font-mono); }
+
+/* Glow text */
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 10%, #d8b4fe 50%, #818cf8 90%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-cyan {
+  background: linear-gradient(135deg, #c084fc 0%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: #232332;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #34344a;
+}
+
+/* Reduced Motion Mode Rules */
+@media (prefers-reduced-motion: reduce) {
+  :root:not(.motion-full) *,
+  :root:not(.motion-full) *::before,
+  :root:not(.motion-full) *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:root.reduce-motion *,
+:root.reduce-motion *::before,
+:root.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+:root.reduce-motion .higgsfield-canvas,
+:root.reduce-motion .ambient-drift {
+  display: none !important;
+}
+
+/* Button & interactive components */
+button, a {
+  cursor: pointer;
+  text-decoration: none;
+}
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
