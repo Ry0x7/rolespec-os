@@ -6,6 +6,7 @@ import { X } from "lucide-react"
 import { Button } from "@/shared/ui/button"
 import { variants } from "@/shared/lib/animations"
 import { SidebarNav } from "./sidebar"
+import { WorkflowModeSwitch } from "@/features/workflows/components/workflow-mode-switch"
 
 /**
  * The animated half of `MobileNav`, split out so framer-motion is not part of
@@ -67,6 +68,7 @@ export function MobileNavDrawer({
               <X className="h-4 w-4" />
             </Button>
             <SidebarNav onNavigate={onClose} />
+            <div className="shrink-0 border-t border-border p-3"><WorkflowModeSwitch /></div>
           </motion.div>
         </>
       ) : null}

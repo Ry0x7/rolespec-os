@@ -10,6 +10,7 @@ import {
   Eye,
   FileText,
   GitCompare,
+  History,
   Loader2,
   Save,
   ScanText,
@@ -33,6 +34,8 @@ import { analysisMode, atsVariant, scoreLabel, topIssue } from "../lib/ats-score
 import { useResumeStore } from "../hooks/use-resume-store"
 import { ResumeKindBadge } from "./resume-kind-badge"
 import { ResumeComparisonDrawer } from "./resume-comparison-drawer"
+import { ResumeHistoryDrawer } from "./resume-history-drawer"
+import { ResumePdfDrawer } from "./resume-pdf-drawer"
 
 interface Props {
   /**
@@ -72,6 +75,8 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
   const [isPending, startTransition] = useTransition()
   const [isDownloading, setIsDownloading] = useState(false)
   const [showCompare, setShowCompare] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [showPdf, setShowPdf] = useState(false)
 
   const isGenerating = generateStatus === "generating" || isPending
   const isSaving = saveStatus === "saving"
@@ -94,6 +99,10 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
       // The action renders from the database, so unsaved edits have to land
       // first or the file would be one revision behind the preview.
       if (isDirty) await onSave()
+      if (useResumeStore.getState().isDirty || useResumeStore.getState().saveStatus === "saving") {
+        toast.error("Save your pending edits before downloading the PDF.")
+        return
+      }
 
       const result = await exportResumePdf(resume.id, {
         groupAdditional,
@@ -127,6 +136,8 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
       document.body.appendChild(link)
       link.click()
       link.remove()
+    } catch {
+      toast.error("Could not prepare the PDF. Your edits are preserved; please retry.")
     } finally {
       setIsDownloading(false)
     }
@@ -316,6 +327,10 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
           <span className="hidden sm:inline">Job target</span>
         </Button>
 
+        <Button variant="outline" size="sm" onClick={() => setShowHistory(true)} aria-label="Resume history and validation" title="Resume history and validation">
+          <History className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden sm:inline">History</span>
+        </Button>
+
         {resume?.variant === "JOB_TAILORED" && resume?.sourceResume?.id && (
           <Button
             variant="outline"
@@ -405,6 +420,9 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
             align="end"
             className="left-0 right-auto md:left-auto md:right-0"
           >
+            <DropdownMenuItem onClick={() => setShowPdf(true)} disabled={!hasContent} aria-label="Preview generated PDF">
+              <Eye className="h-3.5 w-3.5" aria-hidden="true" />Preview generated PDF
+            </DropdownMenuItem>
             {/* Always available: renders the current content, no AI key needed. */}
             <DropdownMenuItem
               onClick={() => handleDownload()}
@@ -501,6 +519,8 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
         </Button>
       </div>
 
+      {showHistory && resume?.id && <ResumeHistoryDrawer resumeId={resume.id} open={showHistory} onClose={() => setShowHistory(false)} />}
+      {showPdf && resume?.id && <ResumePdfDrawer resumeId={resume.id} onSave={onSave} open={showPdf} onClose={() => setShowPdf(false)} />}
       {showCompare && resume?.id && (
         <ResumeComparisonDrawer
           resumeId={resume.id}

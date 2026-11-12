@@ -13,6 +13,7 @@ import { Drawer, DrawerHeader, DrawerBody, DrawerFooter } from "@/shared/ui/draw
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog"
 import { skillsDiffStatus, type ResumeComparison } from "../services/resume-diff.service"
 import { getTailoredResumeDiff, rollbackTailoredResume } from "../actions/rollback"
+import { useResumeStore } from "../hooks/use-resume-store"
 
 interface Props {
   resumeId: string
@@ -25,22 +26,39 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
   const [isLoading, setIsLoading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [isRollingBack, startRollback] = useTransition()
+  const [comparedAgainst, setComparedAgainst] = useState<"snapshot" | "live-source" | null>(null)
+  const [sourceVersion, setSourceVersion] = useState<number | undefined>()
+  const [error, setError] = useState<string | null>(null)
+  const [retry, setRetry] = useState(0)
+  const [offline, setOffline] = useState(false)
+  const dirty = useResumeStore(state => state.isDirty)
+  const saving = useResumeStore(state => state.saveStatus === "saving")
+
+  useEffect(() => {
+    const update = () => setOffline(!navigator.onLine)
+    update(); window.addEventListener("online", update); window.addEventListener("offline", update)
+    return () => { window.removeEventListener("online", update); window.removeEventListener("offline", update) }
+  }, [])
 
   useEffect(() => {
     let active = true
-    if (open && !diff) {
+    if (open) {
       const timer = setTimeout(() => {
         if (!active) return
         setIsLoading(true)
+        setError(null)
         void getTailoredResumeDiff(resumeId).then((res) => {
           if (!active) return
           setIsLoading(false)
           if (res.success) {
             setDiff(res.diff)
+            setComparedAgainst(res.comparedAgainst)
+            setSourceVersion(res.sourceVersion)
           } else {
-            toast.error(res.error)
-            onOpenChange(false)
+            setError(res.error)
           }
+        }).catch(() => {
+          if (active) { setIsLoading(false); setError("Could not load comparison. Your resume is unchanged; please retry.") }
         })
       }, 0)
       return () => {
@@ -48,11 +66,13 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
         clearTimeout(timer)
       }
     }
-  }, [open, diff, resumeId, onOpenChange])
+  }, [open, resumeId, retry])
 
   const handleRollback = () => {
+    if (dirty || saving || offline || isRollingBack) return
     setShowConfirm(false)
     startRollback(async () => {
+      try {
       const res = await rollbackTailoredResume(resumeId)
       if (res.success) {
         toast.success(
@@ -67,6 +87,7 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
       } else {
         toast.error(res.error)
       }
+      } catch { setError("Could not restore the source. Your changes are preserved; please retry.") }
     })
   }
 
@@ -97,11 +118,14 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
             <h2 className="text-base font-semibold text-foreground">Tailoring Changes & Rollback</h2>
           </div>
           <p className="text-xs text-muted-foreground">
-            Review how this tailored resume was customized from your verified source resume. Unsupported claims are rejected and originals are preserved.
+            Compare saved resume content with its captured source. Review every claim before use.
           </p>
         </DrawerHeader>
 
         <DrawerBody className="space-y-5 text-sm">
+          {offline && <p role="status" className="text-warning">Offline. Showing the last loaded comparison. Restoring is unavailable.</p>}
+          {error && <div role="alert" className="space-y-2 text-error"><p>{error}</p><Button variant="outline" size="sm" disabled={offline || isLoading} onClick={() => setRetry(value => value + 1)}>Retry comparison</Button></div>}
+          {dirty && <p role="status" className="text-warning">Comparison uses the last saved content. Save your edits and reopen to compare the current draft.</p>}
           {isLoading ? (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -112,6 +136,7 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
             </div>
           ) : (
             <div className="space-y-5 text-sm">
+              <p className="text-sm text-muted-foreground">{comparedAgainst === "snapshot" ? `Compared with captured source version ${sourceVersion ?? "unknown"}. Later source edits are excluded.` : "Legacy comparison against the live source resume. No captured revision exists; later source edits may appear as changes."}</p>
               {/* Stats Overview */}
               <div className="grid grid-cols-4 gap-2 rounded-lg border bg-muted/40 p-3 text-center">
                 <div>
@@ -254,13 +279,13 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
           <DrawerFooter className="justify-between border-t border-border pt-4">
             <div className="text-xs text-muted-foreground">
               <p className="font-medium text-foreground">Want to start over?</p>
-              <p className="text-[11px]">Reverts all edits back to verified source resume.</p>
+              <p className="text-[11px]">{comparedAgainst === "snapshot" ? "Replaces current content with the latest captured source." : "Replaces current content with the live source; no snapshot exists."}</p>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowConfirm(true)}
-              disabled={isRollingBack}
+              disabled={isRollingBack || dirty || saving || offline}
               className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -276,7 +301,7 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
         description={
           diff ? (
             <>
-              This will replace the tailored resume content with a clean copy of your verified source resume (<strong>{diff.sourceTitle}</strong>). Any tailored bullet rewrites will be safely reverted.
+              This replaces all current tailored content with {comparedAgainst === "snapshot" ? "the captured source revision" : "the current live source (no snapshot exists)"} of <strong>{diff.sourceTitle}</strong>. Later edits to this tailored copy are replaced. The source resume is unchanged.
             </>
           ) : "Are you sure you want to revert to the source resume?"
         }

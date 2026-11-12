@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import { createPortal } from "react-dom"
 import {
   ArrowRight,
   Clock3,
@@ -14,6 +15,7 @@ import {
 import { navigationGroups, QUICK_ACTIONS, GLOBAL_SHORTCUTS } from "@/config/navigation"
 import { getStoredRecentItems, storeRecentItem } from "@/shared/hooks/use-recent-items"
 import { cn } from "@/shared/lib/utils"
+import { useModalKeydownTrap, useModalScrollLockAndFocus } from "@/shared/ui/modal-internals"
 
 interface PaletteEntry {
   label: string
@@ -51,12 +53,13 @@ function allEntries(): PaletteEntry[] {
 export const CommandPalette = memo(function CommandPalette({ onNavigate, openToken = 0 }: { onNavigate?: (href: string) => void; openToken?: number }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(openToken > 0)
   const [helpOpen, setHelpOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [activeIndex, setActiveIndex] = useState(0)
   const [recent, setRecent] = useState(() => getStoredRecentItems())
   const inputRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const pendingG = useRef(false)
   const gTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastToken = useRef(openToken)
@@ -114,6 +117,13 @@ export const CommandPalette = memo(function CommandPalette({ onNavigate, openTok
     },
     [close, onNavigate, pathname, router]
   )
+
+  useModalKeydownTrap(open || helpOpen, close, panelRef)
+  useModalScrollLockAndFocus(open || helpOpen, true, panelRef)
+
+  useEffect(() => {
+    if (open) document.getElementById(`quick-action-option-${activeIndex}`)?.scrollIntoView?.({ block: "nearest" })
+  }, [activeIndex, open])
 
   // Record visits so recents stay fresh even when navigating via sidebar.
   useEffect(() => {
@@ -219,13 +229,15 @@ export const CommandPalette = memo(function CommandPalette({ onNavigate, openTok
 
   if (!open && !helpOpen) return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[var(--z-overlay)] flex items-start justify-center p-4 pt-[12vh]"
       role="presentation"
     >
       <div className="absolute inset-0 bg-black/70" onClick={close} />
       <div
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={helpOpen ? "Keyboard shortcuts" : "Quick actions"}
@@ -261,25 +273,30 @@ export const CommandPalette = memo(function CommandPalette({ onNavigate, openTok
               <input
                 ref={inputRef}
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => { setQuery(event.target.value); setActiveIndex(0) }}
                 placeholder="Go to, create, or tailor… (Esc to close)"
                 aria-label="Search quick actions"
+                role="combobox"
+                aria-expanded={open}
+                aria-controls="quick-action-results"
+                aria-activedescendant={filtered.length ? `quick-action-option-${activeIndex}` : undefined}
                 className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
               <kbd className="hidden shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:block">
                 ⌘K
               </kbd>
             </div>
-            <ul role="listbox" aria-label="Quick actions" className="max-h-[50dvh] overflow-y-auto p-1.5">
+            <ul id="quick-action-results" role="listbox" aria-label="Quick actions" className="max-h-[50dvh] overflow-y-auto p-1.5">
               {filtered.length === 0 ? (
                 <li className="px-3 py-6 text-center text-sm text-muted-foreground">
                   No matches. Try “resume”, “job”, or “workspace”.
                 </li>
               ) : (
-                filtered.slice(0, 12).map((entry, index) => (
+                filtered.map((entry, index) => (
                   <li key={`${entry.kind}-${entry.href}-${entry.label}`}>
                     <button
                       type="button"
+                      id={`quick-action-option-${index}`}
                       role="option"
                       aria-selected={index === activeIndex}
                       onMouseEnter={() => setActiveIndex(index)}
@@ -319,7 +336,7 @@ export const CommandPalette = memo(function CommandPalette({ onNavigate, openTok
               </span>
               <button
                 type="button"
-                onClick={() => setHelpOpen(true)}
+                onClick={() => { setOpen(false); setHelpOpen(true) }}
                 className="rounded px-1.5 py-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Press ? for all shortcuts
@@ -328,6 +345,6 @@ export const CommandPalette = memo(function CommandPalette({ onNavigate, openTok
           </>
         )}
       </div>
-    </div>
+    </div>, document.body
   )
 })

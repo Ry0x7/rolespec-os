@@ -27,6 +27,13 @@ const base: CompanyResearchResult = {
 }
 
 describe("CompanyResearchPanel", () => {
+  it("distinguishes this panel's report from research saved by preparation runs", () => {
+    render(<CompanyResearchPanel jobApplicationId="app-1" companyName="Acme" />)
+    expect(screen.getByText("No company report saved here")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "See preparation attempts" }).getAttribute("href")).toBe("#preparation")
+    expect(screen.getAllByRole("button", { name: "Research Acme" })).toHaveLength(1)
+    expect(screen.queryByRole("button", { name: "Start Research" })).toBeNull()
+  })
   it("hides legacy facts that were never checked against a fetched source", () => {
     render(
       <CompanyResearchPanel

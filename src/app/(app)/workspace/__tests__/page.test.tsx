@@ -41,7 +41,7 @@ describe("workspace page header cross-links", () => {
   // Paired with the "Board" link in the `/jobs` header — the board must lead
   // back to the list without going through the nav.
   it("links back to the job list from the header", async () => {
-    render(await WorkspacePage())
+    render(await WorkspacePage({ searchParams: Promise.resolve({}) }))
 
     const list = screen.getByRole("link", { name: /list/i })
     expect(list.getAttribute("href")).toBe("/jobs")

@@ -48,7 +48,7 @@ export function SegmentedControl<V extends string>({
             aria-pressed={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              "inline-flex items-center gap-1 rounded-md px-3 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+              "inline-flex items-center gap-1 rounded-md px-3 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card max-sm:min-h-11 max-sm:min-w-11",
               size === "sm" ? "h-8 text-xs" : "h-11 min-w-[44px] text-sm",
               selected
                 ? "bg-card text-foreground shadow-sm"

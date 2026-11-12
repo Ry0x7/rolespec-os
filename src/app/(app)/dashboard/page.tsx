@@ -17,6 +17,8 @@ import { getDashboardAttention } from "@/features/jobs/services/dashboard-attent
 import { assertAiConfigUsable, getEffectiveAiConfigForUser } from "@/shared/lib/ai-provider"
 import { PageShell } from "@/shared/components/page-shell"
 import { getUserDayStart, getUserTzOffsetMinutes } from "@/shared/lib/user-day"
+import { OpportunityLeaderboard } from "@/features/ranking/components/opportunity-leaderboard"
+import { AttentionOverview } from "@/features/dashboard/components/attention-inbox"
 
 /** True when an AI call would pass its own preflight right now. */
 async function hasUsableAiConfig(userId: string): Promise<boolean> {
@@ -115,18 +117,27 @@ export default async function DashboardPage() {
 
   const showAiKeyBanner = shouldShowAiKeyBanner({ hasUsableKey: aiUsable })
 
+  const opportunityJobs = await prisma.jobApplication.findMany({
+    where: { userId: session.user.id },
+    select: { id: true, jobId: true, status: true, job: { select: { title: true, companyName: true, location: true, workType: true } } },
+  })
+
   return (
     <PageShell>
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          Your daily job-search overview
+          Decide what deserves your time. Prepare with evidence, apply on your terms.
         </p>
       </div>
 
       {showAiKeyBanner && <AiKeyBanner />}
 
       <NextActionCard action={nextAction} />
+
+      <AttentionOverview />
+
+      <OpportunityLeaderboard jobs={opportunityJobs} />
 
       <NeedsAttention
         overdueFollowUps={attention.overdueFollowUps}

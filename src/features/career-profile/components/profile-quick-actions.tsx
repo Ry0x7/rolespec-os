@@ -20,7 +20,9 @@ function focusTarget(target: string) {
     document.querySelector(`[id="${target}"]`) ??
     document.querySelector(`a[href="#${target}"]`)
   if (el instanceof HTMLElement) {
-    el.scrollIntoView({ behavior: "smooth", block: "center" })
+    history.replaceState(null, "", `#${target}`)
+    window.dispatchEvent(new HashChangeEvent("hashchange"))
+    requestAnimationFrame(() => el.scrollIntoView({ behavior: "auto", block: "center" }))
     // Inputs get focus; section anchors get a brief highlight.
     if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT") {
       window.setTimeout(() => el.focus({ preventScroll: true }), 250)
@@ -35,7 +37,7 @@ function focusTarget(target: string) {
  * (or single key) that scrolls to and focuses the right field — no hunting
  * through six long sections. Keyboard: 1/2 jump, T/E/C/L focus add-forms.
  */
-export function ProfileQuickActions() {
+export function ProfileQuickActions({ keyboardOnly = false }: { keyboardOnly?: boolean }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName
@@ -60,6 +62,7 @@ export function ProfileQuickActions() {
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
+  if (keyboardOnly) return null
   return (
     <div
       aria-label="Profile quick actions"

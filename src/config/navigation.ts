@@ -1,10 +1,13 @@
-import { LayoutDashboard, LayoutPanelTop, FileText, Mail, Settings, Briefcase, CalendarCheck, Telescope, UserRoundCheck, IdCard } from "lucide-react"
+import { LayoutDashboard, LayoutPanelTop, FileText, Mail, Settings, Briefcase, CalendarCheck, Telescope, UserRoundCheck, IdCard, ListChecks } from "lucide-react"
 
 /** Grouped sidebar navigation, organized by user intent rather than build phase. */
 export const navigationGroups = [
   {
     label: null,
-    items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Review", href: "/review", icon: ListChecks },
+    ],
   },
   {
     label: "Career",
@@ -46,6 +49,7 @@ export const footerNavigation = [
 /** Longest matching prefix wins, so nested routes keep their section title. */
 const PAGE_TITLES: ReadonlyArray<readonly [string, string]> = [
   ["/dashboard", "Dashboard"],
+  ["/review", "Review"],
   ["/career-profile", "Career Profile"],
   ["/resumes", "Resumes"],
   ["/workspace", "Workspace"],
@@ -111,11 +115,15 @@ export interface QuickAction {
 
 /** One-keystroke creates and go-tos surfaced in the Cmd+K palette. */
 export const QUICK_ACTIONS: QuickAction[] = [
+  { id: "review", label: "Review pending decisions", hint: "Questions, profile proposals and answer memory", href: "/review", keywords: "review approve answer human decision memory" },
+  { id: "runs", label: "Open preparation runs", hint: "Persisted steps and pause, resume or retry", href: "/workspace?view=runs", keywords: "agent assisted workflow run preparation pause resume retry" },
+  { id: "ranking", label: "Rank saved opportunities", hint: "Evidence-based ranking, no AI required", href: "/dashboard#opportunities", keywords: "rank leaderboard opportunities score" },
+  { id: "tracking", label: "Review staged applications", hint: "Confirm submissions and act on follow-ups", href: "/workspace?view=tracking", keywords: "stage submit follow up tracking outreach" },
   { id: "new-resume", label: "New resume", hint: "Start from Career Profile or scratch", href: "/resumes", keywords: "resume create new cv tailor", shortcut: "N R" },
   { id: "tailor-resume", label: "Tailor a resume to a job", hint: "Pick a job, then tailor", href: "/jobs", keywords: "tailor match ats job", shortcut: "N T" },
   { id: "add-job", label: "Track a job", hint: "Save a posting to Jobs", href: "/jobs/discover", keywords: "job add track discover posting", shortcut: "N J" },
   { id: "plan-day", label: "Plan today", hint: "Open the planner", href: "/planner", keywords: "plan today tasks follow up", shortcut: "G P" },
-  { id: "open-workspace", label: "Open workspace", hint: "Notes, snippets and drafts", href: "/workspace", keywords: "workspace notes snippets drafts", shortcut: "G W" },
+  { id: "open-workspace", label: "Open workspace", hint: "Pipeline board and preparation runs", href: "/workspace", keywords: "workspace board pipeline", shortcut: "G W" },
   { id: "cover-letter", label: "Draft a cover letter", hint: "Generate from a tracked job", href: "/jobs/cover-letter", keywords: "cover letter outreach draft", shortcut: "N C" },
   { id: "career-profile", label: "Update Career Profile", hint: "Source of truth for resumes", href: "/career-profile", keywords: "profile career experience skills", shortcut: "G R" },
 ]

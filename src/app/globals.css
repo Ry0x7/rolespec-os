@@ -5,6 +5,14 @@
    bind the variant to that class instead of the visitor's OS setting. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Mobile inputs avoid browser zoom and keep the existing compact desktop density. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
 @theme {
   /* Neutral ramp. Deliberately NOT Tailwind's zinc: every surface carries a
      slight cool (blue-violet) cast and the three chrome levels are spread far

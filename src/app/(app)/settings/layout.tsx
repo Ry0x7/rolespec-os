@@ -12,8 +12,7 @@ export default async function SettingsLayout({
 }) {
   return (
     <PageShell>
-      {/* No page heading here: the app header already renders "Settings", and
-          the active tab in the rail names the section. */}
+      <h1 className="sr-only">Settings</h1>
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
         <SettingsTabs />
         <div className="min-w-0 flex-1">{children}</div>

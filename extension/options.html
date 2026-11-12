@@ -16,7 +16,7 @@
       <form id="form" class="form">
         <label class="field">
           <span>App URL</span>
-          <input id="appUrl" name="appUrl" type="url" placeholder="http://localhost:3000" required />
+          <input id="appUrl" name="appUrl" aria-label="App URL" type="url" placeholder="http://localhost:3100" required />
           <small class="hint">Trailing slashes are removed automatically.</small>
         </label>
 
@@ -29,7 +29,7 @@
         <label class="field">
           <span>API token</span>
           <span class="row row-tight">
-            <input id="apiToken" name="apiToken" type="password" placeholder="rspec_..." autocomplete="off" spellcheck="false" />
+            <input id="apiToken" name="apiToken" aria-label="API token" type="password" placeholder="rspec_..." autocomplete="off" spellcheck="false" />
             <button id="toggle-token" class="button button-quiet" type="button" aria-pressed="false">Show</button>
           </span>
           <small class="hint">

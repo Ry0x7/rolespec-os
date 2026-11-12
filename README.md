@@ -145,6 +145,7 @@ Human contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 - [Architecture and invariants](docs/ARCHITECTURE.md)
 - [Roadmap and known gaps](docs/ROADMAP.md)
+- [Frontend verification and release limits](docs/FRONTEND_QA.md)
 - [Windows runtime, installer metadata, troubleshooting and releases](docs/DESKTOP.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security reporting](SECURITY.md)

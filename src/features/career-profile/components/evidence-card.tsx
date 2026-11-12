@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { BadgeCheck, ExternalLink, FileStack, Pencil, Plus, Sparkles, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -17,6 +18,9 @@ import { SegmentedControl } from "@/shared/ui/segmented-control"
 import { usePagedList } from "@/shared/hooks/use-paged-list"
 import { usePreservedScroll } from "@/shared/hooks/use-preserved-scroll"
 import { formatDate } from "@/shared/lib/utils"
+import { useApiResource } from "@/shared/hooks/use-api-resource"
+import { ResourceState } from "@/shared/components/resource-state"
+import type { IntakeRunDTO } from "@/features/intake/types"
 import {
   confirmEvidence,
   createEvidence,
@@ -35,6 +39,33 @@ import type { EvidenceRow } from "../types"
 export const EVIDENCE_PAGE_SIZE = 10
 
 type EvidenceFilter = "all" | EvidenceRow["kind"]
+
+function EvidenceProvenance({ item }: { item: EvidenceRow }) {
+  const [open, setOpen] = useState(false)
+  const imported = item.source !== "USER_ENTERED"
+  const resource = useApiResource<{ runs: IntakeRunDTO[] }>(open && imported ? "/api/intake?limit=50" : null)
+  const match = resource.data?.runs.flatMap((run) => run.patches.map((patch) => ({ runId: run.id, patch }))).find(({ patch }) => patch.appliedTargetType === "career_evidence" && patch.appliedTargetId === item.id)
+  return <details className="mt-2 text-xs text-muted-foreground" onToggle={(event) => setOpen(event.currentTarget.open)}>
+    <summary className="cursor-pointer py-2 text-brand-400">View source provenance</summary>
+    <div className="space-y-2 break-words py-2">
+      <p>{EVIDENCE_SOURCE_LABELS[item.source]}</p>
+      {!imported ? <p>Entered by you. Confirmation is your assertion, not employer verification.</p> : <>
+        <ResourceState {...resource} retry={() => void resource.reload()} hasData={!!resource.data} />
+        {match ? <dl className="space-y-1">
+          <div><dt className="inline">Extraction confidence: </dt><dd className="inline">{match.patch.confidence}%</dd></div>
+          {match.patch.provenance.fileName && <div><dt className="inline">File: </dt><dd className="inline">{match.patch.provenance.fileName}</dd></div>}
+          {match.patch.provenance.locator && <div><dt className="inline">Source location: </dt><dd className="inline">{match.patch.provenance.locator}</dd></div>}
+          <div><dt className="inline">Captured: </dt><dd className="inline">{new Date(match.patch.provenance.fetchedAt).toLocaleString()}</dd></div>
+          <div><dt className="inline">Run: </dt><dd className="inline break-all">{match.runId}</dd></div>
+          <div><dt className="inline">Proposal: </dt><dd className="inline break-all">{match.patch.id}</dd></div>
+          {match.patch.correctedAt && <div><dt className="inline">Corrected: </dt><dd className="inline">{new Date(match.patch.correctedAt).toLocaleString()}</dd></div>}
+          {match.patch.provenance.sourceUrl && /^https?:\/\//i.test(match.patch.provenance.sourceUrl) && <div><a href={match.patch.provenance.sourceUrl} target="_blank" rel="noreferrer noopener" className="text-brand-400 underline underline-offset-4">Open recorded source</a></div>}
+        </dl> : resource.data && <p>Detailed import source unavailable in the latest 50 loaded runs. The recorded source above is retained.</p>}
+        <Link href="/review?section=profile" className="inline-block py-2 text-brand-400 underline underline-offset-4">Review import proposals</Link>
+      </>}
+    </div>
+  </details>
+}
 
 /**
  * `<input type="date">` wants `yyyy-MM-dd`. The columns are `@db.Date` and are
@@ -417,7 +448,7 @@ export function EvidenceCard({ evidence }: { evidence: EvidenceRow[] }) {
                                 {item.endDate ? formatDate(item.endDate) : "present"}
                               </span>
                             )}
-                            {item.sourceUrl && (
+                            {item.sourceUrl && /^https?:\/\//i.test(item.sourceUrl) && (
                               <a
                                 href={item.sourceUrl}
                                 target="_blank"
@@ -429,6 +460,8 @@ export function EvidenceCard({ evidence }: { evidence: EvidenceRow[] }) {
                               </a>
                             )}
                           </div>
+                          <p className="mt-1 text-xs text-muted-foreground">{item.status === "CONFIRMED" ? "Confirmed by you; not employer-verified." : item.status === "CANDIDATE" ? "Candidate fact. Confirm only after checking its source." : "Archived evidence."}</p>
+                          <EvidenceProvenance item={item} />
                           {item.details && (
                             <>
                               <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
