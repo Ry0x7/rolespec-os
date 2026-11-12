@@ -1,6 +1,6 @@
 # Frontend handoff
 
-Updated: 2026-11-11. This is the integration contract for a future UI. It
+Updated: 2026-11-12. This is the integration contract for a future UI. It
 describes the backend that exists in this repository; it does **not** claim that
 a workflow or web review screen has been built. The current app still has its
 existing resume, discovery, tracker, ATS-extension and settings surfaces.
@@ -34,7 +34,14 @@ Common statuses: `400 INVALID_INPUT`/`VALIDATION`, `401 UNAUTHORIZED`,
 | --- | --- | --- |
 | `GET`, `POST` | `/api/applications` | List applications; create an application and its posting |
 | `GET`, `PATCH`, `DELETE` | `/api/applications/:id` | Read, edit or delete one application |
-| `POST`, `DELETE` | `/api/applications/:id/followup` | Schedule or clear a follow-up date |
+| `POST`, `DELETE` | `/api/applications/:id/followup` | Schedule or clear a legacy follow-up date |
+| `GET`, `POST` | `/api/submission-attempts` | List or manually stage a durable submission attempt |
+| `GET`, `PATCH` | `/api/submission-attempts/:id` | Read one attempt; explicitly confirm submitted/not submitted |
+| `GET` | `/api/follow-ups` | List durable EMAIL/LINKEDIN follow-up reminders |
+| `PATCH` | `/api/follow-ups/:id` | Mark a reminder `DONE` or `DISMISS` it |
+| `GET`, `POST` | `/api/outreach/sequences` | List or create a named recruiter outreach plan |
+| `GET`, `PATCH` | `/api/outreach/sequences/:id` | Read; `ACTIVATE` or `CANCEL` a plan |
+| `PATCH` | `/api/outreach/touches/:id` | Report one manual touch `DONE` or `SKIPPED` |
 | `GET`, `POST` | `/api/jobs` | List jobs; create a job |
 | `GET`, `PATCH`, `DELETE` | `/api/jobs/:id` | Read, edit or delete a job |
 | `POST` | `/api/jobs/scrape` | Fetch a public posting (Firecrawl when configured, SSRF-safe direct fetch otherwise) |
@@ -44,29 +51,35 @@ Common statuses: `400 INVALID_INPUT`/`VALIDATION`, `401 UNAUTHORIZED`,
 | `PATCH`, `DELETE` | `/api/todos/:id` | One to-do |
 | `GET` | `/api/activity` | Activity feed |
 | `POST` | `/api/activity` | Record an activity event |
-| `GET` | `/api/account/export` | Owner JSON export, including intake/workflow/review/ATS/tailoring/activity/AI-usage records |
+| `GET` | `/api/account/export` | Owner JSON export, including intake/workflow/review/ATS/tailoring/submission/follow-up/outreach/ranking/activity/AI-usage records |
 | `GET` | `/api/exports/:resumeId/:batch/:filename` | Download an owned PDF export |
 | `POST` | `/api/resume/parse` | Parse an uploaded PDF/DOCX into resume fields (5 MB cap, rate limited) |
 | `POST` | `/api/career-profile/import-linkedin` | Import a LinkedIn PDF export into the career profile |
 | `POST` | `/api/linkedin/assist` | Draft LinkedIn profile suggestions from a PDF export |
+| `POST` | `/api/linkedin/rating` | Rate the owner's LinkedIn PDF export, optionally with an owned resume as context |
 | `GET` | `/api/cron/prune-exports` | Scheduled cleanup (`CRON_SECRET`) |
 | `GET` | `/api/cron/prune-rate-limits` | Scheduled cleanup (`CRON_SECRET`) |
 | `GET` | `/api/health` | Liveness and database check |
 
-`/api/linkedin/rating` is intentionally disabled (`404 FEATURE_DISABLED`); do
-not build a rating control against it.
+`/api/linkedin/rating` is implemented and cookie-authenticated. It accepts a
+multipart PDF export (`file`) and an optional owned `resumeId`, and returns
+`201 { data, contextUsed: { resume } }`. It never posts to LinkedIn.
 
 ### Discovery and ranking
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/ranking` | Rank saved jobs with BM25 plus seven deterministic factors |
+| `POST` | `/api/ranking` | Rank saved jobs with BM25 plus seven deterministic factors; persists a snapshot |
+| `GET` | `/api/ranking` | Latest persisted ranking snapshot (or `null`) for a leaderboard |
 | `GET` | `/api/extension/search-links` | Board search links from the career profile (bearer) |
 | `POST` | `/api/extension/qualify` | Fit badges for up to 40 visible postings (bearer) |
 | `POST` | `/api/extension/jobs` | Save a clipped posting (bearer) |
 
-The ranking response is documented in [API_CONTRACTS.md](API_CONTRACTS.md#implemented-post-apiranking).
-It has `snapshot`, `entries`, `excluded`, `reranked`, `warnings` and `poolSize`.
+The ranking response is documented in [API_CONTRACTS.md](API_CONTRACTS.md#implemented-apiranking).
+It has `snapshot`, `entries`, `excluded`, `reranked`, `warnings`, `poolSize` and
+`snapshotId` (`null` when best-effort persistence failed). `GET /api/ranking`
+returns the latest `{ snapshot }` for a leaderboard; `snapshot.result` is the
+exact previous response, not a recomputation.
 An entry always carries factor `state` (`MATCH`, `PARTIAL`, `MISMATCH`,
 `UNKNOWN`), `coverage` and `explanation`. Unknown data must render as unknown,
 never as a neutral positive score.
@@ -247,6 +260,103 @@ returns `409 TERMINAL` instead of downgrading a confirmed submission.
 `/api/review-tasks` and `/api/review-tasks/:id` share the owner-keyed
 `review:web` limit (120 per 10 minutes) and return `429 RATE_LIMITED` past it.
 
+### Submission attempts, follow-ups and outreach
+
+These are the durable application records behind the workflow and extension
+surfaces. They never submit or send; the UI must present confirmation as the
+user's own statement.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET`, `POST` | `/api/submission-attempts` | List attempts; stage a manual attempt |
+| `GET`, `PATCH` | `/api/submission-attempts/:id` | Read; confirm `submitted` true/false |
+| `GET` | `/api/follow-ups` | Durable follow-up reminders; `due=1` for due-now |
+| `PATCH` | `/api/follow-ups/:id` | `DONE` or `DISMISS` one reminder |
+| `GET`, `POST` | `/api/outreach/sequences` | List; create a named contact plan |
+| `GET`, `PATCH` | `/api/outreach/sequences/:id` | Read; `ACTIVATE` or `CANCEL` |
+| `PATCH` | `/api/outreach/touches/:id` | Mark one manual touch `DONE` or `SKIPPED` |
+
+`SubmissionAttempt`:
+
+```json
+{
+  "id": "cuid",
+  "jobApplicationId": "cuid | null",
+  "workflowRunId": "cuid | null",
+  "atsPreparationId": "cuid | null",
+  "resumeId": "cuid | null",
+  "source": "WORKFLOW | EXTENSION | MANUAL",
+  "status": "STAGED | SUBMITTED | NOT_SUBMITTED | ABANDONED",
+  "jobTitle": "string | null",
+  "companyName": "string | null",
+  "sourceUrl": "string | null",
+  "evidence": {},
+  "confirmedAt": "ISO | null",
+  "confirmationNote": "string | null",
+  "createdAt": "ISO",
+  "updatedAt": "ISO"
+}
+```
+
+`POST /api/submission-attempts` body is
+`{ jobApplicationId, resumeId?, evidence? }` and returns `201 { attempt }` with
+`source: "MANUAL"`, `status: "STAGED"`. `PATCH /api/submission-attempts/:id`
+body is `{ submitted: boolean, note? }`; it returns
+`{ attempt, applicationStatus, submitted }`. A `true` confirmation moves an
+`INTERESTED` application to `APPLIED` once, records an
+`ApplicationStatusEvent`, and creates the EMAIL +5 / LINKEDIN +12 business-day
+follow-up tasks. A later `false` is `409 TERMINAL`; correct the tracker instead.
+See [API_CONTRACTS.md](API_CONTRACTS.md#implemented-submission-attempts).
+
+`FollowUpTask`: `{ id, jobApplicationId, channel: "EMAIL" | "LINKEDIN",
+status: "PENDING" | "DONE" | "DISMISSED" | "CANCELLED", dueAt: "YYYY-MM-DD",
+appliedOn: "YYYY-MM-DD" | null, reason, source, completedAt, createdAt,
+updatedAt }`. `dueAt` is a calendar day, not an instant. Closing uses
+`{ "action": "DONE" | "DISMISS" }`.
+
+`OutreachSequence`: `{ id, name, status: "DRAFT" | "ACTIVE" | "COMPLETED" |
+"CANCELLED", idempotencyKey, startedAt, completedAt, createdAt, updatedAt,
+contact, touches }`. Each touch is
+`{ id, order, channel: "EMAIL" | "LINKEDIN", status: "PENDING" | "DONE" |
+"SKIPPED" | "CANCELLED", dueOn: "YYYY-MM-DD", note, completedAt, sent: false }`.
+Creating with a contact produces EMAIL day 0, EMAIL +5 and LINKEDIN +12 business
+days; a repeated `idempotencyKey` returns the same plan.
+
+### Per-stage AI settings
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/settings/ai-stages` | List stage overrides and available stages |
+| `PUT` | `/api/settings/ai-stages` | Save `{ stage, provider, model?, apiKey?, clearApiKey? }` |
+| `DELETE` | `/api/settings/ai-stages?stage=TAILOR` | Remove one override |
+
+Stages: `PROFILE`, `DISCOVER`, `RANK`, `RESEARCH`, `TAILOR`, `ATS`, `OUTREACH`.
+A row is `{ stage, provider, model, configured, last4?, defaultModel }`; the key
+itself is never returned. Absence means the normal user/deployment provider is
+used. `PUT` is same-origin and rate limited at 30 per 10 minutes.
+
+### Extension essay drafting
+
+`POST /api/extension/essay-draft` (bearer) drafts one non-sensitive free-text
+answer from confirmed profile/resume facts:
+
+```json
+{
+  "question": "Why do you want to work here?",
+  "preparationId": "cuid",
+  "jobApplicationId": "cuid",
+  "resumeId": "cuid",
+  "maxWords": 180,
+  "instructions": "Mention the platform work."
+}
+```
+
+Response `200`: `{ draft, wordCount, grounding, unsupportedNumbers,
+reviewRequired: true, autoFill: false }`. The UI must render the draft verbatim,
+show grounding/unsupported-number warnings, and require the user to edit or
+accept it; no fill path may consume it. Sensitive questions return
+`400 NOT_AN_ESSAY`. Rate limit: 10 per 10 minutes.
+
 ### Research and tailoring
 
 These are server actions, not public HTTP routes:
@@ -270,7 +380,17 @@ Use the exported TypeScript contracts instead of duplicating shapes:
   `AtsReviewTaskView`, `AtsAnswerView`.
 - `src/features/intake/types.ts` and `src/features/intake/services/intake-dto.ts` —
   intake run/patch/source DTOs.
-- `src/features/ranking/types.ts` — ranking entries, factors, snapshot.
+- `src/features/ranking/types.ts` and
+  `src/features/ranking/services/ranking-snapshot.service.ts` — ranking entries,
+  factors, `RankingSnapshotView`.
+- `src/features/submissions/services/submission.service.ts` —
+  `SubmissionAttemptView`, stage/confirm inputs.
+- `src/features/jobs/services/follow-up-task.service.ts` — `FollowUpTaskView`.
+- `src/features/jobs/services/outreach-sequence.service.ts` —
+  `OutreachSequenceView`.
+- `src/features/settings/services/user-ai-stage-settings.service.ts` —
+  `UserAiStageSettingView`.
+- `src/features/jobs/services/essay-draft.service.ts` — `EssayDraftResult`.
 - `src/features/jobs/services/three-layer-research.service.ts` —
   `ThreeLayerResearch`, culture signal states.
 - `src/features/resume/tailoring/types.ts` — requirement evidence, validation
@@ -311,30 +431,40 @@ Use the exported TypeScript contracts instead of duplicating shapes:
     one-page export warning.
 11. **Follow-up view** that shows the recommended date/channel as advice and
     lets the user accept or clear it. Sending remains manual.
+12. **Submission-attempt view** that lists `STAGED`, `SUBMITTED`,
+    `NOT_SUBMITTED` and `ABANDONED` records, shows the evidence bundle and
+    resume, and makes the user's explicit submitted/not-submitted confirmation
+    the only state-changing action. Never imply the server submitted anything.
+13. **Follow-up queue** (`GET /api/follow-ups?due=1`) with channel, due date,
+    reason and `DONE`/`DISMISS` controls. A cancelled task is read-only.
+14. **Outreach plan view** with contact, touch schedule and `ACTIVATE`/`CANCEL`;
+    each touch is user-reported `DONE`/`SKIPPED`. Always display `sent: false`.
+15. **Stage AI settings** that show which provider/model handles each stage,
+    mask keys as `last4`, and support clear/replace without exposing a key.
+16. **Essay draft review** that renders the draft, grounding warnings and
+    unsupported numbers, and requires explicit acceptance before the user
+    pastes it; the response is never auto-filled.
+17. **Leaderboard/history view** from `GET /api/ranking` using the persisted
+    snapshot instead of recomputing on page load.
 
 ## Missing capabilities / honest gaps
 
 - No workflow UI, workflow list screen or global command entry; the API exists
   but nothing calls it from the app.
 - No standalone `/workspace/review` screen (F37).
-- No generic `SubmissionAttempt` table or evidence route; the extension
-  `AtsPreparation` is the staged record that exists (F35 Partial).
-- No scheduled `FollowUp` table, business-day +5/+12 scheduling, or LinkedIn
-  follow-up channel (F41/F42/F44 Partial/Missing).
-- No AI essay-draft endpoint or UI (F33 Missing).
-- No dashboard leaderboard and no persisted `RankingSnapshot`.
-- Ranking rerank exists only through `POST /api/ranking`; discovery itself does
-  not call AI, so discovered-but-unsaved postings have no LLM confidence (F14).
-- Provider selection is per user, not per workflow stage (F22).
-- No deterministic post-check for the banned-cliché list (F25).
-- `POST /api/linkedin/rating` is disabled and returns `404 FEATURE_DISABLED`;
-  the LinkedIn page still renders rate controls. Re-enable intentionally or hide
-  them (product decision).
-- ATS answers are owner-scoped and excluded from plans/logs, but current rows
-  are not encrypted at rest (F32 Partial).
-- Live Greenhouse/Lever/Workday/Ashby filling was not verified; only maintained
-  fixtures exist (F34/F55 Partial).
+- No dashboard leaderboard UI; the persisted `RankingSnapshot` backend exists,
+  but no screen consumes it yet (F15/F46).
+- No workflow timeline or review drawer in the app; the extension has the ATS
+  review queue, not a web equivalent.
+- Live employer ATS fill and resume attachment are not verified end-to-end.
+  The Lever live HTML scan/plan produced 6 safe fills and 18 review rows (13
+  sensitive), and maintained Greenhouse/Lever/Ashby fixtures pass, but no real
+  form was actually filled or uploaded to (F34/F55 Partial).
+- No clean-VM install/upgrade of the rebuilt 1.0.5 installer; it was built and
+  its signature/version inspected, not installed on a fresh machine.
 - No multi-tenant accounts or hosted billing. The workspace is single-owner.
+- `example.com` postings and synthetic benchmark pools are test data, not
+  evidence of external-provider coverage.
 
 ## Integration example: manual application run
 
@@ -404,3 +534,62 @@ await fetch(`${appUrl}/api/extension/review-tasks/${taskId}`, {
 
 The extension must not click Submit, accept terms, or infer submission from a
 filled form. The final confirmation is the user's own action.
+
+## Integration example: stage, confirm and follow up
+
+```ts
+const staged = await fetch("/api/submission-attempts", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ jobApplicationId, resumeId }),
+}).then((r) => r.json())
+
+const attemptId = staged.attempt.id as string
+
+// Show the evidence, then ask the user what actually happened.
+await fetch(`/api/submission-attempts/${attemptId}`, {
+  method: "PATCH",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    submitted: true,
+    note: "Submitted on the company site with the tailored PDF.",
+  }),
+})
+
+const due = await fetch("/api/follow-ups?status=PENDING&due=1").then((r) =>
+  r.json()
+)
+// due.items: EMAIL +5 business days, LINKEDIN +12 business days
+await fetch(`/api/follow-ups/${due.items[0].id}`, {
+  method: "PATCH",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ action: "DONE" }),
+})
+```
+
+A `submitted: true` response advances `INTERESTED` to `APPLIED` once and creates
+the reminders. A second `submitted: false` returns `409 TERMINAL`; correct the
+tracker instead of trying to unwind the confirmation.
+
+## Integration example: per-stage AI and essay review
+
+```ts
+await fetch("/api/settings/ai-stages", {
+  method: "PUT",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ stage: "TAILOR", provider: "openai", model: "gpt-5" }),
+})
+
+const draft = await fetch(`${appUrl}/api/extension/essay-draft`, {
+  method: "POST",
+  headers: {
+    authorization: `Bearer ${token}`,
+    "content-type": "application/json",
+  },
+  body: JSON.stringify({ question, preparationId, maxWords: 180 }),
+}).then((r) => r.json())
+
+// draft.reviewRequired === true and draft.autoFill === false.
+// Render draft.draft, draft.grounding and draft.unsupportedNumbers; the user
+// edits and pastes it. Never write it to the form automatically.
+```

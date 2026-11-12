@@ -112,21 +112,33 @@ const REQUIRED_STATUS = {
   F08: ["Implemented"],
   F09: ["Implemented"],
   F13: ["Implemented"],
-  F14: ["Partial"],
+  F14: ["Implemented"],
+  // Backend complete, first-party leaderboard UI still absent.
   F15: ["Partial"],
+  F22: ["Implemented"],
+  F25: ["Implemented"],
   F30: ["Implemented"],
   F31: ["Implemented"],
-  F32: ["Partial"],
+  F32: ["Implemented"],
+  F33: ["Implemented"],
+  // Attachment works from fixtures; a live employer page was not filled.
   F34: ["Partial"],
-  F35: ["Partial"],
+  F35: ["Implemented"],
+  // Extension queue only; no web review screen.
   F37: ["Partial"],
   F38: ["Implemented"],
-  F41: ["Partial"],
+  F41: ["Implemented"],
+  F42: ["Implemented"],
+  F44: ["Implemented"],
+  F45: ["Implemented"],
+  // Backend complete, dashboard leaderboard still absent.
   F46: ["Partial"],
   F49: ["Not ported"],
   F50: ["Not ported"],
   F53: ["Implemented"],
+  F55: ["Partial"],
   F57: ["Roadmap-only", "Not ported"],
+  F60: ["Missing"],
 }
 
 const STATUSES = new Set(["Implemented", "Partial", "Missing", "Not ported", "Roadmap-only"])
@@ -171,12 +183,16 @@ const CHECKS = {
       if (!row) continue
       ok(allowed.includes(row.status), `${id} must be ${allowed.join("/")} (found ${row.status})`)
     }
-    const counts = [...rows.values()].reduce((acc, row) => {
-      acc[row.status] = (acc[row.status] ?? 0) + 1
-      return acc
-    }, {})
-    ok((counts.Partial ?? 0) >= 12, `expected at least 12 Partial rows, found ${counts.Partial ?? 0}`)
-    ok((counts.Missing ?? 0) >= 3, `expected at least 3 Missing rows, found ${counts.Missing ?? 0}`)
+    // Safety invariants are the rows that must never regress to a weaker label.
+    for (const id of ["F24", "F51", "F52", "F53", "F36"]) {
+      const row = rows.get(id)
+      if (row) ok(row.status === "Implemented", `${id} safety invariant must stay Implemented`)
+    }
+    // The two intentionally unclosed gaps must stay visible, not be papered over.
+    for (const id of ["F49", "F50", "F60"]) {
+      const row = rows.get(id)
+      if (row) ok(row.status !== "Implemented", `${id} must not claim parity`)
+    }
   },
 
   G3() {

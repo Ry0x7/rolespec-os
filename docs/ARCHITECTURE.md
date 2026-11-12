@@ -1,5 +1,7 @@
 # Architecture
 
+Updated: 2026-11-12.
+
 RoleSpec is a private, single-owner job-search workspace. The web app, Windows
 desktop shell and browser extension share one set of career, resume, job and
 application data. This document records the current structure and the target
@@ -67,16 +69,16 @@ Four rules shape the design:
 | Layer | Existing modules | Current / target additions |
 | --- | --- | --- |
 | Intake | `src/features/intake` (run, apply, six adapters), `src/features/career-profile/services`, `src/features/linkedin/services` | Delivered: `IntakeRun`/`IntakeSourceRun`/`IntakePatch`/`IntakeConflict`/`IntakeCorrection` and `/api/intake/*`. Intake remains request-scoped with Cancel → Retry recovery, separate from the workflow lease worker. |
-| Workflow | `src/features/workflows`, `src/app/api/workflows`, `src/app/api/review-tasks` | Delivered: `WorkflowRun`/`WorkflowStep`/`WorkflowEvent`/`ReviewTask`, the eleven executors, the leased in-process worker, manual mode, review checkpoints and SSE progress. Remaining: no workflow UI; no generic `SubmissionAttempt`; the active-run guard is a serial check, not a database constraint. |
+| Workflow | `src/features/workflows`, `src/app/api/workflows`, `src/app/api/review-tasks` | Delivered: `WorkflowRun`/`WorkflowStep`/`WorkflowEvent`/`ReviewTask`, the eleven executors, the leased in-process worker, manual mode, review checkpoints and SSE progress. A partial unique index (`workflow_runs_one_active_per_application`) enforces one active run per application. Remaining: no workflow UI. |
 | Profile | `career-profile` actions/services, `CareerEvidence`, `CareerCapability` | per-field provenance envelope, merge candidates |
 | Discovery | `src/features/discovery/services/adapters` | unchanged read-only adapters, run record |
 | Ranking | `qualify.service.ts`, `intelligent-matching.service.ts` | `src/features/ranking/bm25.ts`, `RankingSnapshot` |
 | Research | `company-research.service.ts`, `job-requirements.service.ts` | culture block, per-job research run |
 | Tailoring | `resume/actions/tailor.ts`, `tailor-resume.ts`, `export` | validation report, coverage score, repair pass |
 | Autofill | `extension/src/autofill-core.ts`, `extension/src/autofill-page.ts` | Delivered: `AtsPreparation`/`AtsAnswer`, server-authoritative field classification, persistent `ReviewTask` queue, approved-answer memory with revoke, staged record and user-confirmed submission. Remaining: live vendor validation; no web queue screen. |
-| Submission | `src/features/workflows/executors/staging.executor.ts`, `src/features/ats/services/ats-preparation.service.ts` | Delivered: `SUBMISSION_STAGING` evidence bundle in `WorkflowStep.output` and the extension's `AtsPreparation` draft with explicit confirmation. Remaining: no generic `SubmissionAttempt` table/evidence route. |
-| Tracking | `job-application.actions.ts`, `ApplicationStatusEvent` | workflow linkage |
-| Follow-up | `follow-up-*` services | business-day schedule and channel-aware due tasks |
+| Submission | `src/features/workflows/executors/staging.executor.ts`, `src/features/submissions/services/submission.service.ts`, `src/features/ats/services/ats-preparation.service.ts` | Delivered: one `SubmissionAttempt` row (STAGED) for both the workflow's `SUBMISSION_STAGING` step and `AtsPreparation`, with `/api/submission-attempts` and an explicit confirmation endpoint. `WorkflowStep.output` remains a summary, not a second submission record. |
+| Tracking | `job-application.actions.ts`, `ApplicationStatusEvent` | workflow linkage; confirmation advances `INTERESTED → APPLIED` only |
+| Follow-up | `src/features/jobs/services/follow-up-task.service.ts`, `outreach-sequence.service.ts` | Delivered: durable `FollowUpTask` +5 business-day EMAIL and +12 business-day LINKEDIN reminders; named `OutreachSequence`/`OutreachTouch` plans for manual actions. No send path. |
 
 ### Module boundaries
 
@@ -230,9 +232,11 @@ ATS form (extension) ──────────▶ server field classificati
                                  approved answer ──▶ AtsAnswer            ats_answers
                                  staged form record ──▶ AtsPreparation   ats_preparations
 
-Application ───────────────────▶ staging evidence (never submit)          workflow_steps
+Application ───────────────────▶ staged submission evidence                  submission_attempts
                                  user confirms they submitted ──▶ APPLIED  job_applications
-                                 follow-up schedule (business days)        job_applications.followUpAt
+                                 follow-up tasks (+5 email, +12 LinkedIn)  follow_up_tasks
+                                 named outreach plan (manual touches)      outreach_sequences
+                                                                           outreach_touches
 ```
 
 ### Control flow
@@ -254,7 +258,9 @@ Application ───────────────────▶ staging
    creates a `ReviewTask`. On an unrecoverable error it moves to `FAILED` with a
    specific reason and a manual fallback.
 5. Resolving a review task resumes the run in `ASSISTED`; dismissing it pauses
-   the run in `PAUSED`. No path resumes into an automatic submission.
+   the run in `PAUSED`. Staging creates a `SubmissionAttempt` in `STAGED`, never
+   `SUBMITTED`; only the user's explicit confirmation can move it, and no path
+   clicks a submit control or sends a message.
 
 The full state machine, legal transitions and invariants are in
 [WORKFLOW_STATES.md](WORKFLOW_STATES.md). The HTTP surface is in
@@ -282,8 +288,8 @@ steps through the same advance route and never acquires a lease.
   of work each: profile readiness, query/link derivation, ranking, three-layer
   research, persistent resume tailoring, revalidation of the stored draft, ATS
   field planning, the human checkpoint, submission staging, tracking review and
-  follow-up advice. They return an outcome; they never write a `JobApplication`
-  or select a resume on the user's behalf.
+  follow-up scheduling. They return an outcome; they never submit, send, select a
+  resume or write a `JobApplication` status on the user's behalf.
 - **Provider boundary.** Only `RESEARCH` and `TAILOR` call a model, through the
   existing `ai-generate`/provider settings. A missing provider is a typed
   failure with a manual fallback, never a fabricated result.
@@ -325,27 +331,36 @@ extension scan (labels/names/types only, all frames)
 - **Server is the security boundary.** `src/features/ats/lib/field-classifier.ts`
   re-derives category, sensitivity and question key. A client cannot promote a
   sensitive field by changing its label, type or vendor string. `select`, radio,
-  checkbox, file, essay and typeahead controls are never written.
+  checkbox, file, essay and typeahead controls are never written. Essay drafts
+  (`/api/extension/essay-draft`) are grounding-checked review text, never a fill
+  value.
 - **One queued question per blocked field.** `AtsPreparation` owns zero or more
   `ReviewTask` rows. Re-scanning updates the existing open task. A blocked field
   never fails the preparation; resolving or dismissing the task only changes what
   can be filled, never submits.
-- **Answer memory is explicit.** `AtsAnswer` is approved per question, scoped to
-  one application or all forms, editable only with `replace: true`, and revoked by
-  keeping the row and setting `revokedAt`. A conflicting replacement raises `409`
-  and leaves one `CONFLICTING_ANSWER` task open; revocation reopens the question.
+- **Answer memory is explicit and encrypted.** `AtsAnswer` is approved per
+  question, scoped to one application or all forms, editable only with
+  `replace: true`, and revoked by keeping the row and setting `revokedAt`. Values
+  are stored as an `enc.v1.*` secret-box envelope (`src/shared/lib/answer-crypto.ts`);
+  legacy plaintext rows remain readable and are re-encrypted when edited. A
+  conflicting replacement raises `409` and leaves one `CONFLICTING_ANSWER` task
+  open; revocation reopens the question.
 - **Resume attachment is user-triggered.** The PDF endpoint only renders an owned,
   non-archived resume. The panel stages a `File` into the page's input; if the page
   refuses it, the same PDF downloads for manual selection. Nothing is uploaded by
   the server.
-- **Staging is not submission.** The record is `ats_preparations`, not a
-  `JobApplication`. Only `CONFIRM_SUBMISSION` with `submitted: true` moves a linked
-  application to `APPLIED`, records `dateApplied`, and appends an
-  `ApplicationStatusEvent` with `source: EXTENSION`.
+- **Staging is not submission.** Creating or refreshing an `AtsPreparation` calls
+  `ensureStagedAttempt` and writes one linked `SubmissionAttempt` in `STAGED`.
+  Only `CONFIRM_SUBMISSION` with `submitted: true` moves the attempt to
+  `SUBMITTED`, moves an `INTERESTED` linked application to `APPLIED`, records
+  `dateApplied`, schedules follow-up tasks and appends an `ApplicationStatusEvent`
+  with `source: EXTENSION`. A confirmed attempt cannot be downgraded.
 - **Coverage.** `extension/src/ats-adapters.ts` distinguishes ingestion from form
   filling. Greenhouse, Lever and Ashby have maintained fixtures; other vendors are
-  assisted or manual. Live vendor submission was not verified. See
-  [ATS_SUPPORT.md](ATS_SUPPORT.md).
+  assisted or manual. On 2026-11-12 a public Lever application page was fetched
+  and scanned: 24 fields were discovered and the plan split 6 safe fills from 18
+  review fields (13 sensitive), with no submit action. A live fill, resume attach
+  and employer submission were not performed. See [ATS_SUPPORT.md](ATS_SUPPORT.md).
 
 The tests are `src/features/ats/__tests__/*`, `src/app/api/extension/ats/__tests__/*`,
 `extension/src/ats-fixtures.test.ts`, `extension/src/ats-adapters.test.ts`,
@@ -418,15 +433,19 @@ column is dropped in the parity work.
 | `WorkflowStep` | One executed step and its result | `runId`, `name`, `order`, `status`, `required`, `dependsOn String[]`, `attempts`, `maxAttempts`, `timeoutMs`, `idempotencyKey`, `input`/`output Json`, `lastError`, `nextAttemptAt`, `startedAt`, `finishedAt`; unique `(runId, name)`; index `(runId, status)`, `(status, nextAttemptAt)` |
 | `WorkflowEvent` | Append-only run and step trace | `runId`, `stepId?`, `type`, `message`, `metadata Json`, `createdAt`; index `(runId, createdAt)` |
 | `ReviewTask` | A question the system must not answer | `userId`, `runId?`, `stepId?`, `jobApplicationId?`, `kind`, `status`, `question`, `reason`, `category`, `fallback`, `suggestedValue Json`, `answer Json`, `resolvedAt`, `resolvedBy`; index `(userId, status)`, `(runId, status)` |
-| `RankingSnapshot` (planned) | Reproducible ranking of one candidate pool | `userId`, `profileVersion`, `algorithm`, `params Json`, `computedAt`, `items Json`; index `(userId, createdAt)` |
-| `JobResearch` (planned) | Requirements/company/culture research for one job | `userId`, `jobId`, `sections Json`, `citations Json`, `confidence`, `provider`, `model`; unique `(userId, jobId, version)` |
+| `RankingSnapshot` | Reproducible ranking response the user actually saw | `userId`, `kind`, `topK`, `minScore`, `poolSize`, `entryCount`, `reranked`, `payload Json`, `createdAt`; index `(userId, createdAt)` |
 | `ResumeTailoringRun` | One tailoring attempt, its requirement map and validation | `userId`, `resumeId?`, `sourceResumeId`, `jobApplicationId?`, `status`, `mode`, `attempts`, `sourceVersion`, `snapshotHash`, `requirementMap Json`, `validation Json`, `snapshot Json`, `lastError`; indexes `(userId, createdAt)`, `(resumeId)`, `(sourceResumeId)` |
 | `ResumeSnapshot` | Immutable source payload used for version-specific restore | `resumeId`, `userId`, `sourceResumeId`, `sourceVersion`, `hash`, `payload Json`, `capturedAt`, `restoredAt`, `restoreCount`; index `(resumeId, capturedAt)` |
 | `ResumeValidation` | Append-only validation report for a draft revision | `resumeId`, `userId`, `tailoringRunId?`, `status`, `sourceHash`, `report Json`, `createdAt`; index `(resumeId, createdAt)` |
 | `ResumeEditEvent` | Append-only edit/tailoring/rollback history | `resumeId`, `userId`, `kind`, `versionBefore`, `versionAfter`, `summary`, `metadata Json`, `createdAt`; index `(resumeId, createdAt)` |
 | `AtsPreparation` | One staged ATS form preparation | `userId`, `jobApplicationId?`, `workflowRunId?`, `vendor`, `sourceUrl`, `canonicalUrl`, `preparationKey`, `status`, `resumeId?`, `resumeTitle?`, `plan Json`, `results Json`, `reviewTaskIds`, counts, `approvedAt`, `filledAt`, `submittedAt`, `submissionNote`; unique `(userId, preparationKey)`; indexes `(userId, updatedAt)`, `(jobApplicationId, userId)` |
-| `AtsAnswer` | Reusable approved answer to one ATS question (the earlier `ApprovedAnswer` placeholder was replaced by this model) | `userId`, `preparationId?`, `questionKey`, `questionText`, `category`, `sensitivity`, `value Json`, `scope`, `source`, `dedupeKey`, `approvedAt`, `revokedAt`, `lastUsedAt`, `useCount`; unique `(userId, dedupeKey)`; indexes `(userId, questionKey)`, `(preparationId, revokedAt)` |
-| `SubmissionAttempt` (planned) | Staged submission with evidence | `userId`, `jobApplicationId`, `jobId`, `resumeExportId?`, `answers Json`, `evidence Json`, `state`, `confirmedAt`; index `(userId, jobApplicationId)` |
+| `AtsAnswer` | Reusable approved answer to one ATS question (the earlier `ApprovedAnswer` placeholder was replaced by this model) | `userId`, `preparationId?`, `questionKey`, `questionText`, `category`, `sensitivity`, `value Json` (encrypted envelope), `scope`, `source`, `dedupeKey`, `approvedAt`, `revokedAt`, `lastUsedAt`, `useCount`; unique `(userId, dedupeKey)`; indexes `(userId, questionKey)`, `(preparationId, revokedAt)` |
+| `SubmissionAttempt` | One staged application, shared by workflow and extension paths | `userId`, `jobApplicationId?`, `workflowRunId?` (unique), `atsPreparationId?` (unique), `resumeId?`, `source`, `status`, `jobTitle`, `companyName`, `sourceUrl`, `evidence Json`, `confirmedAt`, `confirmationNote`; indexes `(userId, status)`, `(jobApplicationId, createdAt)` |
+| `FollowUpTask` | Durable +5 email and +12 LinkedIn reminder | `userId`, `jobApplicationId`, `channel`, `status`, `dueAt @db.Date`, `appliedOn @db.Date`, `reason`, `source`, `completedAt`; unique `(jobApplicationId, channel)`; index `(userId, status, dueAt)` |
+| `OutreachContact` | Named recruiter/hiring contact | `userId`, `name`, `role`, `company`, `email`, `linkedinUrl`, `notes`; index `(userId, createdAt)` |
+| `OutreachSequence` | Named plan of manual touches | `userId`, `contactId`, `name`, `status`, `idempotencyKey`, `startedAt`, `completedAt`; unique `(userId, idempotencyKey)`; index `(userId, status, createdAt)` |
+| `OutreachTouch` | One scheduled manual action | `sequenceId`, `order`, `channel`, `status`, `dueOn @db.Date`, `note`, `completedAt`; unique `(sequenceId, order)`; index `(sequenceId, status, dueOn)` |
+| `UserAiStageSetting` | Per-user provider/model override for one workflow stage | `userId`, `stage`, `provider`, `model`, `apiKeyEnc`; keyed by `(userId, stage)`; the stage list is fixed in `src/shared/lib/ai-stages.ts` |
 
 `WorkflowRun.leaseExpiresAt` and `WorkflowStep.nextAttemptAt` are the only
 scheduling primitives; there is no separate cron for workflow advancement. The
@@ -501,13 +520,15 @@ tasks. `retryWorkflow` checks ownership before resetting any step.
   submit. This is the OWASP LLM06 excessive-agency boundary.
 - `AtsAnswer` rows are owner-scoped, omit revoked rows from every plan, and are
   never logged or echoed in a preparation plan or a review task's suggested-value
-  envelope. They are stored in the local PostgreSQL database without additional
-  at-rest encryption in this phase; the browser-local cache remains a convenience,
-  not secure storage. The extension bearer token is the only credential that can
-  read them, and only for its own owner.
+  envelope. Values are encrypted at rest with the shared secret-box envelope
+  (`enc.v1.*`); only the owner's server process can decrypt them. The
+  browser-local cache remains a convenience, not secure storage. The extension
+  bearer token is the only credential that can read them, and only for its own
+  owner.
 - `GET /api/account/export` includes intake runs and source input, workflow runs,
-  review tasks, ATS preparations/answers, tailoring history, activity and AI
-  usage metadata. It includes no API token hash or AI provider key and is served
+  review tasks, ATS preparations/answers, submission attempts, follow-up tasks,
+  outreach plans, ranking snapshots, tailoring history, activity and AI usage
+  metadata. It includes no API token hash or AI provider key and is served
   `no-store`.
 - Logs record ids, states and aggregated outcomes, not answer text, resume text or
   credentials.
@@ -593,10 +614,10 @@ tokens. CLI login belongs to the vendor CLI; local models require a separately r
 
 Providers include cloud APIs, Codex CLI, Claude Code, OpenCode free models, Ollama and LM Studio.
 CLI tools/local servers are not bundled with the desktop installer. The supplied Docker setup uses
-cloud APIs. Provider plans, model availability and limits may change; avoid fixed cost guarantees.
-
-Per-stage provider overrides are a target addition, not current behavior. They reuse the same
-encrypted settings row and never introduce a second credential store.
+cloud APIs. Provider plans, model availability and limits may change; avoid fixed cost guarantees. Per-stage provider overrides are implemented in `UserAiStageSetting` and
+`/api/settings/ai-stages`: research, ranking, discovery, tailoring, profile and
+follow-up calls can use different provider/model pairs. They reuse the same
+encrypted settings path and never introduce a second credential store.
 
 ### Discovery and opportunity confidence
 
@@ -663,12 +684,12 @@ research. The payload is stored beside `companyResearch` in `JobApplication.matc
 ## Release boundaries
 
 The release audit and its per-capability labels live in [VERIFICATION.md](VERIFICATION.md). The
-backend is a real persisted system: workflow state, review tasks, ATS preparations, answer memory,
-tailoring provenance and application history are PostgreSQL rows, not UI state. The boundaries that
-remain are explicit there rather than implied here: no workflow/review UI, no generic
-`SubmissionAttempt`, no live employer-ATS run, no Windows installer upgrade test, and no
-performance/load benchmark. The active-workflow duplicate guard is a serial pre-check, not a
-database uniqueness constraint.
+backend is a real persisted system: workflow state, review tasks, ATS preparations, encrypted answer
+memory, submission attempts, follow-up tasks, outreach plans, tailoring provenance and application
+history are PostgreSQL rows, not UI state. The boundaries that remain are explicit there rather than
+implied here: no workflow/review UI, no live employer-ATS fill/attach/submit, no installed or upgraded
+Windows build from this source revision, and no large-pool load test. The duplicate-active-workflow
+guard is now a partial unique index in PostgreSQL.
 
 ## Sources of truth
 
