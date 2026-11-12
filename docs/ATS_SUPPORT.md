@@ -1,5 +1,7 @@
 # ATS support and application preparation
 
+Updated: 2026-11-12.
+
 RoleSpec OS prepares an application; it never submits one. The browser extension
 detects a form, the server re-classifies every field, the user approves the plan,
 blocked questions become persistent review tasks, and the final Submit click is
@@ -42,8 +44,14 @@ classification.
 `fixture-tested` means the discovery and safety rules are pinned by maintained
 markup fixtures (`extension/src/ats-fixtures.test.ts`, `extension/src/autofill-core.test.ts`,
 `extension/src/autofill-page.test.ts`). It does **not** mean a live application was
-filled and submitted during this build. Live ATS access was not available, so no
-claim of live vendor verification is made here.
+filled and submitted during this build.
+
+On 2026-11-12 a real public Lever application page was fetched and scanned with
+the shipped scanner. It found 24 fields; the fill plan produced 6 safe fills and
+18 review fields, 13 of them sensitive, and no submit action. This is real-form
+discovery and planning evidence, not a live fill: no field was written, no resume
+was attached and no employer application was submitted. Greenhouse, Lever and
+Ashby fill behavior remains fixture-tested.
 
 ## End-to-end preparation flow
 
@@ -75,11 +83,12 @@ claim of live vendor verification is made here.
    the file input is inside a frame the extension cannot write, the same PDF is
    downloaded and the panel tells the user to select it manually. No file is
    uploaded anywhere except the employer's own form, and only on that gesture.
-7. **Stage.** The `AtsPreparation` record is the staged application: vendor,
-   source and canonical URL, page/job/company labels, chosen resume, server plan,
-   field-level results, review task ids, counts and timestamps. If the caller
-   supplied a `jobApplicationId`, the record is linked to that application; the
-   extension does not create a `JobApplication` on its own.
+7. **Stage.** The `AtsPreparation` record holds the vendor, source and canonical
+   URL, page/job/company labels, chosen resume, server plan, field-level results,
+   review task ids, counts and timestamps. It also creates one linked
+   `SubmissionAttempt` in `STAGED` (the same table the workflow uses); if the
+   caller supplied a `jobApplicationId`, both records link to that application.
+   The extension never creates a `JobApplication` on its own.
 8. **Submit manually.** While a prepared fill is active, the extension arms a
 temporary submit guard: a form submit, Enter inside a form, or a click on a
 submit-looking control is blocked until the user presses **Release submit guard**
@@ -87,8 +96,9 @@ submit-looking control is blocked until the user presses **Release submit guard*
 reviews the actual page and clicks the employer's Submit button. RoleSpec OS has
 no code path that clicks it, accepts terms, or dispatches a submit event.
 9. **Confirm.** The panel asks whether the application was actually submitted.
-   Only an explicit yes moves the preparation to `SUBMITTED` and, when linked,
-   moves the application to `APPLIED` with a `dateApplied` and an append-only
+   Only an explicit yes moves the preparation and its `SubmissionAttempt` to
+   `SUBMITTED` and, when linked, moves an `INTERESTED` application to `APPLIED`
+   with a `dateApplied`, durable follow-up tasks and an append-only
    `ApplicationStatusEvent` (`source: EXTENSION`). A no records `NOT_SUBMITTED`
    and changes no application status. Confirmation is one-way: a later no after
    a confirmed yes returns `409 TERMINAL`; correcting the tracker is a separate
@@ -161,8 +171,9 @@ Approved answer memory (`AtsAnswer`):
   a preparation. Revoked answers are never reused.
 - Answer values are owner-scoped, excluded from the preparation plan, never
   written to logs, and never included in a review task's suggested-value
-  envelope. They are stored in the local PostgreSQL database; the current schema
-  does not encrypt these rows at rest. The old browser-local cache
+  envelope. They are encrypted at rest as an `enc.v1.*` secret-box envelope
+  (`src/shared/lib/answer-crypto.ts`); legacy plaintext rows remain readable and
+  are re-encrypted when the user edits them. The old browser-local cache
   (`chrome.storage.local`) remains a convenience copy only.
 
 ## Staged record and statuses
@@ -203,6 +214,7 @@ provenance, not the value.
 | Resume endpoint fails | The panel shows the error and keeps the manual file-selection fallback. |
 | Page refuses the staged file | The PDF downloads and the panel instructs the user to browse for it. |
 | No supported ATS detected | Only an explicitly opened form can be scanned; otherwise the panel states it is a manual application. |
+| Essay question | The user may request a grounded draft, which stays review-only; the panel never writes an essay answer. |
 | Duplicate scan | The same vendor + canonical URL returns the existing preparation. |
 | Conflicting answer edit | The request is `409` and one `CONFLICTING_ANSWER` task is kept open until the user replaces, edits or revokes an answer. |
 | Rate limit | `429 RATE_LIMITED`; the panel asks the user to wait. |
@@ -222,9 +234,12 @@ provenance, not the value.
 | `GET` | `/api/extension/review-tasks` | Persistent review queue |
 | `PATCH` | `/api/extension/review-tasks/:id` | Resolve, dismiss or attach a resume for a task |
 | `GET` | `/api/extension/resumes/:id/pdf` | Render the chosen resume for user-triggered attachment |
+| `POST` | `/api/extension/essay-draft` | Draft one free-text answer for review; never auto-fills |
 
-Every route is bearer-token authenticated, owner-scoped and rate-limited. See
-[API_CONTRACTS.md](API_CONTRACTS.md) for request and response bodies.
+Every route is bearer-token authenticated, owner-scoped and rate-limited. The
+linked `SubmissionAttempt` is also readable through `GET /api/submission-attempts`
+and confirmable through `PATCH /api/submission-attempts/:id` by the app session.
+See [API_CONTRACTS.md](API_CONTRACTS.md) for request and response bodies.
 
 ## Safety boundaries
 
@@ -252,13 +267,21 @@ Covered by automated tests:
 - sensitive-field classification and choice-control restrictions;
 - per-field results, review-task creation and re-scan deduplication;
 - owner scoping for preparations, answers, tasks and resume PDFs;
-- approval, conflict, edit, revoke and reuse of answers;
+- approval, conflict, edit, revoke and reuse of answers, including encrypted
+  values and the legacy-row upgrade path;
 - resume attachment and the manual download fallback;
 - absence of submit calls in the fill path.
 
+Exercised against a real public form on 2026-11-12:
+
+- a Lever application page was fetched and scanned: 24 fields discovered, with a
+  plan of 6 safe fills and 18 review fields (13 sensitive); no value was written
+  and no submit action exists in the path.
+
 Not covered by this build:
 
-- a live end-to-end submission on a real employer ATS (no accessible account);
+- a live fill, resume attach and end-to-end submission on a real employer ATS
+  (no accessible employer account);
 - Workday's multi-step navigation beyond scanning each step;
 - CAPTCHA-protected or authenticated vendor portals;
 - OCR for scanned/image-only resumes.

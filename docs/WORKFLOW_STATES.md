@@ -1,16 +1,18 @@
 # Workflow states
 
-Updated: 2026-11-11. Normative for the workflow, review and submission backend.
-A `WorkflowRun` is an attempt to do one thing (an application pipeline, research,
-tailoring, autofill staging, follow-up). It is not the user's application status;
-that stays in `JobApplication.status` and is documented separately below.
+Updated: 2026-11-12. Normative for the workflow, review, submission and
+follow-up backend. A `WorkflowRun` is an attempt to do one thing (an application
+pipeline, research, tailoring, autofill staging, follow-up). It is not the user's
+application status; that stays in `JobApplication.status` and is documented
+separately below.
 
 **Delivery status:** `WorkflowRun`, `WorkflowStep`, `WorkflowEvent` and
 `ReviewTask` exist in `prisma/schema.prisma` and are advanced by
-`src/features/workflows/services/workflow-worker.ts`. `SubmissionAttempt` and
-`FollowUp` are still target contracts, not tables; the current staging step keeps
-its bundle in `WorkflowStep.output`, and follow-up timing is advice over
-`JobApplication.followUpAt`.
+`src/features/workflows/services/workflow-worker.ts`. `SubmissionAttempt`,
+`FollowUpTask`, `OutreachContact`, `OutreachSequence` and `OutreachTouch` are
+real tables. The workflow staging step and the extension preparation both write
+one `SubmissionAttempt` in `STAGED`; confirmation is a separate, explicit user
+action. Follow-ups are durable tasks, not UI advice.
 
 ## Entities
 
@@ -20,8 +22,9 @@ its bundle in `WorkflowStep.output`, and follow-up timing is advice over
 | `WorkflowStep` | One named unit inside a run | Exactly one row per `(runId, name)`; retries update that row |
 | `WorkflowEvent` | Append-only trace of run and step decisions | Never updated; deleted only with its run |
 | `ReviewTask` | A question the system must not answer | Open until resolved, dismissed or expired |
-| `SubmissionAttempt` (planned) | A staged application with evidence | One active stage per application; history is append-only |
-| `FollowUp` (planned) | A scheduled chase on a channel | Derived from the application, not a separate truth |
+| `SubmissionAttempt` | A staged application with evidence, shared by workflow and extension paths | One row per workflow run or ATS preparation; manual staging is keyed by application |
+| `FollowUpTask` | A durable +5 email or +12 LinkedIn chase | One row per application and channel; reset only when applied again |
+| `OutreachSequence` / `OutreachTouch` | A named plan of manual recruiter touches | Sequence lifecycle is independent of the application |
 
 There is no separate `ApplicationWorkflow` table. An application is a sequence of
 runs plus the user's own `JobApplication` record; that record is the durable
@@ -88,10 +91,10 @@ Legal edges, in the order the table defines them: `MANUAL → ASSISTED`,
 - A transition is written with the state change and its side effect in one
   interactive transaction. A review task cannot exist without its run being
   `AWAITING_REVIEW`, and a run cannot be `AWAITING_REVIEW` without an open task.
-- No transition may write a submission. `SUBMISSION_STAGING` only records its
-  evidence bundle in `WorkflowStep.output`; the extension's `AtsPreparation` is
-  a separate staged draft. Only an explicit user confirmation can mark either
-  one submitted.
+- No transition may write a submission. `SUBMISSION_STAGING` writes a
+  `SubmissionAttempt` in `STAGED` and a summary in `WorkflowStep.output`; the
+  extension's `AtsPreparation` writes the same staged record. Only an explicit
+  user confirmation can move it to `SUBMITTED`.
 - `ASSISTED → COMPLETED` requires every required step to be `COMPLETED` and every
   produced artifact to be persisted. A skipped optional step is recorded as
   `SKIPPED`, not `COMPLETED`.
@@ -226,7 +229,7 @@ Task kinds and the supported manual fallback:
 
 | Kind | Example | Resolution | Reuse |
 | --- | --- | --- | --- |
-| `SENSITIVE_ANSWER` | Work authorization, sponsorship, salary expectation, demographic, legal history | User types the answer | Optional `AtsAnswer`, opt-in per question; owner-scoped, current rows are not encrypted at rest |
+| `SENSITIVE_ANSWER` | Work authorization, sponsorship, salary expectation, demographic, legal history | User types the answer | Optional `AtsAnswer`, opt-in per question; owner-scoped, encrypted at rest as an `enc.v1.*` envelope |
 | `UNKNOWN_FIELD` | A field the classifier cannot map safely | User fills it on the page and records the answer | Optional |
 | `MISSING_PROFILE_FACT` | No phone number, no work authorization stated | User edits the Career Profile, then resumes | Becomes normal profile data |
 | `RESTRICTED_ACCESS` | No site grant, login required, CAPTCHA | User grants the origin or enters the posting manually | Not reused |
@@ -237,53 +240,91 @@ A review task must name the exact question and why it is blocked. "Something wen
 wrong" is not a valid task. A task with a suggested value must mark that value as
 suggested, not answered.
 
-## Submission (target contract, P5)
+## Submission attempt
 
-No `SubmissionAttempt` table ships yet. The implemented
-`SUBMISSION_STAGING` step persists its evidence bundle in `WorkflowStep.output`
-and refuses without `HUMAN_REVIEW.output.approved === true`; no application row,
-`dateApplied` or submission record is written. The following is the target shape
-for P5.
+`SubmissionAttempt` is the one durable staging record for a workflow run, an ATS
+preparation or a manual staging action. `SUBMISSION_STAGING` refuses without
+`HUMAN_REVIEW.output.approved === true`, then writes (or reuses) a `STAGED` row.
+`AtsPreparation` writes the same record through `ensureStagedAttempt`. A
+`WorkflowStep.output` summary is not a second submission truth.
 
-`SubmissionAttempt.state`: `DRAFT | STAGED | AWAITING_CONFIRMATION | CONFIRMED |
-WITHDRAWN | ABANDONED`.
+`SubmissionAttempt.status`: `STAGED | SUBMITTED | NOT_SUBMITTED | ABANDONED`.
 
 | From | To | Trigger | Evidence |
 | --- | --- | --- | --- |
-| `DRAFT` | `STAGED` | A staging step assembled answers, resume export and job snapshot | `answers`, `resumeExportId`, `jobId`, `stagedAt` |
-| `STAGED` | `AWAITING_CONFIRMATION` | The user opened the ATS and the extension filled the safe fields | `filledFields`, `reviewTaskIds`, `pageUrl` |
-| `AWAITING_CONFIRMATION` | `CONFIRMED` | User explicitly confirms they submitted it themselves | `confirmedAt`, optional screenshot/URL the user supplies |
-| `AWAITING_CONFIRMATION` | `ABANDONED` | User closes the form without submitting | `abandonedAt`, reason |
-| `STAGED` | `ABANDONED` | Job archived or user cancels | Reason |
-| `CONFIRMED` | `WITHDRAWN` | User records a withdrawal | `withdrawnAt` |
+| `STAGED` | `STAGED` | Idempotent replay of staging | Existing row returned; confirmed rows are never reset |
+| `STAGED` | `SUBMITTED` | User explicitly confirms they submitted it | `confirmedAt`, redacted `confirmationNote`; linked `INTERESTED` application becomes `APPLIED` |
+| `STAGED` | `NOT_SUBMITTED` | User explicitly says it was not submitted | `confirmedAt`; no application status change |
+| `STAGED` | `ABANDONED` | User abandons the extension preparation | No application status change |
+| `NOT_SUBMITTED` | `SUBMITTED` | User later confirms it was submitted | Same effects as `STAGED → SUBMITTED` |
+| `NOT_SUBMITTED` | `NOT_SUBMITTED` | Repeated negative confirmation | Idempotent |
+| `SUBMITTED` | `SUBMITTED` | Repeated positive confirmation | Idempotent; no second status event, no follow-up reset |
+| `SUBMITTED` | `NOT_SUBMITTED` | Attempted downgrade | Refused with `409 TERMINAL`; corrections belong in the tracker |
+| `ABANDONED` | any | Any confirmation or staging replay | Refused with `409 TERMINAL` |
 
-`CONFIRMED` is the only state that may stamp `JobApplication.dateApplied` from a
-submission flow, and only after the user's confirmation. The system never sets it
-from a form being filled. No transition may write a submission; only the user's
-confirmation creates `CONFIRMED`.
+Identity and idempotency:
 
-## Follow-up (target contract)
+- `workflowRunId` and `atsPreparationId` are unique when present; a replay reads
+  the winning row. A manual attempt is identified by `source: MANUAL` plus
+  `jobApplicationId`.
+- A confirmed submission is one-way. Only an `INTERESTED` application advances to
+  `APPLIED`; an application already at `SCREENING`, `INTERVIEW`, `OFFER`,
+  `REJECTED` or `WITHDRAWN` keeps its status.
+- Confirmation schedules the durable follow-up tasks in the same transaction.
+- The system never sets `dateApplied` from a filled form, and no transition
+  clicks Submit, accepts terms or sends a message.
 
-No `FollowUp` table ships yet. The `FOLLOW_UP` executor recommends a date and
-channel from `JobApplication.followUpAt` / `dateApplied`; it never schedules or
-sends. The following is the target shape for a dedicated follow-up record.
+## Follow-up tasks
 
-`FollowUp.state`: `SUGGESTED | SCHEDULED | DUE | DRAFTED | DONE | SKIPPED`.
+`FollowUpTask` is a durable reminder, not an outbox. Nothing is sent by the app.
+The APPLIED confirmation transaction creates one task per channel:
+
+| Channel | Due | Reason |
+| --- | --- | --- |
+| `EMAIL` | +5 business days after `appliedOn` | Check in by email five business days after applying |
+| `LINKEDIN` | +12 business days after `appliedOn` | Send a short LinkedIn follow-up twelve business days after applying |
+
+`FollowUpTask.status`: `PENDING | DONE | DISMISSED | CANCELLED`.
 
 | From | To | Trigger |
 | --- | --- | --- |
-| `SUGGESTED` | `SCHEDULED` | User accepts the recommended date, or an APPLIED transition schedules the default |
-| `SCHEDULED` | `DUE` | The due date is today in the user's timezone |
-| `DUE` | `DRAFTED` | User generates an email or LinkedIn draft |
-| `DRAFTED` | `DONE` | User records that they sent it |
-| `DUE` | `DONE` | User records a follow-up sent outside the app |
-| `SUGGESTED` | `SKIPPED` | User declines |
-| `SCHEDULED` | `SKIPPED` | Application reaches a terminal status |
+| absent | `PENDING` | Application reaches `APPLIED`, or a submission is confirmed |
+| `PENDING` | `DONE` | User records that they did the follow-up |
+| `PENDING` | `DISMISSED` | User declines it |
+| `PENDING` | `CANCELLED` | Application is rejected or withdrawn |
+| `DONE` / `DISMISSED` / `CANCELLED` | `PENDING` | Application is applied again; due date is recomputed |
+| `PENDING` | `PENDING` | Repeated scheduling keeps the original due date |
 
-Defaults: email at +5 business days after `dateApplied`; LinkedIn at +12 business
-days. Business days exclude Saturday and Sunday in the user's timezone; public
-holidays are not modeled and the date remains editable. Generating a draft never
-sends anything and never moves the application status.
+Business days exclude Saturday and Sunday. Public holidays are not modeled; the
+user can dismiss the reminder. Scheduling keeps `JobApplication.followUpAt`
+aligned with the email task only when it is unset, and never overwrites a date
+the user chose.
+
+## Outreach sequences
+
+`OutreachSequence` is a named plan for a contact. It only schedules the user's
+own manual touches; there is no email/LinkedIn send path anywhere in the model
+or service.
+
+`OutreachSequence.status`: `DRAFT | ACTIVE | COMPLETED | CANCELLED`.
+
+| From | To | Trigger |
+| --- | --- | --- |
+| `DRAFT` | `ACTIVE` | User activates the plan |
+| `ACTIVE` | `COMPLETED` | The last pending touch is marked `DONE` or `SKIPPED`; the service closes the sequence automatically |
+| `DRAFT` / `ACTIVE` | `CANCELLED` | User cancels the plan |
+| `COMPLETED` / `CANCELLED` | any | Terminal; a new plan is a new sequence |
+
+`OutreachTouch.status`: `PENDING | DONE | SKIPPED | CANCELLED`.
+
+| From | To | Trigger |
+| --- | --- | --- |
+| `PENDING` | `DONE` | User reports doing the touch |
+| `PENDING` | `SKIPPED` | User skips it |
+| `PENDING` | `CANCELLED` | The sequence is cancelled |
+| `DONE` / `SKIPPED` / `CANCELLED` | any | Terminal for that touch |
+
+A `DONE` touch means the user did it, not that the app sent it.
 
 ## Intake run
 
@@ -342,13 +383,17 @@ never silently re-read.
 3. A step that can be replayed must be idempotent. `WorkflowStep` is unique on
    `(runId, name)` and `idempotencyKey` is `${runId}:${stepName}`; a `COMPLETED`
    step is never executed again, and a retry updates the same row after resetting
-   only its own attempt state. Side effects are not replayed.
+   only its own attempt state. Side effects are not replayed. Submission staging
+   reuses the unique workflow/preparation row; follow-up scheduling reuses the
+   unique application/channel row and keeps an existing pending due date.
 4. `AWAITING_REVIEW` always has at least one `OPEN` task. Closing the last task
    moves the run, never leaves it stranded.
 5. `FAILED` always carries a user-readable reason and a manual path. A failure
    without both is a bug.
 6. A posting never creates a capability, a model never creates an employer and an
-   answer never creates a profile fact without an explicit confirm action.
+   answer never creates a profile fact without an explicit confirm action. A
+   `DONE` follow-up or outreach touch means the user reported doing it; the app
+   never sends anything.
 7. `COMPLETED` requires a persisted artifact. A summary screen is not an artifact.
 8. `CANCELLED` and `COMPLETED` are terminal for that attempt. History is not
    rewritten; a re-run is a new run.

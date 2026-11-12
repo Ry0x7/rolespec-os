@@ -1,6 +1,6 @@
 # API contracts
 
-Updated: 2026-11-11. Normative for new route handlers. Existing routes are listed
+Updated: 2026-11-12. Normative for new route handlers. Existing routes are listed
 as they behave today; the parity work does not rename or remove them.
 
 ## Conventions
@@ -63,8 +63,8 @@ current state so the client can re-render instead of guessing.
 
 ## Existing routes
 
-These were the routes present in `src/app/api` before the unified intake work.
-The eight `/api/intake` routes added by that work are enumerated under
+This table covers the routing surface, including the new application, outreach,
+follow-up and settings routes. The intake routes are enumerated under
 [Implemented: unified intake](#implemented-unified-intake). Methods in this table
 are exactly those exported by each handler.
 
@@ -74,13 +74,22 @@ are exactly those exported by each handler.
 | `GET`, `POST` | `/api/activity` | owner | Read the activity feed; record an activity event |
 | `GET`, `POST` | `/api/applications` | owner | List applications; create an application with its job |
 | `GET`, `PATCH`, `DELETE` | `/api/applications/:id` | owner | Read, update or delete one application |
-| `POST`, `DELETE` | `/api/applications/:id/followup` | owner | Schedule or clear a follow-up date |
+| `POST`, `DELETE` | `/api/applications/:id/followup` | owner | Schedule or clear a legacy follow-up date |
+| `GET`, `POST` | `/api/submission-attempts` | owner | List or manually stage a durable submission attempt |
+| `GET`, `PATCH` | `/api/submission-attempts/:id` | owner | Read one attempt; confirm submitted/not submitted |
+| `GET` | `/api/follow-ups` | owner | List durable EMAIL/LINKEDIN reminders |
+| `PATCH` | `/api/follow-ups/:id` | owner | Mark a reminder `DONE` or `DISMISS` |
+| `GET`, `POST` | `/api/outreach/sequences` | owner | List or create a named outreach plan |
+| `GET`, `PATCH` | `/api/outreach/sequences/:id` | owner | Read; `ACTIVATE` or `CANCEL` |
+| `PATCH` | `/api/outreach/touches/:id` | owner | Report one manual touch `DONE` or `SKIPPED` |
+| `GET`, `PUT`, `DELETE` | `/api/settings/ai-stages` | owner | Per-stage AI provider/model/key overrides |
 | `POST` | `/api/career-profile/import-linkedin` | owner | Import a LinkedIn PDF into the career profile |
 | `GET` | `/api/cron/prune-exports` | cron secret | Delete expired resume exports and stored PDFs |
 | `GET` | `/api/cron/prune-rate-limits` | cron secret | Delete expired rate-limit attempts |
 | `GET` | `/api/exports/*` | owner | Serve a stored export after ownership re-check |
 | `POST` | `/api/extension/cold-email` | bearer token | Draft a cold email, connection note or LinkedIn DM |
 | `POST` | `/api/extension/email-reply` | bearer token | Draft a reply to a received email |
+| `POST` | `/api/extension/essay-draft` | bearer token | Draft one non-sensitive essay for human review |
 | `POST` | `/api/extension/jobs` | bearer token | Save a clipped job as `INTERESTED` |
 | `GET`, `POST` | `/api/extension/ats/preparations` | bearer token | List or create an idempotent ATS preparation with a server fill plan |
 | `GET`, `PATCH` | `/api/extension/ats/preparations/:id` | bearer token | Read one preparation; record results, attach a resume, confirm submission or abandon |
@@ -97,7 +106,7 @@ are exactly those exported by each handler.
 | `GET`, `PATCH`, `DELETE` | `/api/jobs/:id` | owner | Read, update or delete one job |
 | `POST` | `/api/jobs/scrape` | owner | Fetch and extract a posting from a URL |
 | `POST` | `/api/linkedin/assist` | owner | Generate LinkedIn profile suggestions |
-| `POST` | `/api/linkedin/rating` | owner | Score a LinkedIn or portfolio profile |
+| `POST` | `/api/linkedin/rating` | owner | Rate the owner's LinkedIn PDF export with optional resume context |
 | `GET`, `POST` | `/api/notes` | owner | List notes; create a note |
 | `PATCH`, `DELETE` | `/api/notes/:id` | owner | Update or delete a note |
 | `POST` | `/api/resume/parse` | owner | Parse an uploaded PDF/DOCX resume |
@@ -121,10 +130,12 @@ are exactly those exported by each handler.
 
 ## New routes
 
-This section separates **implemented** routes from **planned** contracts. Intake,
-ranking, workflow, review-task, ATS preparation/answer and resume-PDF routes are
-implemented. `/api/submissions` remains a target contract. All routes are
-owner-scoped, validate with Zod, and return the error envelope above.
+Every route in this section is implemented. Intake, ranking, workflow,
+review-task, ATS preparation/answer, resume-PDF, submission-attempt, follow-up,
+outreach, per-stage AI settings and essay-draft routes all exist in the tree.
+All routes are owner-scoped, validate with Zod where a body is accepted, and
+return the error envelope above. Routes that read or write personal data send
+`Cache-Control: private, no-store`.
 
 ### Implemented: unified intake
 
@@ -490,11 +501,15 @@ Resolve or dismiss a task. Body (`.strict()`):
 - Resolving the last open task and moving the run to `ASSISTED` schedules a
   worker tick. `DISMISS` pauses an `AWAITING_REVIEW` run with the reason kept.
 - `409` if the task is not `OPEN`; `404` for a foreign task.
-- The response is `{ "task": ReviewTask, "run": WorkflowRun | null }`. It repeats
-  the stored `answer` as submitted; it never returns another owner's task.
+- The response is `{ "task": ReviewTask, "run": WorkflowRun | null,
+  "preparation": AtsPreparationView | null }`. `preparation` is present when the
+  task belongs to an ATS preparation and reflects the refreshed status. The
+  response repeats the stored `answer` as submitted; it never returns another
+  owner's task.
 
 Review-task answers are workflow decisions. ATS question memory is the separate
-`AtsAnswer` resource below, and `/api/submissions` remains planned.
+`AtsAnswer` resource below. Durable application staging is
+`/api/submission-attempts`; there is no `/api/submissions` route.
 
 ### Implemented: ATS preparation and the persistent review queue
 
@@ -730,8 +745,9 @@ Response `201`:
 
 Approving an answer resolves matching open review tasks for that preparation and
 recomputes preparation status. Answer values are owner-scoped, never logged and
-never included in a plan or review task's suggested-value envelope; they are
-stored in the local database and are not encrypted at rest in this phase.
+never included in a plan or review task's suggested-value envelope. Values are
+encrypted at rest with the answer envelope (`enc.v1.<secret-box payload>`);
+legacy plaintext rows remain readable and are re-encrypted on the next edit.
 
 #### `DELETE /api/extension/ats/answers`
 
@@ -890,46 +906,245 @@ The reusable-answer contract is delivered at `/api/extension/ats/answers`
 not call them. Answer values stay out of preparation plans and review-task
 suggested values, and are readable only by the token owner.
 
-### Planned: submissions
+### Implemented: submission attempts
 
-### `GET /api/submissions`, `POST /api/submissions`
+One durable record for a staged application, whether it came from the workflow
+`SUBMISSION_STAGING` step, an extension `AtsPreparation`, or the user staging
+manually. It is evidence, not a submission: only an explicit user confirmation
+changes its state, and no endpoint here submits anything.
 
-`GET` query: `jobApplicationId?`, `state?`, `cursor?`.
-`POST` stages a submission:
+`SubmissionAttempt` fields: `id`, `jobApplicationId`, `workflowRunId`,
+`atsPreparationId`, `resumeId`, `source` (`WORKFLOW`, `EXTENSION`, `MANUAL`),
+`status`, `jobTitle`, `companyName`, `sourceUrl`, compact `evidence`, `confirmedAt`,
+`confirmationNote`, timestamps. `workflowRunId` and `atsPreparationId` are unique,
+so a replay reads the existing row instead of creating a duplicate.
+
+#### `GET /api/submission-attempts`, `POST /api/submission-attempts`
+
+Browser cookie; mutating `POST` requires same-origin. GET query: `status?`
+(`STAGED`, `SUBMITTED`, `NOT_SUBMITTED`, `ABANDONED`), `jobApplicationId?`,
+`limit?` (1–50, default 20). Response `200`: `{ items: SubmissionAttempt[] }`.
+List does not consume a write bucket; it is owner-scoped.
+
+`POST` body:
 
 ```json
 {
   "jobApplicationId": "cuid",
-  "jobId": "cuid",
-  "resumeExportId": "cuid",
-  "answers": [{ "questionKey": "work authorization", "source": "APPROVED" }],
-  "evidence": { "atsHost": "jobs.ashbyhq.com", "pageUrl": "https://…", "filledFields": 12 }
+  "resumeId": "cuid",
+  "evidence": { "atsHost": "jobs.lever.co", "filledFields": 6 }
 }
 ```
 
-Response `201`: `{ id, state: "STAGED", reviewTaskIds: [], createdAt }`.
-Rules: the job and application must belong to the owner; the resume export must
-belong to the owner and the resume used by the application; a missing resume
-export is a `422`. This route never submits, never accepts terms and never marks
-`dateApplied`.
+`jobApplicationId` is required; `resumeId` and `evidence` are optional. The
+application and a non-archived resume must belong to the owner. Response `201`:
+`{ attempt }` with `source: "MANUAL"` and `status: "STAGED"`. A replay for the
+same manual application returns the existing row. Errors: `401`, `403`,
+`404 NOT_FOUND` / `RESUME_NOT_FOUND`, `400 INVALID_INPUT` / `INVALID_BODY`,
+`429 RATE_LIMITED` (submission write bucket, 60 per 10 minutes), `500
+SUBMISSION_STAGE_FAILED`.
 
-### `PATCH /api/submissions/:id`
+#### `GET /api/submission-attempts/:id`, `PATCH /api/submission-attempts/:id`
+
+`GET` returns `{ attempt }` or `404 NOT_FOUND`. `PATCH` requires same-origin and
+the submission write bucket.
 
 ```json
-{ "action": "CONFIRM" | "ABANDON" | "WITHDRAW", "note": "optional" }
+{ "submitted": true, "note": "Submitted on the company site." }
 ```
 
-- `CONFIRM` is the only path that may stamp `JobApplication.dateApplied` (if it
-  was empty) and record `ApplicationStatusEvent` with source `USER`.
-- `ABANDON` requires a reason and leaves the application unchanged.
-- `WITHDRAW` is legal only from `CONFIRMED`.
-- `409` when the action is illegal for the current state.
+`submitted` is required; `note` is optional and redacted before storage.
+Response `200`: `{ attempt, applicationStatus, submitted }`.
 
-### Implemented: `POST /api/ranking`
+Semantics:
+- `submitted: true` moves the attempt to `SUBMITTED`, records `confirmedAt`, and
+  advances an `INTERESTED` tracker row to `APPLIED` exactly once with an
+  `ApplicationStatusEvent` (`source: USER`, `EXTENSION` or `WORKFLOW`).
+- The same confirmation creates the durable `EMAIL` +5 and `LINKEDIN` +12
+  business-day follow-up tasks. It also aligns the legacy `followUpAt` field with
+  the email task when that field was empty; a user-set date is never overwritten.
+- `submitted: false` records `NOT_SUBMITTED`. It is refused with `409 TERMINAL`
+  after a confirmed submission; correct the tracker instead of downgrading.
+- An `ABANDONED` or terminal row is refused with `409` rather than reopened.
+- Errors: `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`,
+  `400 INVALID_INPUT`, `409 CONFLICT` / `TERMINAL`, `429 RATE_LIMITED`, `500
+  SUBMISSION_CONFIRM_FAILED`.
+
+### Implemented: durable follow-ups
+
+`FollowUpTask` is a reminder the user acts on. There is no send transport, no
+auto-email and no auto-LinkedIn message. `channel` is `EMAIL` or `LINKEDIN`;
+`status` is `PENDING`, `DONE`, `DISMISSED` or `CANCELLED`; `dueAt` and `appliedOn`
+are calendar dates (`YYYY-MM-DD`). Confirming a submission creates EMAIL at +5
+business days and LINKEDIN at +12 business days. Public holidays are not modelled.
+
+#### `GET /api/follow-ups`
+
+Browser cookie. Query: `status?`, `jobApplicationId?`, `due=1` (only `PENDING`
+rows due today or earlier), `limit?` (1–100, default 50). Response `200`:
+`{ items: FollowUpTask[] }`, ordered by `dueAt` then `createdAt`. Errors: `401`,
+`400 INVALID_INPUT`, `429 RATE_LIMITED` (follow-up bucket, 120 per 10 minutes).
+The read shares the follow-up write bucket so a stuck client cannot poll it.
+
+#### `PATCH /api/follow-ups/:id`
+
+Same-origin. Body `{ "action": "DONE" | "DISMISS" }`. Response `200`: `{ task }`
+with the new status and `completedAt`. Errors: `401`, `403`, `404 NOT_FOUND`,
+`400 INVALID_INPUT` / `INVALID_BODY`, `409 TERMINAL` when the application closed
+and the task was cancelled, `429 RATE_LIMITED`, `500 FOLLOW_UP_UPDATE_FAILED`.
+
+### Implemented: outreach sequences
+
+A named outreach plan for one recruiter contact. Every touch is a reminder; the
+API never sends anything and the response always reports `sent: false`.
+`OutreachSequence.status`: `DRAFT`, `ACTIVE`, `COMPLETED`, `CANCELLED`.
+`OutreachTouch.status`: `PENDING`, `DONE`, `SKIPPED`, `CANCELLED`; channels are
+`EMAIL` and `LINKEDIN`. The default plan is EMAIL day 0, EMAIL +5 business days,
+LINKEDIN +12 business days.
+
+#### `GET /api/outreach/sequences`, `POST /api/outreach/sequences`
+
+Browser cookie; `POST` is same-origin. GET query `status?`, `limit?` (1–100,
+default 30). Response `200`: `{ sequences }`. Both methods consume the outreach
+write bucket (60 per 10 minutes) and return `429 RATE_LIMITED` when exhausted.
+
+`POST` body (strict; provide `contactId` or an inline `contact`):
+
+```json
+{
+  "name": "Vercel platform recruiter",
+  "startOn": "2026-11-12",
+  "idempotencyKey": "optional-stable-key",
+  "contact": {
+    "name": "Sam Lee",
+    "role": "Technical Recruiter",
+    "company": "Vercel",
+    "email": "sam@example.com",
+    "linkedinUrl": "https://www.linkedin.com/in/example"
+  }
+}
+```
+
+Response `201`: `{ sequence }`. Replaying the same `idempotencyKey` returns the
+existing plan. Errors: `401`, `403`, `400 INVALID_INPUT` / `INVALID_BODY`,
+`404 NOT_FOUND` for a foreign contact, `409 CONFLICT`, `429 RATE_LIMITED`,
+`500 OUTREACH_CREATE_FAILED`.
+
+#### `GET /api/outreach/sequences/:id`, `PATCH /api/outreach/sequences/:id`
+
+`GET` returns `{ sequence }` or `404`. `PATCH` is same-origin and takes
+`{ "action": "ACTIVATE" }` or `{ "action": "CANCEL" }`. Activation moves a
+`DRAFT` to `ACTIVE` (and is idempotent for an already active row); cancel marks
+the sequence and its pending touches `CANCELLED`. A completed or cancelled
+sequence is `409 TERMINAL`. Errors: `401`, `403`, `404`, `400 INVALID_INPUT`,
+`409 CONFLICT` / `TERMINAL`, `429`, `500 OUTREACH_UPDATE_FAILED`.
+
+#### `PATCH /api/outreach/touches/:id`
+
+Same-origin. Body `{ "action": "DONE" | "SKIPPED" }`. Response `200`:
+`{ sequence }` with the updated touch and `sent: false`. Completing the last
+pending touch moves the sequence to `COMPLETED`. Errors: `401`, `403`, `404`,
+`400 INVALID_INPUT`, `409 TERMINAL` for a closed sequence or cancelled touch,
+`429`, `500 OUTREACH_UPDATE_FAILED`.
+
+### Implemented: per-stage AI settings
+
+Stages are `PROFILE`, `DISCOVER`, `RANK`, `RESEARCH`, `TAILOR`, `ATS`, `OUTREACH`.
+A row overrides the user's normal provider for all calls in that stage; absent or
+cleared means fall back unchanged. API keys are encrypted with the same
+secret-box as the deployment key and only `last4` is ever returned.
+
+#### `GET /api/settings/ai-stages`
+
+Browser cookie. Response `200`: `{ items: UserAiStageSetting[], availableStages }`.
+`UserAiStageSetting`: `{ stage, provider, model, configured, last4?, defaultModel }`.
+No key material or ciphertext is returned.
+
+#### `PUT /api/settings/ai-stages`
+
+Same-origin. Body (strict):
+
+```json
+{ "stage": "TAILOR", "provider": "openai", "model": "gpt-5", "apiKey": "sk-…" }
+```
+
+`apiKey` is optional: omitted keeps the stored key, `clearApiKey: true` removes
+it, and a non-empty value replaces it. Switching provider without a new key
+clears the old provider's key so it cannot be sent to the wrong service.
+Response `200`: `{ item }`. Errors: `401`, `403`, `400 INVALID_INPUT` /
+`INVALID_BODY`, `429 RATE_LIMITED` (30 per 10 minutes), `500
+AI_STAGE_SAVE_FAILED`.
+
+#### `DELETE /api/settings/ai-stages?stage=TAILOR`
+
+Same-origin. Removes the override. Response `200`: `{ removed: true }`; `404
+NOT_FOUND` when no row exists; `400 INVALID_INPUT` for an unknown stage.
+
+### Implemented: extension essay drafting
+
+#### `POST /api/extension/essay-draft`
+
+Bearer token; extension CORS. Drafts one non-sensitive free-text answer from
+confirmed profile facts and an owned resume. It is review-only: the response
+contains `reviewRequired: true` and `autoFill: false`, and nothing writes the
+draft to a preparation or a form. Sensitive categories are rejected.
+
+```json
+{
+  "question": "Why do you want to work here?",
+  "preparationId": "cuid",
+  "jobApplicationId": "cuid",
+  "resumeId": "cuid",
+  "maxWords": 180,
+  "instructions": "Mention the platform work.",
+  "fieldType": "textarea",
+  "tagName": "textarea"
+}
+```
+
+`question` is required (5–4000 chars). The optional ids must belong to the token
+owner; a preparation supplies job/company/resume context when present. Response
+`200`: `{ draft, wordCount, grounding, unsupportedNumbers, reviewRequired: true,
+autoFill: false }`. `grounding` reports employer terms mentioned without
+candidate evidence, and `unsupportedNumbers` lists numbers absent from the
+profile/resume evidence. Errors: `401`, `400 VALIDATION` / `NOT_AN_ESSAY` /
+`AI_KEY_REQUIRED`, `404 NOT_FOUND` / `RESUME_NOT_FOUND`, `429 RATE_LIMITED`
+(essay-draft bucket, 10 per 10 minutes) / `AI_DAILY_LIMIT`, `500
+ESSAY_DRAFT_FAILED`.
+
+### Implemented: profile rating
+
+#### `POST /api/linkedin/rating`
+
+Browser cookie only. Same-origin. `multipart/form-data` with a required `file`
+field containing the user's own LinkedIn "Save profile as PDF" export (PDF only,
+5 MB max) and an optional `resumeId` for owned resume context. The route extracts
+text, runs the rating, and persists it; it never signs in to LinkedIn, scores a
+URL or sends anything. The upload guard is the per-user `LINKEDIN` rating window;
+the AI call also uses the shared LinkedIn bucket (10 per 10 minutes).
+
+Response `201`: `{ data, contextUsed: { resume: boolean } }`. Errors: `401`,
+`403`, `400 INVALID_BODY` / `NO_FILE` / `INVALID_TYPE` / `TOO_LARGE` /
+`PARSE_FAILED` / `EMPTY_PDF` / `AI_KEY_REQUIRED`, `404 INVALID_RESUME`,
+`429 RATE_LIMITED` / `AI_DAILY_LIMIT`, `500 RATING_FAILED`.
+
+### Implemented: `/api/ranking`
 
 Rank the owner's saved jobs with Okapi BM25 (`k1 = 1.2`, `b = 0.75`) plus seven
-deterministic fit factors. Same-origin only; bearer-token calls are accepted
-when no `Origin` is present. Rate limit: `ranking:run`, 30 per 10 minutes.
+deterministic fit factors. `POST` is same-origin only; bearer-token calls are
+accepted when no `Origin` is present. `GET` returns the latest persisted
+snapshot for the leaderboard. Rate limit on both: `ranking:run`, 30 per 10
+minutes.
+
+#### `GET /api/ranking`
+
+Browser cookie or bearer token. Response `200`: `{ snapshot: RankingSnapshot |
+null }`; `null` means no ranking has been run yet. `RankingSnapshot`:
+`{ id, kind, topK, minScore, poolSize, entryCount, reranked, result, createdAt }`
+where `result` is the exact last `POST` response payload. Errors: `401`,
+`429 RATE_LIMITED`.
+
+#### `POST /api/ranking`
 
 Request (strict object; unknown keys are rejected):
 
@@ -983,9 +1198,14 @@ Response `200`:
   "excluded": [{ "postingId": "cuid", "reason": "below-threshold" }],
   "reranked": false,
   "warnings": [],
-  "poolSize": 42
+  "poolSize": 42,
+  "snapshotId": "cuid | null"
 }
 ```
+
+`snapshotId` is present only when the best-effort `RankingSnapshot` write
+succeeded; a storage failure is logged and must not fail the ranking. The
+snapshot stores the exact response for later comparison, not a recomputation.
 
 Rules:
 - The seven factor ids are `SKILLS`, `EXPERIENCE`, `LOCATION`, `WORK_MODE`,
@@ -1036,9 +1256,10 @@ posting) leaves the signal UNKNOWN rather than picking a side.
 - `POST /api/intake` accepts an optional `idempotencyKey` body field, unique per
   owner for the life of the row (not a 24-hour TTL). The same key returns the
   existing run id.
-- `POST /api/workflows`, `POST /api/submissions` and `POST /api/extension/jobs`
-  must be replay-safe when they land: the same key returns the same resource and
-  status, not a duplicate.
+- `POST /api/workflows`, `POST /api/submission-attempts` and
+  `POST /api/extension/jobs` are replay-safe: the same key or identity returns
+  the same resource and status, not a duplicate. Outreach sequences also accept
+  `idempotencyKey`; a replay returns the existing plan.
 - Upload, chat-preview, cancel, retry and patch actions are naturally keyed by
   their resource id; they do not accept a separate HTTP idempotency key. Repeating
   an already-applied patch is a no-op that returns the applied target.
