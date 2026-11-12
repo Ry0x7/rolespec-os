@@ -1,11 +1,11 @@
 # Windows desktop guide
 
-RoleSpec OS is published by **Chryypt** and available from
+RoleSpec OS is published by **Chryypt Inc** and available from
 [GitHub Releases](https://github.com/Ry0x7/rolespec-os/releases/latest). It supports Windows
 10/11 x64 with WebView2. The installer bundles Node.js and PostgreSQL; users do not need to install
 those separately.
 
-The installer is not Authenticode-signed. Its uninstall entry names Chryypt as the publisher,
+The installer is not Authenticode-signed. Its uninstall entry names Chryypt Inc as the publisher,
 but Windows has **no verified publisher** and SmartScreen may warn. A release without
 `latest.json` cannot auto-update, so download newer installers manually. Updater signatures
 (`.sig`) are separate from Windows Authenticode and do not establish a verified Windows
@@ -32,12 +32,12 @@ external-package aliases Turbopack keeps outside the standalone tree, so a fresh
 HTTP 500 on first launch. Staging now copies both and fails the build when the server bundle is
 incomplete or still contains a symlink.
 
-The bundled application's version metadata names **Chryypt** as CompanyName, the NSIS hook in
+The bundled application's version metadata names **Chryypt Inc** as CompanyName, the NSIS hook in
 `desktop/src-tauri/installer-hooks.nsh` adds the same CompanyName to the setup wrapper, and the
-uninstall entry records Chryypt as the publisher. The Tauri `productName` (`RoleSpec`), executable name, install directory and
+uninstall entry records Chryypt Inc as the publisher. The Tauri `productName` (`RoleSpec`), executable name, install directory and
 application identifier (`com.rolespec.desktop`) are deliberately unchanged from earlier builds so
 upgrades keep the same install identity and existing career data; Windows therefore shows
-`RoleSpec` as the application name while the publisher is Chryypt. `%LOCALAPPDATA%\RoleSpecData` is
+`RoleSpec` as the application name while the publisher is Chryypt Inc. `%LOCALAPPDATA%\RoleSpecData` is
 user data, not an installer path; do not rename it when rebranding.
 
 v1.0.3 includes resume text import without AI: recognized headings become matching resume sections
@@ -109,10 +109,10 @@ npx @tauri-apps/cli@^2 build --bundles nsis
 
 The result is `desktop/src-tauri/target/release/bundle/nsis/RoleSpec_<version>_x64-setup.exe`.
 The file name and install directory keep the `RoleSpec` identity used by earlier releases; the
-window title and documentation say RoleSpec OS, and the bundled executable records Chryypt as its
+window title and documentation say RoleSpec OS, and the bundled executable records Chryypt Inc as its
 CompanyName. `desktop/src-tauri/installer-hooks.nsh` adds the CompanyName key the stock Tauri
 template omits and removes the runtime `resources` tree on uninstall; the uninstall entry names
-Chryypt. A local build is **unsigned**, so Windows SmartScreen will warn about it and the publisher
+Chryypt Inc. A local build is **unsigned**, so Windows SmartScreen will warn about it and the publisher
 is not verified.
 
 **Windows trust and SmartScreen**
@@ -123,7 +123,7 @@ signing: tag builds publish the installer as-is and no Authenticode credentials 
 therefore treats the download as an unknown publisher; SmartScreen may show "Windows protected
 your PC", and Smart App Control may block it outright.
 
-The metadata is still complete and useful: Explorer and the uninstall entry name Chryypt. But
+The metadata is still complete and useful: Explorer and the uninstall entry name Chryypt Inc. But
 metadata cannot create a verified publisher. Removing the warning requires an Authenticode
 certificate from a publicly trusted CA and reputation for that identity (EV certificates no
 longer bypass SmartScreen). Obtaining and configuring one is a separate decision; Microsoft's

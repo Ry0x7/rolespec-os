@@ -3010,7 +3010,7 @@ dependencies = [
 
 [[package]]
 name = "rolespec-desktop"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "dunce",
  "rand",

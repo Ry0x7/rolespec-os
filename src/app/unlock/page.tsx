@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { ArrowLeft, KeyRound, ServerOff, ShieldCheck } from "lucide-react"
 
 import { UnlockForm } from "@/features/auth/components/unlock-form"
+import { siteConfig } from "@/config/site"
 import {
   getAccessKey,
   getAccessMode,
@@ -44,7 +45,7 @@ export default async function UnlockPage({
           </span>
           <div>
             <p className="text-sm font-semibold">RoleSpec OS</p>
-            <p className="text-xs text-muted-foreground">by Chryypt</p>
+            <p className="text-xs text-muted-foreground">by {siteConfig.publisher}</p>
           </div>
         </div>
 

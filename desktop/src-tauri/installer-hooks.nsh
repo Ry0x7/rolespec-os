@@ -2,7 +2,7 @@
 ; omits CompanyName. Explorer shows that as missing publisher metadata. NSIS
 ; version keys are compile-time, so defining it here applies to the setup
 ; executable the template compiles.
-VIAddVersionKey "CompanyName" "Chryypt"
+VIAddVersionKey "CompanyName" "Chryypt Inc"
 
 ; Runtime files that Next.js writes after installation (route cache, favicons)
 ; are not in the uninstaller's file list, so the default uninstall leaves the

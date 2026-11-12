@@ -96,6 +96,19 @@ jobs:
           fi
           npx --yes @tauri-apps/cli@^2 "${args[@]}"
 
+      - name: Verify publisher metadata
+        shell: pwsh
+        run: |
+          $binaries = @(Get-Item 'desktop/src-tauri/target/release/rolespec-desktop.exe')
+          $binaries += @(Get-ChildItem 'desktop/src-tauri/target/release/bundle/nsis/*.exe')
+          if ($binaries.Count -ne 2) { throw 'Expected one application and one installer' }
+          foreach ($binary in $binaries) {
+            if ($binary.VersionInfo.CompanyName -ne 'Chryypt Inc') {
+              throw "Incorrect CompanyName in $($binary.Name): $($binary.VersionInfo.CompanyName)"
+            }
+            Write-Output "$($binary.Name): CompanyName=$($binary.VersionInfo.CompanyName)"
+          }
+
       # The app reads `releases/latest/download/latest.json`; the CLI does not
       # write it, so the workflow does. The signature is the one covering the
       # installer, and `requireSignedVersion` binds it to this version number.
