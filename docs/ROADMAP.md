@@ -97,7 +97,7 @@ feedback and portfolio showcasing do not require a hosted service.
 
 - Native desktop packaging is Windows x64 only; Mac/Linux users need self-hosting.
 - Releases are unsigned. SmartScreen and Smart App Control may block them; the
-  metadata names Chryypt, but only Authenticode signing and reputation can
+  metadata names Chryypt Inc, but only Authenticode signing and reputation can
   establish a verified publisher.
 - Authenticode signing is not configured. The updater's own signatures are
   separate from Windows publisher identity.

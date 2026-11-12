@@ -3,7 +3,7 @@
 ![RoleSpec OS](screenshots/banner.png)
 
 An open-source, single-owner job-search workspace for resumes, job discovery, applications and
-outreach. Published by **Chryypt**. Built with Next.js, React, TypeScript, PostgreSQL and a Tauri
+outreach. Published by **Chryypt Inc**. Built with Next.js, React, TypeScript, PostgreSQL and a Tauri
 Windows shell.
 
 [Website](https://rolespec.ry0x7.dev/) · [Download for Windows](https://github.com/Ry0x7/rolespec-os/releases/latest) · [Report a bug](https://github.com/Ry0x7/rolespec-os/issues) · [AGPL-3.0-or-later](LICENSE)
@@ -24,7 +24,7 @@ A public deployment uses `unlock` mode (the production default) and must set `RO
 It is not a multi-tenant service.
 
 The Windows installer is **unsigned**, so Windows may show a SmartScreen warning. The installer
-metadata names **Chryypt** as the publisher, but that is an application property, not a verified
+metadata names **Chryypt Inc** as the publisher, but that is an application property, not a verified
 Authenticode publisher, and it cannot remove the warning. A release without `latest.json` cannot
 auto-update, so newer builds are installed manually; check the release notes for a specific build.
 Installation was exercised on Windows 11 x64, but not on a clean VM. See the
@@ -131,7 +131,7 @@ use screenshots or a recording with sample data for a portfolio showcase.
 
 ## Development credits
 
-RoleSpec OS is published by **Chryypt** and developed and maintained by
+RoleSpec OS is published by **Chryypt Inc** and developed and maintained by
 [Ry0x7](https://github.com/Ry0x7).
 [Claude Code](https://claude.com/product/claude-code) is acknowledged as an
 AI-assisted development tool used in the project. Code decisions, review, and

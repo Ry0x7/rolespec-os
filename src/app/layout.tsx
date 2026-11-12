@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     "career profile",
     "self-hosted",
     "RoleSpec OS",
-    "Chryypt",
+    "Chryypt Inc",
   ],
   robots: {
     index: true,

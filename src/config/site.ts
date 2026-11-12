@@ -23,7 +23,7 @@ export const siteConfig = {
   /** Space-constrained name for the web app manifest and install surfaces. */
   shortName: "RoleSpec OS",
   /** Publisher shown in metadata and the Windows installer properties. */
-  publisher: "Chryypt",
+  publisher: "Chryypt Inc",
   tagline: "The Job Seeking AI OS.",
   description:
     "A self-hosted job-search workspace for resumes, ATS analysis, job discovery, applications and follow-ups.",
