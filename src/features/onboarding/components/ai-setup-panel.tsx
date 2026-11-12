@@ -25,7 +25,10 @@ import {
   type AiSetupGroupId,
 } from "../constants/ai-setup"
 import type { ProviderDiagnostic } from "../lib/provider-diagnostics"
-import type { AiConnectionTestFailure } from "../lib/ai-connection-test"
+import type {
+  AiConnectionTestFailure,
+  AiConnectionTestResult,
+} from "../lib/ai-connection-test"
 import { ConnectionResult } from "./connection-result"
 
 const GROUP_ICONS = {
@@ -75,13 +78,14 @@ interface AiSetupPanelProps {
   onSkip: () => void
   pending: boolean
   saveError: string | null
-  failure: AiConnectionTestFailure | null
+  failure?: AiConnectionTestFailure | null
+  result?: AiConnectionTestResult | null
+  onRetry?: () => void
 }
 
 /**
- * Step 3 of onboarding. Four plain-language choices, then only the fields that
- * choice actually needs. Environment variables and provider ids stay out of the
- * primary flow (models are behind "Advanced").
+ * Step 2 of onboarding. Four plain-language choices, then only the fields that
+ * choice actually needs.
  */
 export function AiSetupPanel({
   savedProvider,
@@ -101,6 +105,8 @@ export function AiSetupPanel({
   pending,
   saveError,
   failure,
+  result,
+  onRetry,
 }: AiSetupPanelProps) {
   const [confirmSkip, setConfirmSkip] = useState(false)
 
@@ -124,21 +130,15 @@ export function AiSetupPanel({
   const visibleGroups = AI_SETUP_GROUPS.filter(
     (option) => option.id !== "free" || !openCodeUnusable || group === "free"
   )
-  const openCodeModels = diagnostic.models ?? []
-  const selectedOpenCodeModel = openCodeModels.includes(model)
-    ? model
-    : openCodeModels[0] ?? ""
+  const availableModels = diagnostic.models ?? []
+  const effectiveResult = result ?? failure
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">How should AI work?</h1>
-        <p className="text-sm text-muted-foreground">
-          Pick what you already have. RoleSpec uses AI for resume tailoring, ATS
-          analysis, job matching and outreach, but you can change this later in
-          Settings. Onboarding works fully offline — every AI step has a manual
-          path, and AI buttons stay visible but disabled with an explanation
-          until a provider is connected.
+        <h1 className="text-lg font-bold sm:text-xl">How should AI work?</h1>
+        <p className="text-xs text-muted-foreground sm:text-sm">
+          Pick what you already have. Works fully offline, and you can change this anytime in Settings.
         </p>
       </div>
 
@@ -157,17 +157,17 @@ export function AiSetupPanel({
               }}
               disabled={pending}
               className={cn(
-                "flex min-h-[92px] flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-colors",
+                "flex min-h-[72px] flex-col items-start gap-1 rounded-lg border p-2.5 text-left transition-colors",
                 selected
                   ? "border-brand-500/60 bg-brand-500/10"
                   : "border-border bg-muted/20 hover:border-border/80 hover:bg-muted/40"
               )}
             >
-              <span className="flex items-center gap-2 text-sm font-semibold">
+              <span className="flex items-center gap-1.5 text-sm font-semibold">
                 <Icon className="h-4 w-4 text-brand-400" />
                 {option.label}
               </span>
-              <span className="text-xs text-muted-foreground">{option.description}</span>
+              <span className="text-xs text-muted-foreground line-clamp-1">{option.description}</span>
               <span className="text-[11px] text-muted-foreground/80">{option.tagline}</span>
             </button>
           )
@@ -175,8 +175,8 @@ export function AiSetupPanel({
       </div>
 
       {selectedGroup.providers.length > 1 ? (
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Which one?</p>
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Select local engine:</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {selectedGroup.providers.map((option) => (
               <button
@@ -208,27 +208,78 @@ export function AiSetupPanel({
         </div>
       ) : null}
 
-      <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3.5">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 space-y-0.5">
             <p className="text-sm font-semibold">{guide.label}</p>
             <p className="text-xs text-muted-foreground">{guide.requirement}</p>
           </div>
           {diagnosticBadge(diagnostic)}
         </div>
 
-        <p className="text-sm text-muted-foreground">{diagnostic.message}</p>
+        <p className="text-xs text-muted-foreground sm:text-sm">{diagnostic.message}</p>
         {diagnostic.detail ? (
           <p className="text-xs text-muted-foreground">{diagnostic.detail}</p>
         ) : null}
 
-        <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-          {guide.steps.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
+        {/* Installed local models selector - directly accessible without scrolling */}
+        {availableModels.length > 0 ? (
+          <div className="space-y-1.5 rounded-md border border-brand-500/30 bg-brand-500/5 p-2.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="onboarding-model" className="text-xs font-semibold text-foreground">
+                {provider === "opencode-cli" ? "Free model" : "Installed local model"}
+              </Label>
+              <Badge variant="success" size="sm">
+                {availableModels.length} available
+              </Badge>
+            </div>
+            <Select
+              id="onboarding-model"
+              value={model || diagnostic.configuredModel || availableModels[0]}
+              onChange={(event) => onModelChange(event.target.value)}
+              disabled={pending}
+            >
+              {availableModels.map((id) => (
+                <option key={id} value={id}>
+                  {provider === "opencode-cli" ? modelLabel(id) : id}
+                </option>
+              ))}
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              {provider === "opencode-cli"
+                ? "Only models that opencode reports as free are listed."
+                : `RoleSpec will use this local model from ${guide.label}.`}
+            </p>
+          </div>
+        ) : (
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer select-none">Advanced: choose a model</summary>
+            <div className="mt-2 space-y-1.5">
+              <Label htmlFor="onboarding-model">Model</Label>
+              <Input
+                id="onboarding-model"
+                value={model}
+                onChange={(event) => onModelChange(event.target.value)}
+                disabled={pending}
+                placeholder={diagnostic.configuredModel}
+              />
+              <p>
+                Leave empty to use {guide.label}&apos;s default ({diagnostic.configuredModel}).
+              </p>
+            </div>
+          </details>
+        )}
 
-        {guide.command ? (
+        {/* Only show installation steps and commands when setup is actually required */}
+        {diagnostic.status !== "ready" && guide.steps.length > 0 ? (
+          <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground sm:text-sm">
+            {guide.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        ) : null}
+
+        {diagnostic.status !== "ready" && guide.command ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-background/60 px-3 py-2">
             <Terminal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <code className="min-w-0 break-all font-mono text-xs">{guide.command}</code>
@@ -278,48 +329,6 @@ export function AiSetupPanel({
           </div>
         ) : null}
 
-        <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer select-none">Advanced: choose a model</summary>
-          <div className="mt-2 space-y-1.5">
-            <Label htmlFor="onboarding-model">
-              {provider === "opencode-cli" ? "Free model" : "Model"}
-            </Label>
-            {provider === "opencode-cli" && openCodeModels.length > 0 ? (
-              <>
-                <Select
-                  id="onboarding-model"
-                  value={selectedOpenCodeModel}
-                  onChange={(event) => onModelChange(event.target.value)}
-                  disabled={pending}
-                >
-                  {openCodeModels.map((id) => (
-                    <option key={id} value={id}>
-                      {modelLabel(id)}
-                    </option>
-                  ))}
-                </Select>
-                <p>
-                  Only models that <code className="font-mono">opencode models</code> reports
-                  as free are listed. Available choices change with the installed CLI.
-                </p>
-              </>
-            ) : (
-              <>
-                <Input
-                  id="onboarding-model"
-                  value={model}
-                  onChange={(event) => onModelChange(event.target.value)}
-                  disabled={pending}
-                  placeholder={diagnostic.configuredModel}
-                />
-                <p>
-                  Leave empty to use {guide.label}&apos;s default ({diagnostic.configuredModel}).
-                </p>
-              </>
-            )}
-          </div>
-        </details>
-
         {guide.note ? (
           <p className="rounded-md border border-border bg-background/40 p-2 text-[11px] text-muted-foreground">
             {guide.note}
@@ -333,9 +342,17 @@ export function AiSetupPanel({
         </p>
       ) : null}
 
-      {failure ? <ConnectionResult result={failure} /> : null}
+      {/* Render connection outcome once with model selector buttons */}
+      {effectiveResult ? (
+        <ConnectionResult
+          result={effectiveResult}
+          onRetry={onRetry}
+          retrying={pending}
+          onSelectModel={onModelChange}
+        />
+      ) : null}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Button
           type="button"
           onClick={onSaveAndTest}
@@ -343,23 +360,19 @@ export function AiSetupPanel({
           disabled={pending || requiresKeyInput}
           className="w-full sm:w-auto"
         >
-          {pending ? "Testing the connection..." : "Save and test connection"}
+          {pending ? "Testing connection..." : "Save and test connection"}
         </Button>
         <p className="text-xs text-muted-foreground">
-          One click saves and tests — the result appears right below, no extra
-          step. Uses one tiny request from your daily limit.
+          One click saves and tests — verified with your chosen model.
         </p>
       </div>
 
       {confirmSkip ? (
         <div className="space-y-3 rounded-lg border border-amber-600/30 bg-amber-600/5 p-3">
           <p className="text-sm font-medium">Continue without AI?</p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             PDF/DOCX text import, resume editing, application tracking and job
-            discovery setup still work. AI structuring and polishing, resume
-            tailoring, ATS analysis, job matching, cover letters and outreach need
-            a provider. You
-            can connect a provider later in Settings → AI.
+            discovery setup still work. You can connect a provider later in Settings → AI.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={onSkip} disabled={pending}>

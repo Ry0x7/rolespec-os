@@ -13,6 +13,8 @@ interface ConnectionResultProps {
   onRetry?: () => void
   retryLabel?: string
   retrying?: boolean
+  /** Called when user clicks an installed model recommendation */
+  onSelectModel?: (model: string) => void
 }
 
 /**
@@ -24,6 +26,7 @@ export function ConnectionResult({
   onRetry,
   retryLabel = "Test again",
   retrying = false,
+  onSelectModel,
 }: ConnectionResultProps) {
   if (result.ok) {
     return (
@@ -62,17 +65,26 @@ export function ConnectionResult({
     )
   }
 
-  return <ConnectionFailure result={result} onRetry={onRetry} retrying={retrying} />
+  return (
+    <ConnectionFailure
+      result={result}
+      onRetry={onRetry}
+      retrying={retrying}
+      onSelectModel={onSelectModel}
+    />
+  )
 }
 
 function ConnectionFailure({
   result,
   onRetry,
   retrying,
+  onSelectModel,
 }: {
   result: AiConnectionTestFailure
   onRetry?: () => void
   retrying?: boolean
+  onSelectModel?: (model: string) => void
 }) {
   return (
     <div
@@ -97,6 +109,26 @@ function ConnectionFailure({
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
               <Terminal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <code className="min-w-0 break-all font-mono text-xs">{result.command}</code>
+            </div>
+          ) : null}
+
+          {result.models && result.models.length > 0 && onSelectModel ? (
+            <div className="space-y-1.5 rounded-md border border-brand-500/30 bg-brand-500/5 p-2.5">
+              <p className="text-xs font-medium text-foreground">
+                Click an installed model to use it immediately:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {result.models.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => onSelectModel(m)}
+                    className="inline-flex items-center rounded border border-brand-500/40 bg-brand-500/10 px-2 py-1 font-mono text-xs text-brand-300 transition-colors hover:border-brand-500/70 hover:bg-brand-500/25"
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : null}
 

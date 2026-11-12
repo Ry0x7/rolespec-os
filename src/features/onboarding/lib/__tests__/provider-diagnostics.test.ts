@@ -268,6 +268,18 @@ describe("Ollama detection", () => {
 
     expect(result.status).toBe("ready")
   })
+
+  it("accepts a user-selected installed model via options", async () => {
+    stubFetch(jsonResponse({ models: [{ name: "huihui_ai/qwen3.5-abliterated:27b" }] }))
+
+    const result = await diagnoseProvider("ollama", {
+      model: "huihui_ai/qwen3.5-abliterated:27b",
+    })
+
+    expect(result.status).toBe("ready")
+    expect(result.reason).toBe("ready")
+    expect(result.configuredModel).toBe("huihui_ai/qwen3.5-abliterated:27b")
+  })
 })
 
 describe("LM Studio detection", () => {
