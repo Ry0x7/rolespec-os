@@ -31,7 +31,6 @@ import {
 import type { AiConnectionTestResult } from "../lib/ai-connection-test"
 import type { ProviderDiagnostic } from "../lib/provider-diagnostics"
 import { AiSetupPanel } from "./ai-setup-panel"
-import { ConnectionResult } from "./connection-result"
 import type { ExperienceLevel, GoalPeriod } from "@/generated/prisma/enums"
 
 const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string }[] = [
@@ -197,14 +196,22 @@ export function OnboardingWizard({
   // AI state (step 2: setup + inline test live together)
   const initialGroup: AiSetupGroupId =
     (savedProvider && aiSetupGroupForProvider(savedProvider)) || "chatgpt"
+  function defaultModelFor(nextProvider: AiProvider): string {
+    const diag = diagnostics[nextProvider]
+    if (diag?.configuredModel && diag.configuredModel !== "qwen2.5vl:7b") {
+      return diag.configuredModel
+    }
+    if (diag?.models && diag.models.length > 0) {
+      return diag.models[0] ?? ""
+    }
+    return diag?.configuredModel ?? ""
+  }
+
   const [group, setGroup] = useState<AiSetupGroupId>(initialGroup)
   const [provider, setProvider] = useState<AiProvider>(savedProvider ?? "codex-cli")
   const [model, setModel] = useState(() => {
-    if (savedProvider !== "opencode-cli") return savedModel ?? ""
-    const available = diagnostics["opencode-cli"]?.models ?? []
-    return savedModel && available.includes(savedModel)
-      ? savedModel
-      : available[0] ?? ""
+    if (savedModel) return savedModel
+    return defaultModelFor(savedProvider ?? "codex-cli")
   })
   const [apiKey, setApiKey] = useState("")
   const [aiResult, setAiResult] = useState<AiConnectionTestResult | null>(null)
@@ -214,13 +221,6 @@ export function OnboardingWizard({
   function goTo(next: number) {
     setEdits((prev) => ({ ...prev, step: next }))
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
-  }
-
-  function defaultModelFor(nextProvider: AiProvider): string {
-    if (nextProvider === "opencode-cli") {
-      return diagnostics["opencode-cli"]?.models?.[0] ?? ""
-    }
-    return ""
   }
 
   function handleGroupChange(nextGroup: AiSetupGroupId) {
@@ -447,21 +447,15 @@ export function OnboardingWizard({
             onSkip={handleSkipAi}
             pending={isPending}
             saveError={saveError}
-            failure={aiResult && !aiResult.ok ? aiResult : null}
+            result={aiResult}
+            onRetry={handleTestAgain}
           />
 
-          {/* Inline test result: no separate test step needed. */}
           {skippedAi ? (
             <p className="rounded-md border border-amber-600/30 bg-amber-600/5 p-3 text-xs text-muted-foreground">
               AI stays off for now — editing and tracking still work. Tailoring, ATS
               analysis, matching and outreach need a provider later in Settings → AI.
             </p>
-          ) : aiResult ? (
-            <ConnectionResult
-              result={aiResult}
-              onRetry={handleTestAgain}
-              retrying={isPending}
-            />
           ) : null}
 
           <div className="flex flex-wrap gap-2">

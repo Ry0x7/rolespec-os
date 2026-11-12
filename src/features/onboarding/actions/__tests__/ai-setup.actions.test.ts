@@ -89,6 +89,7 @@ describe("configureAndTestAiProvider", () => {
     expect(mocks.diagnoseProvider).toHaveBeenCalledWith("openai", {
       storedKeyProviders: ["openai"],
       envKeyProviders: [],
+      model: "gpt-4.1",
     })
     expect(mocks.testProviderConnection).toHaveBeenCalledWith(READY, "user-1")
     expect(result).toEqual({ test: SUCCESS, saved: true })

@@ -52,6 +52,8 @@ export interface AiConnectionTestFailure {
   keyUrl?: string
   /** Sanitized provider output for support, never a credential. */
   detail?: string
+  /** Available or installed models reported by provider diagnostics. */
+  models?: string[]
 }
 
 export interface AiConnectionTestSuccess {
@@ -175,6 +177,7 @@ export function connectionFailureForDiagnostic(
           ...guideSteps(provider),
           `Or choose an installed model: ${diagnostic.models?.join(", ") || "none reported"}.`,
         ],
+        models: diagnostic.models,
         provider,
         ...links,
       }

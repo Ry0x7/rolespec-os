@@ -60,6 +60,10 @@ export interface ProviderDiagnosticOptions {
   storedKeyProviders?: readonly string[]
   /** Providers whose credential environment variable is present. */
   envKeyProviders?: readonly string[]
+  /** Configured model override for the provider being diagnosed. */
+  model?: string | null
+  /** Map of configured models per provider. */
+  configuredModels?: Partial<Record<AiProvider, string | null>>
 }
 
 interface CommandResult {
@@ -152,8 +156,14 @@ export function lmStudioBaseUrl(): string {
   return raw.replace(/\/+$/, "")
 }
 
-function configuredModel(provider: AiProvider): string {
+function configuredModel(
+  provider: AiProvider,
+  options?: ProviderDiagnosticOptions
+): string {
   const meta = AI_PROVIDER_META[provider]
+  const explicit =
+    options?.model?.trim() || options?.configuredModels?.[provider]?.trim()
+  if (explicit) return explicit
   if (process.env[meta.modelEnvVar]?.trim()) return process.env[meta.modelEnvVar]!.trim()
   if (provider === "codex-cli") return resolveCodexModelId()
   return meta.defaultModel
@@ -166,9 +176,11 @@ function modelMatches(installed: string, wanted: string): boolean {
   return normalize(installed) === normalize(wanted)
 }
 
-async function detectCodexCli(): Promise<ProviderDiagnostic> {
+async function detectCodexCli(
+  options?: ProviderDiagnosticOptions
+): Promise<ProviderDiagnostic> {
   const provider: AiProvider = "codex-cli"
-  const model = configuredModel(provider)
+  const model = configuredModel(provider, options)
   const version = await runCommand("codex", ["--version"])
   if (!version.ok) {
     return {
@@ -203,9 +215,11 @@ async function detectCodexCli(): Promise<ProviderDiagnostic> {
   }
 }
 
-async function detectClaudeCode(): Promise<ProviderDiagnostic> {
+async function detectClaudeCode(
+  options?: ProviderDiagnosticOptions
+): Promise<ProviderDiagnostic> {
   const provider: AiProvider = "claude-code"
-  const model = configuredModel(provider)
+  const model = configuredModel(provider, options)
   const version = await runCommand("claude", ["--version"])
   if (!version.ok) {
     return {
@@ -245,9 +259,11 @@ async function detectClaudeCode(): Promise<ProviderDiagnostic> {
   }
 }
 
-async function detectOpenCodeCli(): Promise<ProviderDiagnostic> {
+async function detectOpenCodeCli(
+  options?: ProviderDiagnosticOptions
+): Promise<ProviderDiagnostic> {
   const provider: AiProvider = "opencode-cli"
-  const model = configuredModel(provider)
+  const model = configuredModel(provider, options)
   const probe = await probeOpenCodeCli()
 
   if (!probe.installed) {
@@ -299,9 +315,11 @@ async function detectOpenCodeCli(): Promise<ProviderDiagnostic> {
   }
 }
 
-async function detectOllama(): Promise<ProviderDiagnostic> {
+async function detectOllama(
+  options?: ProviderDiagnosticOptions
+): Promise<ProviderDiagnostic> {
   const provider: AiProvider = "ollama"
-  const model = configuredModel(provider)
+  const configured = configuredModel(provider, options)
   const result = await getJson(`${ollamaRootUrl()}/api/tags`)
 
   if (!result.ok) {
@@ -311,7 +329,7 @@ async function detectOllama(): Promise<ProviderDiagnostic> {
       reason: "not-running",
       message: "Ollama isn't running on this computer.",
       detail: "Open the Ollama app, wait for it to start, then test again.",
-      configuredModel: model,
+      configuredModel: configured,
     }
   }
 
@@ -323,19 +341,19 @@ async function detectOllama(): Promise<ProviderDiagnostic> {
       reason: "no-models",
       message: "Ollama is running, but no local models are installed.",
       detail: "Download a model in Ollama, then test again.",
-      configuredModel: model,
+      configuredModel: configured,
     }
   }
 
-  if (!models.some((installed) => modelMatches(installed, model))) {
+  if (!models.some((installed) => modelMatches(installed, configured))) {
     return {
       provider,
       status: "needs-setup",
       reason: "model-missing",
-      message: `Ollama is running, but the model "${model}" is not installed.`,
+      message: `Ollama is running, but the model "${configured}" is not installed.`,
       detail: `Installed models: ${models.join(", ")}.`,
       models,
-      configuredModel: model,
+      configuredModel: configured,
     }
   }
 
@@ -345,13 +363,15 @@ async function detectOllama(): Promise<ProviderDiagnostic> {
     reason: "ready",
     message: `Ollama is running with ${models.length} model${models.length === 1 ? "" : "s"}.`,
     models,
-    configuredModel: model,
+    configuredModel: configured,
   }
 }
 
-async function detectLmStudio(): Promise<ProviderDiagnostic> {
+async function detectLmStudio(
+  options?: ProviderDiagnosticOptions
+): Promise<ProviderDiagnostic> {
   const provider: AiProvider = "lmstudio"
-  const model = configuredModel(provider)
+  const configured = configuredModel(provider, options)
   const result = await getJson(`${lmStudioBaseUrl()}/models`)
 
   if (!result.ok) {
@@ -361,7 +381,7 @@ async function detectLmStudio(): Promise<ProviderDiagnostic> {
       reason: "not-running",
       message: "LM Studio's local server isn't running.",
       detail: "Open LM Studio, load a model, and start the local server, then test again.",
-      configuredModel: model,
+      configuredModel: configured,
     }
   }
 
@@ -373,19 +393,19 @@ async function detectLmStudio(): Promise<ProviderDiagnostic> {
       reason: "no-models",
       message: "LM Studio's server is running, but no model is loaded.",
       detail: "Load a model in LM Studio, then test again.",
-      configuredModel: model,
+      configuredModel: configured,
     }
   }
 
-  if (!models.some((installed) => modelMatches(installed, model))) {
+  if (!models.some((installed) => modelMatches(installed, configured))) {
     return {
       provider,
       status: "needs-setup",
       reason: "model-missing",
-      message: `LM Studio is running, but the model "${model}" is not loaded.`,
+      message: `LM Studio is running, but the model "${configured}" is not loaded.`,
       detail: `Available models: ${models.join(", ")}.`,
       models,
-      configuredModel: model,
+      configuredModel: configured,
     }
   }
 
@@ -395,7 +415,7 @@ async function detectLmStudio(): Promise<ProviderDiagnostic> {
     reason: "ready",
     message: `LM Studio is running with ${models.length} model${models.length === 1 ? "" : "s"}.`,
     models,
-    configuredModel: model,
+    configuredModel: configured,
   }
 }
 
@@ -421,7 +441,7 @@ function detectApiProvider(
   options: ProviderDiagnosticOptions
 ): ProviderDiagnostic {
   const meta = AI_PROVIDER_META[provider]
-  const model = configuredModel(provider)
+  const model = configuredModel(provider, options)
   const hasStored = options.storedKeyProviders?.includes(provider) ?? false
   const hasEnv = options.envKeyProviders?.includes(provider) ?? false
 
@@ -456,22 +476,22 @@ export async function diagnoseProvider(
 
   switch (provider) {
     case "codex-cli":
-      return detectCodexCli()
+      return detectCodexCli(options)
     case "claude-code":
-      return detectClaudeCode()
+      return detectClaudeCode(options)
     case "opencode-cli":
-      return detectOpenCodeCli()
+      return detectOpenCodeCli(options)
     case "ollama":
-      return detectOllama()
+      return detectOllama(options)
     case "lmstudio":
-      return detectLmStudio()
+      return detectLmStudio(options)
     default:
       return {
         provider,
         status: "unknown",
         reason: "unknown",
         message: "RoleSpec could not check this provider.",
-        configuredModel: configuredModel(provider),
+        configuredModel: configuredModel(provider, options),
       }
   }
 }

@@ -128,6 +128,7 @@ export async function configureAndTestAiProvider(
   const diagnostic = await diagnoseProvider(provider, {
     storedKeyProviders: status.configured && status.provider ? [status.provider] : [],
     envKeyProviders: status.envConfigured ? [provider] : [],
+    model: model?.trim() ? model.trim() : status.model,
   })
   const test = await testProviderConnection(diagnostic, session.user.id)
 
@@ -167,6 +168,7 @@ export async function testSavedAiProvider(): Promise<AiConnectionTestResult> {
     const diagnostic = await diagnoseProvider(status.provider, {
       storedKeyProviders: status.configured ? [status.provider] : [],
       envKeyProviders: status.envConfigured ? [status.provider] : [],
+      model: status.model ?? undefined,
     })
     return await testProviderConnection(diagnostic, session.user.id)
   } catch (error) {
