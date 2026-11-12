@@ -70,7 +70,9 @@ jobs:
       # Builds the standalone server with DESKTOP_BUILD=1 (distDir
       # .next-desktop) and stages the Node runtime, Prisma CLI and migrations.
       - name: Stage desktop runtime
-        run: npm run desktop:build
+        run: |
+          node --test scripts/desktop/runtime-links.test.mjs
+          npm run desktop:build
 
       # The npm CLI avoids compiling tauri-cli from source. It reads
       # desktop/src-tauri/tauri.conf.json, whose bundle.resources includes the

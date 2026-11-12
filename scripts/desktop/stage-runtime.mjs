@@ -26,6 +26,7 @@ import {
 import { createRequire } from "node:module"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { materializeRuntimeLinks } from "./runtime-links.mjs"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, "..", "..")
@@ -262,6 +263,7 @@ for (const required of ["server", path.join("server", "chunks", "ssr")]) {
     throw new Error(`Staged server is incomplete: ${path.join(DIST_DIR, required)} is missing.`)
   }
 }
+materializeRuntimeLinks(appOut)
 const stagedLink = findSymlink(stagedDist)
 if (stagedLink) {
   throw new Error(`Staged server contains a symlink that will not survive installation: ${stagedLink}`)
