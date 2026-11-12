@@ -4,6 +4,8 @@ import { LogoMark } from "./logo-mark"
 
 const FOOTER_LINKS = [
   { href: "/#features", label: "Features" },
+  { href: "/#how-it-works", label: "How it works" },
+  { href: "/#ai-stack", label: "AI Models" },
   { href: "/#pricing", label: "Self-hosting" },
   { href: "/dashboard", label: "Open workspace" },
   // A payment processor and a prospective customer both look for these in the
@@ -52,7 +54,7 @@ export function MarketingFooter() {
 
         <div className="mt-8 flex flex-col gap-2 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            &copy; {year} {siteConfig.name}. All rights reserved.
+            &copy; {year} {siteConfig.publisher}. All rights reserved.
           </p>
           <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
             Built for the job hunt

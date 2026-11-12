@@ -37,11 +37,11 @@ export default async function UnlockPage({
 
   return (
     <main className="force-dark dark relative flex min-h-dvh items-center justify-center bg-background px-4 py-12 text-foreground">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.14),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(168,85,247,0.15),transparent_70%)]" />
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-brand-700 to-blue-500">
-            <ShieldCheck className="h-5 w-5 text-white" aria-hidden="true" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-brand-500/30 bg-gradient-to-br from-brand-600/30 to-purple-600/20 backdrop-blur-sm shadow-inner">
+            <ShieldCheck className="h-5 w-5 text-brand-400" aria-hidden="true" />
           </span>
           <div>
             <p className="text-sm font-semibold">RoleSpec OS</p>
@@ -49,7 +49,7 @@ export default async function UnlockPage({
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
+        <div className="rounded-2xl border border-border bg-card/60 p-6 shadow-xl backdrop-blur-md sm:p-8">
           {blocked ? (
             <div className="space-y-4">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
