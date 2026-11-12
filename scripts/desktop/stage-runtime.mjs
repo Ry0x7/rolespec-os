@@ -183,7 +183,8 @@ const RUNTIME_ENTRIES = ["server.js", "package.json", DIST_DIR, "node_modules", 
 for (const entry of RUNTIME_ENTRIES) {
   const source = path.join(standalone, entry)
   if (existsSync(source)) {
-    cpSync(source, path.join(appOut, entry), { recursive: true })
+    // Resolve links before overlays: copying over an existing junction can leave it intact.
+    cpSync(source, path.join(appOut, entry), { recursive: true, dereference: true })
   }
 }
 
