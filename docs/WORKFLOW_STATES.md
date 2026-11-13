@@ -163,7 +163,10 @@ are optional. A needed step is one whose dependencies are all `COMPLETED` or
   synthetic percentages or agent log lines.
 - **Manual mode.** `POST /api/workflows/:id/advance` with `COMPLETE_STEP` and a
   step name marks that step complete for the same application. The worker never
-  claims a `MANUAL` run.
+  claims a `MANUAL` run. A `COMPLETED` or `CANCELLED` run rejects further
+  `COMPLETE_STEP` calls, so a terminal run cannot gain a second
+  `RUN_COMPLETED` event; optional steps therefore finish before the last
+  required step.
 
 A missing target role, a missing resume or missing user information produces
 `WAITING_FOR_USER`, not `FAILED`. `PREPARE_ATS` lists sensitive ATS questions in

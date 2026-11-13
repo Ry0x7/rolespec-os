@@ -68,11 +68,11 @@ feedback and portfolio showcasing do not require a hosted service.
    and restart recovery under load. The 2026-11-12 baseline is in
    [VERIFICATION.md](VERIFICATION.md); it is a synthetic single-process run, not
    a capacity guarantee.
-5. **AI-free and failure paths.** Walk profile → resume → discover → qualify →
-   prepare → apply → follow-up with AI disabled, then repeat with a provider
-   that fails mid-call; verify deterministic fallbacks, pause/cancel and restart.
-   Manual preparation, provider failure/retry and restart recovery were exercised
-   in the frontend audit; broader device/provider combinations remain.
+5. **AI-free and failure paths.** The AI-free manual workflow, the AI-disabled
+   assisted fail-closed path, expired-lease recovery and cancellation were walked
+   on 2026-11-13 (see [VERIFICATION.md](VERIFICATION.md)). Remaining: cancel
+   during an actual provider call, recovery under load, and broader
+   device/provider combinations.
 7. **Discovery coverage.** Record which sources work, restrict access or are
    unavailable; verify Philippine coverage before adding adapters. Do not turn a
    heuristic listing signal into a factual claim.

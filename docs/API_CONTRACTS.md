@@ -451,7 +451,7 @@ pipeline names.
 | `RETRY` | `FAILED` | Resets only `FAILED` steps and re-queues the run | `202` |
 | `PAUSE` | `ASSISTED`, `AWAITING_REVIEW` | Clears the lease; in-flight output is discarded | `200` |
 | `CANCEL` | Any non-terminal state | Cancels pending/running steps and expires open tasks | `200` |
-| `COMPLETE_STEP` | A `MANUAL` run | Marks that step `COMPLETED`; finishes the run on the last required step | `200` |
+| `COMPLETE_STEP` | A `MANUAL`, non-terminal run | Marks that step `COMPLETED`; finishes the run on the last required step. A `COMPLETED` or `CANCELLED` run is immutable and returns `409 INVALID_TRANSITION` | `200` |
 
 An illegal transition is `409` with `{ error, code, state }`; a foreign run is
 `404`. Rate limit: `workflow:advance`, 120 per 10 minutes. The route performs no

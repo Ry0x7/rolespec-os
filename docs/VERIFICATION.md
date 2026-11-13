@@ -24,7 +24,8 @@ detailed Recruitt comparison remains [FEATURE_PARITY.md](FEATURE_PARITY.md).
 
 | Area | Result | Evidence |
 | --- | --- | --- |
-| TypeScript | VERIFIED | `npx tsc --noEmit` exit 0 after the final export fix |
+| TypeScript | VERIFIED | `npx tsc --noEmit` exit 0 after the terminal-guard fix |
+| Focused workflow tests | VERIFIED | `workflow-engine.test.ts`, 15 tests, exit 0; includes the terminal-run guard |
 | ESLint | VERIFIED | `npx eslint src --max-warnings=0` exit 0 |
 | Root tests | VERIFIED | 332 files, 5,107 tests, exit 0 |
 | Extension tests | VERIFIED | 21 files, 318 tests, exit 0 |
@@ -37,6 +38,10 @@ detailed Recruitt comparison remains [FEATURE_PARITY.md](FEATURE_PARITY.md).
 | Windows NSIS installer | VERIFIED (artifact only) | `RoleSpec_1.0.5_x64-setup.exe`, 104.94 MiB, SHA-256 `6B8879A7…0285AA09`, version 1.0.5, CompanyName Chryypt, signature `NotSigned` |
 | Documentation gates | VERIFIED | `node scripts/verify-parity-docs.mjs` G1–G11 all pass |
 | Agent-assisted live run | VERIFIED | Real Codex CLI provider; development and production-build runs completed all required steps |
+| AI-disabled manual workflow | VERIFIED | Real PostgreSQL; 11/11 steps completed across two processes, one `RUN_COMPLETED`, no AI call or automation side effect |
+| AI-disabled assisted fail-closed | VERIFIED | Keyless provider: deterministic `RESEARCH` fallback, non-retryable `TAILOR` failure, run `FAILED`, no draft/submission |
+| Cancel and restart recovery | VERIFIED | Dead lease reclaimed, completed output preserved, interrupted attempt refunded, cancellation preserved completed state |
+| Provider package resolution | VERIFIED | `npm install` restored the lockfile-pinned `ai-sdk-provider-codex-cli@2.4.0`; dynamic import succeeds |
 | Live ATS discovery/plan | VERIFIED | Real public Lever application HTML: 24 fields, 6 safe fills, 18 review fields (13 sensitive), no submit action |
 | Live ATS fill/attachment | NOT TESTED | No value was written to an employer page; no resume was uploaded |
 | Windows install/upgrade | NOT TESTED | The rebuilt installer was not installed or upgraded; it is unsigned |
@@ -98,9 +103,45 @@ Observed:
 - `FOLLOW_UP`: a recommended date is returned; nothing is sent.
 
 Both runs exercised the real `generateObject`/`generateText` provider path,
-database persistence, review-task resolution and post-approval staging. They do
+database persistence, review-task resolution and post-approval staging. They did
 not prove pause/cancel mid-provider-call, restart recovery under load, or a live
-AI-free journey; those remain test-covered only.
+AI-free journey; those are covered separately below and by tests.
+
+## AI-disabled, cancel and restart walk (2026-11-13)
+
+This walk used the real PostgreSQL database and the workflow service/worker, not
+a mock. The fixture had a master resume, a tracked posting and one application
+per scenario; rows were removed after evidence capture.
+
+**AI-free end-to-end (manual mode).** With the user's AI setting pointed at a
+provider with no key, a `MANUAL` run completed `PROFILE`, `DISCOVER`, `RANK` in
+one process, then the remaining eight steps in a second process. Result:
+`COMPLETED`, every step `COMPLETED` with `{ manual: true }`, exactly one
+`RUN_COMPLETED`, and 11 `STEP_COMPLETED` events. No tailoring run, submission
+attempt or review task was created; the application stayed `INTERESTED` with
+`dateApplied: null`. A further `COMPLETE_STEP` was rejected with
+`INVALID_TRANSITION`, so a finished run cannot be mutated.
+
+**AI-disabled assisted path.** With a keyless provider, an `AGENT_ASSISTED` run
+completed `PROFILE`, `DISCOVER`, `RANK` and `RESEARCH`; research degraded to the
+deterministic layer and reported that no source was verified. `TAILOR` failed
+once, non-retryably, with `Add your API key in Settings → AI to use AI
+features.` The run became `FAILED`; zero tailored resumes, submission attempts
+or review tasks were created, and the application stayed unchanged. This is
+fail-closed by design: the manual path remains available, and the assisted
+pipeline is not claimed to complete without AI.
+
+**Crash recovery.** A real assisted run had `PROFILE` committed and `RANK` left
+`RUNNING` under an expired lease owned by `crashed-worker`. A fresh process called
+`recoverExpiredLeases`: it reclaimed one run, cleared the lease, kept the
+`PROFILE` output, reset `RANK` to `PENDING`, refunded its interrupted attempt
+(`attempts: 0`) and wrote `LEASE_RECLAIMED`. Cancelling the recovered run then
+left the completed output intact and marked only unfinished steps `CANCELLED`.
+A separate manual run cancelled after a process restart also preserved its
+completed `PROFILE` step.
+
+The remaining unexercised case is a cancel during an actual provider call; this
+walk cancelled after lease recovery, not mid-generation.
 
 ### Essay drafting
 
@@ -234,10 +275,10 @@ This is the audit summary, not a second matrix. IDs refer to
 4. **No production load or soak test.** The benchmark is single-process and
    synthetic. Workflow tick contention, lease recovery under a real crash,
    provider stalls and large-database behavior are not measured.
-5. **AI-free and failure journeys are test-covered, not live-walked.** The
-   audited live runs used a working provider. The provider-not-logged-in failure
-   was observed and failed closed, but a full AI-disabled end-to-end run and a
-   mid-call cancel/restart were not repeated.
+5. **AI-free and failure journeys.** The AI-free manual workflow, the
+   AI-disabled assisted fail-closed path, expired-lease recovery and
+   cancellation were walked live on 2026-11-13. A cancel during an actual
+   provider call and multi-process recovery under load remain untested.
 6. **Some seeded postings use `example.com`.** They are test data, not evidence
    of external board coverage.
 7. **Single-owner only.** No multi-tenant isolation, hosted billing or account
@@ -251,6 +292,7 @@ commit history is the source of truth. This pass added one data-export fix:
 | Defect | Fix | Regression evidence |
 | --- | --- | --- |
 | Account export omitted `RankingSnapshot` rows after leaderboard history was added | Include `rankingSnapshots` in the export type, query, destructuring and response | Real export service call now returns 31 collections with `rankingSnapshots`; typecheck passes |
+| A finished manual run accepted another `COMPLETE_STEP` and appended a second `RUN_COMPLETED` | Reject manual completion on `COMPLETED` or `CANCELLED` runs | Live walk now records one `RUN_COMPLETED`; workflow-engine test asserts `INVALID_TRANSITION` |
 
 Previously landed and re-checked here: encrypted ATS answers, durable
 business-day follow-ups, per-stage AI routing, deterministic cliché rejection,
