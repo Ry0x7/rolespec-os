@@ -625,8 +625,17 @@ export async function completeManualStep(
     select: { id: true, mode: true, state: true, startedAt: true },
   })
   if (!run) throw new WorkflowError("Workflow not found", "NOT_FOUND")
-  if (run.mode !== "MANUAL" || run.state === "CANCELLED") {
+  if (run.mode !== "MANUAL") {
     throw new WorkflowError("Only a manual workflow can complete steps by hand.", "INVALID_TRANSITION")
+  }
+  // A terminal run is immutable. Without this guard, completing an optional
+  // step after the last required one appended a second RUN_COMPLETED event and
+  // rewrote a finished run.
+  if (run.state === "COMPLETED" || run.state === "CANCELLED") {
+    throw new WorkflowError(
+      `A ${run.state} workflow cannot be completed by hand.`,
+      "INVALID_TRANSITION"
+    )
   }
 
   const definition = stepDefinition(stepName)

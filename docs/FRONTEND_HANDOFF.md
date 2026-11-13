@@ -182,7 +182,7 @@ The step order is fixed: `PROFILE`, `DISCOVER`, `RANK`, `RESEARCH`, `TAILOR`,
 ```
 
 - `RESUME` is legal only from `PAUSED`. Use `RETRY` for `FAILED`.
-- `COMPLETE_STEP` is legal only for a `MANUAL` run and requires `stepName`.
+- `COMPLETE_STEP` is legal only for a `MANUAL`, non-terminal run and requires `stepName`. A `COMPLETED` or `CANCELLED` run returns `409 INVALID_TRANSITION`; complete optional steps before the last required one.
 - A successful start/assisted action returns `202`; manual/pause/cancel actions
   return `200`. Illegal moves return `409` with the current state.
 - A declined `SUBMISSION_CONFIRMATION` completes `HUMAN_REVIEW` with

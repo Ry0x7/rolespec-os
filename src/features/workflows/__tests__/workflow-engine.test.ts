@@ -374,6 +374,8 @@ describe("workflow engine", () => {
     const started = await startWorkflow("user-1", created.id)
     expect(started.state).toBe("MANUAL")
 
+    // Optional steps must be completed before the last required step, because
+    // the final required step finishes the run and terminal runs are immutable.
     for (const name of [
       "PROFILE",
       "DISCOVER",
@@ -384,8 +386,8 @@ describe("workflow engine", () => {
       "PREPARE_ATS",
       "HUMAN_REVIEW",
       "SUBMISSION_STAGING",
-      "TRACKING",
       "FOLLOW_UP",
+      "TRACKING",
     ] as WorkflowStepName[]) {
       await completeManualStep("user-1", created.id, name)
     }
@@ -394,6 +396,13 @@ describe("workflow engine", () => {
     expect(finished?.state).toBe("COMPLETED")
     expect(finished?.steps.every((step) => step.status === "COMPLETED")).toBe(true)
     expect(fake.runs[0]?.leaseOwner).toBeNull()
+    expect(fake.events.filter((event) => event.type === "RUN_COMPLETED")).toHaveLength(1)
+
+    // A finished run cannot be mutated by another COMPLETE_STEP.
+    await expect(
+      completeManualStep("user-1", created.id, "FOLLOW_UP")
+    ).rejects.toMatchObject({ code: "INVALID_TRANSITION" })
+    expect(fake.events.filter((event) => event.type === "RUN_COMPLETED")).toHaveLength(1)
   })
 
   it("refuses to retry another owner's failed run without touching it", async () => {
