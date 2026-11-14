@@ -720,8 +720,7 @@ html[data-sidebar="collapsed"] .app-sidebar nav > div {
   padding-top: 0;
 }
 
-html[data-sidebar="collapsed"] .app-sidebar .sidebar-nav-link,
-html[data-sidebar="collapsed"] .app-sidebar .sidebar-toggle {
+html[data-sidebar="collapsed"] .app-sidebar .sidebar-nav-link {
   justify-content: center;
   padding-inline: 0;
 }

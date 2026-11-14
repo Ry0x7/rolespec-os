@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { memo, useCallback, useMemo, useSyncExternalStore } from "react"
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { PanelLeftClose } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { LogoMark } from "@/features/marketing/components/logo-mark"
 import { navigationGroups, footerNavigation } from "@/config/navigation"
@@ -133,10 +133,39 @@ export const SidebarNav = memo(function SidebarNav({
   return (
     <>
       <div className="sidebar-brand flex h-14 shrink-0 items-center gap-2 border-b border-border px-5">
-        <LogoMark className="h-6 w-6" />
-        <span className="sidebar-brand-text text-sm font-bold tracking-tight">
-          RoleSpec
-        </span>
+        {collapseToggle?.collapsed ? (
+          // In the 72px rail the logo IS the expand control: a second 32px
+          // button beside a 24px mark left the pair cramped and off-balance.
+          <button
+            type="button"
+            onClick={collapseToggle.onToggle}
+            aria-label="Expand sidebar"
+            aria-expanded={false}
+            title="Expand sidebar"
+            className="sidebar-toggle inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-[background-color,color,transform] duration-150 ease-out hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+          >
+            <LogoMark className="h-6 w-6" />
+          </button>
+        ) : (
+          <>
+            <LogoMark className="h-6 w-6" />
+            <span className="sidebar-brand-text text-sm font-bold tracking-tight">
+              RoleSpec
+            </span>
+            {collapseToggle && (
+              <button
+                type="button"
+                onClick={collapseToggle.onToggle}
+                aria-label="Collapse sidebar"
+                aria-expanded
+                title="Collapse sidebar"
+                className="sidebar-toggle ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-150 ease-out hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+              >
+                <PanelLeftClose className="h-[18px] w-[18px]" aria-hidden="true" />
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-4">
@@ -181,27 +210,6 @@ export const SidebarNav = memo(function SidebarNav({
             onNavigate={onNavigate}
           />
         ))}
-        {collapseToggle && (
-          <button
-            type="button"
-            onClick={collapseToggle.onToggle}
-            aria-label={
-              collapseToggle.collapsed ? "Expand sidebar" : "Collapse sidebar"
-            }
-            aria-expanded={!collapseToggle.collapsed}
-            title={collapseToggle.collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="sidebar-toggle flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-[background-color,color] duration-150 ease-out hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-9"
-          >
-            {collapseToggle.collapsed ? (
-              <PanelLeftOpen className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-            ) : (
-              <PanelLeftClose className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-            )}
-            <span className="sidebar-label truncate">
-              {collapseToggle.collapsed ? "Expand" : "Collapse"}
-            </span>
-          </button>
-        )}
       </div>
     </>
   )
