@@ -7,12 +7,18 @@ export type PreparationMode = WorkflowRunDTO["mode"]
 const KEY = "rolespec-workflow-mode"
 const CHANGE = "rolespec-workflow-mode-change"
 
+/**
+ * The product is agent-first: a new preparation runs the assisted pipeline
+ * unless the owner explicitly chose the manual checklist. An old stored
+ * `MANUAL` value is still honoured, so this changes only the default, not a
+ * deliberate preference.
+ */
 export function useWorkflowMode() {
-  const [mode, setMode] = useState<PreparationMode>("MANUAL")
+  const [mode, setMode] = useState<PreparationMode>("AGENT_ASSISTED")
   useEffect(() => {
     const read = (event?: Event) => {
       if (event instanceof CustomEvent && (event.detail === "MANUAL" || event.detail === "AGENT_ASSISTED")) { setMode(event.detail); return }
-      try { setMode(localStorage.getItem(KEY) === "AGENT_ASSISTED" ? "AGENT_ASSISTED" : "MANUAL") } catch { /* Device storage is optional. */ }
+      try { setMode(localStorage.getItem(KEY) === "MANUAL" ? "MANUAL" : "AGENT_ASSISTED") } catch { /* Device storage is optional. */ }
     }
     read()
     window.addEventListener("storage", read)

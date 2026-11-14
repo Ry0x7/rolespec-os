@@ -90,7 +90,7 @@ export function buildPipelineSteps(evidence: PipelineEvidence): PipelineStepStat
     {
       id: "profile",
       label: "1. Career Profile",
-      shortDesc: evidence.hasCareerProfile ? "Profile evidence saved" : "Add profile evidence",
+      shortDesc: evidence.hasCareerProfile ? "Career details saved" : "Add your career details",
       status: stageStatus(0),
       href: "/career-profile",
       icon: UserCheck,
@@ -100,10 +100,10 @@ export function buildPipelineSteps(evidence: PipelineEvidence): PipelineStepStat
       label: "2. Rank & Match",
       shortDesc:
         evidence.hasMatchScore
-          ? "Match analyzed"
+          ? "Fit checked"
           : evidence.hasQualification
-            ? "Qualification saved"
-            : "Rank the opportunity",
+            ? "Fit saved"
+            : "Check the fit",
       status: stageStatus(1),
       href: "#decide",
       icon: Sparkles,
@@ -111,7 +111,7 @@ export function buildPipelineSteps(evidence: PipelineEvidence): PipelineStepStat
     {
       id: "research",
       label: "3. Company Research",
-      shortDesc: evidence.hasCompanyResearch ? "Verified sources saved" : "Research the company",
+      shortDesc: evidence.hasCompanyResearch ? "Company research saved" : "Research the company",
       status: stageStatus(2),
       href: "#research",
       icon: Building2,
@@ -119,7 +119,7 @@ export function buildPipelineSteps(evidence: PipelineEvidence): PipelineStepStat
     {
       id: "resume",
       label: "4. Resume Tailoring",
-      shortDesc: evidence.hasTailoredResume ? "Tailored resume ready" : "Tailor from evidence",
+      shortDesc: evidence.hasTailoredResume ? "Resume for this job ready" : "Write it for this job",
       status: stageStatus(3),
       href: resumeHref,
       icon: FileText,
@@ -127,7 +127,7 @@ export function buildPipelineSteps(evidence: PipelineEvidence): PipelineStepStat
     {
       id: "materials",
       label: "5. Application Prep",
-      shortDesc: evidence.hasCoverLetter ? "Cover letter drafted" : "Cover letter / email",
+      shortDesc: evidence.hasCoverLetter ? "Cover letter drafted" : "Cover letter or email",
       status: stageStatus(4),
       href: "#prepare",
       icon: Mail,
@@ -179,13 +179,13 @@ export function JobPipelineStepper(props: Props) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b">
         <div>
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span>Unified Job Application Pipeline</span>
+            <span>Your application, step by step</span>
             <Badge variant="outline" className="text-xs font-normal">
               {progressPct}% complete
             </Badge>
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Profile → Match → Research → Tailor → Prepare → Review → Track → Follow-up
+            Start with your details, then prepare, review and follow up.
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs">

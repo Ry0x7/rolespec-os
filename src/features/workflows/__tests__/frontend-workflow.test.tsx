@@ -150,17 +150,18 @@ describe("persisted workflow transport", () => {
 })
 
 describe("preparation intent and mode", () => {
-  it("defaults to manual, shares the new-run preference without changing the color mode", () => {
+  it("defaults to agent-assisted, shares the new-run preference without changing the color mode", () => {
     localStorage.setItem("rolespec-mode", "light")
     render(<><WorkflowModeSwitch /><WorkflowModeSwitch /></>)
-    expect(screen.getAllByRole("button", { name: "Manual" }).every((element) => element.getAttribute("aria-pressed") === "true")).toBe(true)
-    fireEvent.click(screen.getAllByRole("button", { name: "Agent-assisted" })[0])
     expect(screen.getAllByRole("button", { name: "Agent-assisted" }).every((element) => element.getAttribute("aria-pressed") === "true")).toBe(true)
-    expect(localStorage.getItem("rolespec-workflow-mode")).toBe("AGENT_ASSISTED")
+    fireEvent.click(screen.getAllByRole("button", { name: "Manual" })[0])
+    expect(screen.getAllByRole("button", { name: "Manual" }).every((element) => element.getAttribute("aria-pressed") === "true")).toBe(true)
+    expect(localStorage.getItem("rolespec-workflow-mode")).toBe("MANUAL")
     expect(localStorage.getItem("rolespec-mode")).toBe("light")
   })
 
-  it("retries an unknown create outcome with the same key and never starts a worker automatically", async () => {
+  it("retries an unknown create outcome with the same key and never starts a manual checklist", async () => {
+    localStorage.setItem("rolespec-workflow-mode", "MANUAL")
     request.mockImplementation((path: string, init?: RequestInit) => {
       if (path === "/api/workflows" && init?.method === "POST") return Promise.reject(new TypeError("Network interrupted"))
       return json({ items: [] })
@@ -178,7 +179,7 @@ describe("preparation intent and mode", () => {
     expect(request.mock.calls.some(([path]) => path.includes("/advance"))).toBe(false)
   })
 
-  it("creates an assisted attempt, waits for explicit Start and then monitors real backend state", async () => {
+  it("creates and starts the agent in one click, then monitors real backend state", async () => {
     localStorage.setItem("rolespec-workflow-mode", "AGENT_ASSISTED")
     let created = false
     let persisted = run({ state: "MANUAL", startedAt: null })
@@ -190,10 +191,7 @@ describe("preparation intent and mode", () => {
       return json({ workflow: persisted })
     })
     render(<PreparationPanel jobApplicationId="application-1" resumeId="resume-1" />)
-    fireEvent.click(await screen.findByRole("button", { name: "Prepare with assistance" }))
-    const start = await screen.findByRole("button", { name: "Start assistance" })
-    expect(request.mock.calls.some(([path]) => path.includes("/advance"))).toBe(false)
-    fireEvent.click(start)
+    fireEvent.click(await screen.findByRole("button", { name: "Run agent preparation" }))
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1))
     const advance = request.mock.calls.find(([path]) => path.includes("/advance"))
     expect(JSON.parse(advance![1].body)).toEqual({ action: "START" })
@@ -246,7 +244,7 @@ describe("preparation intent and mode", () => {
     render(<PreparationPanel jobApplicationId="application-1" resumeId="resume-1" resumeTitle="Engineering master" />)
     const source = await screen.findByRole("link", { name: "Engineering master" })
     expect(source.getAttribute("href")).toBe("/resumes/resume-1")
-    expect(screen.getByText(/changing selection before tailoring can change the source/)).toBeTruthy()
+    expect(screen.getByText(/Choose your source in the resume panel below before starting/)).toBeTruthy()
     expect(screen.queryByText(/Later selection changes do not edit this attempt/)).toBeNull()
   })
 
@@ -254,7 +252,40 @@ describe("preparation intent and mode", () => {
     localStorage.setItem("rolespec-workflow-mode", "AGENT_ASSISTED")
     request.mockImplementation(() => json({ items: [] }))
     render(<PreparationPanel jobApplicationId="application-1" />)
-    expect(await screen.findByText(/No resume is currently selected. An available master can be used; if no source is available, preparation waits for your decision/)).toBeTruthy()
+    expect(await screen.findByText(/No resume is currently selected. An available master can be used; if no source is available, the agent pauses and asks you to choose one/)).toBeTruthy()
     expect(request.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0)
+  })
+
+  it("hands off a completed agent package with the employer link and a confirmation path", async () => {
+    const completed = run({
+      state: "COMPLETED",
+      steps: [
+        {
+          id: "step-staging",
+          name: "SUBMISSION_STAGING",
+          order: 0,
+          status: "COMPLETED",
+          required: true,
+          dependsOn: [],
+          attempts: 1,
+          maxAttempts: 1,
+          output: {
+            submissionAttemptId: "attempt-1",
+            submitted: false,
+            job: { url: "https://jobs.example.test/apply", title: "Engineer", companyName: "Acme" },
+          },
+          lastError: null,
+          startedAt: null,
+          finishedAt: null,
+        },
+      ],
+    })
+    request.mockImplementation((path: string) => path.includes("/events") ? json({ events: [] }) : json({ workflow: completed }))
+    render(<WorkflowDetail runId="run-1" />)
+    expect(await screen.findByText("Application package ready — submit it yourself")).toBeTruthy()
+    const employer = screen.getByRole("link", { name: /Open employer application/ })
+    expect(employer.getAttribute("href")).toBe("https://jobs.example.test/apply")
+    const confirm = screen.getByRole("link", { name: "Confirm what happened" })
+    expect(confirm.getAttribute("href")).toBe("/jobs/application-1#track")
   })
 })

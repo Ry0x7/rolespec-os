@@ -11,7 +11,7 @@ describe("workspace command palette", () => {
     render(<CommandPalette openToken={1} />)
     expect(screen.getByRole("dialog", { name: "Quick actions" })).toBeTruthy()
     const search = screen.getByRole("combobox", { name: "Search quick actions" })
-    fireEvent.change(search, { target: { value: "pending decisions" } })
+    fireEvent.change(search, { target: { value: "review" } })
     fireEvent.keyDown(search, { key: "Enter" })
     expect(push).toHaveBeenCalledWith("/review")
     expect(screen.queryByRole("dialog")).toBeNull()

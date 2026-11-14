@@ -13,6 +13,7 @@ on:
       - "scripts/verify-showcase.mjs"
       - "screenshots/**"
       - "public/banner.svg"
+      - "public/icon.svg"
       - ".github/workflows/showcase.yml"
 
 permissions:

@@ -19,16 +19,16 @@ describe("SettingsTabs", () => {
     render(<SettingsTabs />)
 
     expect(tabs("Profile").length).toBeGreaterThan(0)
-    expect(tabs("AI provider").length).toBeGreaterThan(0)
-    expect(tabs("API access").length).toBeGreaterThan(0)
-    expect(tabs("Your data").length).toBeGreaterThan(0)
+    expect(tabs("AI model").length).toBeGreaterThan(0)
+    expect(tabs("Browser extension").length).toBeGreaterThan(0)
+    expect(tabs("Privacy & data").length).toBeGreaterThan(0)
   })
 
   it("marks the tab for the current route as the current page", () => {
     mockPathname.mockReturnValue("/settings/preferences")
     render(<SettingsTabs />)
 
-    for (const link of tabs("Preferences")) {
+    for (const link of tabs("Job preferences")) {
       expect(link.getAttribute("aria-current")).toBe("page")
     }
     for (const link of tabs("Profile")) {

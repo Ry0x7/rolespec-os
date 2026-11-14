@@ -2,7 +2,11 @@ import { z } from "zod"
 import { AI_USAGE_FEATURES, generateObjectTracked } from "@/shared/lib/ai-generate"
 import { AI_STAGES } from "@/shared/lib/ai-stages"
 import { fenceUntrusted, UNTRUSTED_CONTENT_RULES } from "@/shared/lib/prompts/untrusted"
-import { fetchPublicUrl } from "@/features/career-profile/services/web-presence.service"
+import {
+  assertPublicUrl,
+  fetchPublicUrl,
+} from "@/features/career-profile/services/web-presence.service"
+import { firecrawlScrape, isFirecrawlConfigured } from "@/features/discovery/services/firecrawl.client"
 import { isVerifiedCompanyResearch } from "../lib/company-research"
 
 export { isVerifiedCompanyResearch }
@@ -113,6 +117,24 @@ export function htmlToReadableText(html: string): string {
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<\/(p|div|section|article|h[1-6]|li|tr|td|th)>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
+  )
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+/** Firecrawl returns markdown; turn it into text the grounding checks can read. */
+export function markdownToReadableText(markdown: string): string {
+  return decodeEntities(
+    markdown
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/^[ \t]*#{1,6}[ \t]+/gm, "")
+      .replace(/^[ \t]*[-*+][ \t]+/gm, "")
+      .replace(/[*_~`>]/g, " ")
   )
     .replace(/\r/g, "\n")
     .replace(/[ \t]+/g, " ")
@@ -305,17 +327,40 @@ async function fetchVerifiableSources(input: {
   const selected = candidates.slice(0, MAX_CITATIONS)
   const results = await Promise.allSettled(
     selected.map(async (candidate) => {
-      const response = await fetchPublicUrl(candidate.url, {
-        headers: { accept: "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.8" },
-        accept: (contentType) =>
-          contentType.includes("text/html") ||
-          contentType.includes("application/xhtml") ||
-          contentType.includes("text/plain") ||
-          contentType.includes("application/json"),
-        ...(input.signal ? { signal: input.signal } : {}),
-      })
-      const html = response.body
-      const text = htmlToReadableText(html).slice(0, MAX_SOURCE_TEXT)
+      let body: string
+      let resolvedUrl = candidate.url
+      let bodyIsMarkdown = false
+
+      try {
+        const response = await fetchPublicUrl(candidate.url, {
+          headers: { accept: "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.8" },
+          accept: (contentType) =>
+            contentType.includes("text/html") ||
+            contentType.includes("application/xhtml") ||
+            contentType.includes("text/plain") ||
+            contentType.includes("application/json"),
+          ...(input.signal ? { signal: input.signal } : {}),
+        })
+        body = response.body
+        resolvedUrl = response.url || candidate.url
+      } catch (error) {
+        if (input.signal?.aborted) throw error
+        // A page that blocks our server (Cloudflare, JS-only shells, 403s) may
+        // still be readable through Firecrawl. Validate the target first so a
+        // private address is never handed to a third-party fetcher.
+        if (!(await isFirecrawlConfigured())) throw error
+        await assertPublicUrl(candidate.url)
+        const scraped = await firecrawlScrape(candidate.url, input.signal, "markdown")
+        if (!scraped) throw error
+        body = scraped
+        bodyIsMarkdown = true
+      }
+
+      const html = bodyIsMarkdown ? "" : body
+      const text = (bodyIsMarkdown
+        ? markdownToReadableText(body)
+        : htmlToReadableText(body)
+      ).slice(0, MAX_SOURCE_TEXT)
       const corpus = normalize(text)
       const companyMentioned = mentions(input.companyName, corpus)
       if (candidate.sourceType === "COMPANY" && !companyMentioned) {
@@ -334,7 +379,7 @@ async function fetchVerifiableSources(input: {
 
       const citation: ResearchCitation = {
         title,
-        url: response.url || candidate.url,
+        url: resolvedUrl,
         ...(verifiedQuote ? { quote: verifiedQuote } : {}),
         verified: true,
         fetchedAt: new Date().toISOString(),

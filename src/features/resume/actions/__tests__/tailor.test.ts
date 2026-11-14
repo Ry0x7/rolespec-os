@@ -41,6 +41,7 @@ vi.mock("@/shared/lib/ai-provider", () => ({
 }))
 vi.mock("@/shared/lib/logger", () => ({
   logger: () => ({ warn: vi.fn(), error: vi.fn() }),
+  redactText: (text: string) => text,
 }))
 // The AI call is the only mocked pipeline stage: term extraction, grounding
 // classification and the deterministic post-check run for real.
@@ -308,6 +309,21 @@ describe("createJobTailoredResume", () => {
     const result = await createJobTailoredResume(validFormData())
 
     expect(result).toEqual({ error: "AI tailoring failed. Please try again." })
+    expect(mockPrisma.resume.create).not.toHaveBeenCalled()
+  })
+
+  it("tells the owner to sign in when the selected local CLI is logged out", async () => {
+    mockPrisma.jobApplication.findFirst.mockResolvedValue(jobApplication)
+    mockPrisma.resume.findFirst.mockResolvedValue(sourceResume())
+    mockGenerateJobTailorSuggestions.mockRejectedValue(
+      new Error("Not logged in · Please run /login")
+    )
+
+    const result = await createJobTailoredResume(validFormData())
+
+    expect(result.error).toContain("AI provider is not ready")
+    expect(result.error).toContain("Not logged in")
+    expect(result.error).toContain("Sign in")
     expect(mockPrisma.resume.create).not.toHaveBeenCalled()
   })
 

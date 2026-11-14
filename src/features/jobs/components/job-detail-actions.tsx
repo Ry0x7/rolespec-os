@@ -205,11 +205,11 @@ export function JobDetailActions({
         <>
           <Link
             href={jobDetailHref(application.id, "prepare")}
-            aria-label={`Tailor resume for ${application.companyName}`}
+            aria-label={`Prepare a resume for ${application.companyName}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium transition-colors hover:border-brand-600 hover:text-brand-500"
           >
             <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
-            Tailor
+            Prepare resume
           </Link>
           <Link
             href={jobDetailHref(application.id, "prepare")}

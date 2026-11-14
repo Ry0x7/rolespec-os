@@ -8,11 +8,11 @@ import type { ProfileSectionNavItem } from "../lib/section-completeness"
 
 /**
  * A slim pill row so the six always-open sections below have something to
- * jump to. Sticky under the app header on desktop; a plain horizontal
- * scroller on narrow screens, where sticking it would eat too much of the
- * viewport. `scrollIntoView` (rather than a bare hash link) honors each
- * target's `scroll-mt-*` so the sticky header/nav never covers the section
- * it just jumped to.
+ * jump to. Sticky under the app header on desktop; on narrow screens the pills
+ * wrap onto extra rows instead of scrolling sideways, and the bar stays in
+ * normal flow so it does not eat too much of the viewport. `scrollIntoView`
+ * (rather than a bare hash link) honors each target's `scroll-mt-*` so the
+ * sticky header/nav never covers the section it just jumped to.
  *
  * The active pill follows the reader via `useScrollSpy`, the same band and
  * pick rule the Job Detail nav uses.
@@ -36,7 +36,7 @@ export function ProfileSectionNav({ items }: { items: ProfileSectionNavItem[] })
   return (
     <nav
       aria-label="Career profile sections"
-      className="static top-14 z-20 -mx-4 flex gap-1.5 overflow-x-auto border-b border-border bg-background/80 px-4 py-2 backdrop-blur-sm lg:sticky lg:mx-0 lg:rounded-lg lg:border lg:px-2"
+      className="static top-14 z-20 -mx-4 flex flex-wrap gap-1.5 border-b border-border bg-background/80 px-4 py-2 backdrop-blur-sm lg:sticky lg:mx-0 lg:rounded-lg lg:border lg:px-2"
     >
       {items.map((item) => {
         const active = item.key === activeId
@@ -52,7 +52,7 @@ export function ProfileSectionNav({ items }: { items: ProfileSectionNavItem[] })
             }
             aria-current={active ? "location" : undefined}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              "flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
               active
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"

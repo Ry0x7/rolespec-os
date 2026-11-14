@@ -418,12 +418,17 @@ export function ResumePreview() {
             type="button"
             onClick={() => setCustomizerOpen((open) => !open)}
             data-customizer-trigger
-            title="Customize appearance"
-            aria-label="Customize appearance"
+            title="Design and layout"
+            aria-label="Design and layout"
             aria-expanded={customizerOpen}
-            className={cn(TOOLBAR_BUTTON, customizerOpen && "bg-accent text-accent-foreground")}
+            className={cn(
+              TOOLBAR_BUTTON,
+              "w-auto gap-1 px-1.5",
+              customizerOpen && "bg-accent text-accent-foreground"
+            )}
           >
             <Settings2 className="h-4 w-4" />
+            <span className="hidden text-[11px] font-medium sm:inline">Design</span>
           </button>
           {customizerOpen && <CustomizerPanel onClose={() => setCustomizerOpen(false)} />}
           <button

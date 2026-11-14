@@ -57,7 +57,7 @@ describe("ResumeEditor - compact Job Target summary", () => {
     render(<ResumeEditor resume={makeResume()} />)
 
     expect(screen.getByText("No job target — Analyze checks overall resume quality. Add one to check job match.")).toBeTruthy()
-    expect(screen.getByText("Target: No target role")).toBeTruthy()
+    expect(screen.getByText("No target role")).toBeTruthy()
   })
 
   it("shows the attached state and a character count once one is present", () => {
@@ -66,7 +66,7 @@ describe("ResumeEditor - compact Job Target summary", () => {
       useResumeStore.getState().setJobDescription("Kubernetes required.")
     })
 
-    expect(screen.getByText("Target: Backend Engineer")).toBeTruthy()
+    expect(screen.getByText("Backend Engineer")).toBeTruthy()
     expect(screen.getByText("Job description attached (20 characters)")).toBeTruthy()
   })
 

@@ -17,10 +17,10 @@ export function GettingStarted({
   hasProfile,
 }: GettingStartedProps) {
   const steps = [
-    { label: "Set up your career profile", href: "/career-profile", done: hasProfile },
-    { label: "Create your first resume", href: "/resumes", done: hasResume },
-    { label: "Run an ATS scan", href: "/resumes", done: hasAtsScan },
-    { label: "Track your first job application", href: "/jobs", done: hasJob },
+    { label: "Add your career details", href: "/career-profile", done: hasProfile },
+    { label: "Create a resume", href: "/resumes", done: hasResume },
+    { label: "Check your resume against a job", href: "/resumes", done: hasAtsScan },
+    { label: "Save your first job", href: "/jobs", done: hasJob },
   ]
 
   const completed = steps.filter((step) => step.done).length
@@ -29,9 +29,9 @@ export function GettingStarted({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Getting started</CardTitle>
+        <CardTitle>Finish setting up</CardTitle>
         <CardDescription>
-          {completed} of {steps.length} complete
+          {completed} of {steps.length} done — each step takes a few minutes.
         </CardDescription>
       </CardHeader>
 

@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation"
+import { SettingsOverview } from "@/features/settings/components/settings-overview"
 
-/** /settings is the tab shell only; Profile is the first tab. */
+/** /settings is the tab shell; this page is the map of everything inside it. */
 export default function SettingsPage() {
-  redirect("/settings/profile")
+  return <SettingsOverview />
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   DEFAULT_CUSTOMIZATION,
+  STYLE_PRESETS,
+  activeStylePreset,
   customizationStorageKey,
   loadCustomization,
   parseCustomization,
@@ -46,6 +48,33 @@ describe("parseCustomization", () => {
       lineHeight: "snug",
       textAlign: "justify",
     })
+  })
+})
+
+describe("style presets", () => {
+  it("marks Classic as active on a fresh resume", () => {
+    expect(activeStylePreset(DEFAULT_CUSTOMIZATION)).toBe("classic")
+  })
+
+  it("derives the active preset without storing an id", () => {
+    const modern = STYLE_PRESETS.find((preset) => preset.id === "modern")!
+    expect(activeStylePreset({ ...modern.values })).toBe("modern")
+
+    // Every preset round-trips through the persisted shape intact.
+    for (const preset of STYLE_PRESETS) {
+      expect(activeStylePreset(parseCustomization(preset.values))).toBe(preset.id)
+    }
+  })
+
+  it("drops back to no preset after a custom tweak", () => {
+    const compact = STYLE_PRESETS.find((preset) => preset.id === "compact")!
+    expect(activeStylePreset({ ...compact.values, accent: "#9d174d" })).toBeNull()
+  })
+
+  it("ignores an unknown stored style key", () => {
+    expect(parseCustomization({ ...DEFAULT_CUSTOMIZATION, style: "neon" })).toEqual(
+      DEFAULT_CUSTOMIZATION
+    )
   })
 })
 

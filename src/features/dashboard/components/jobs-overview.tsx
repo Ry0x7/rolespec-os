@@ -147,7 +147,7 @@ export function JobsOverview({
       {upcomingEvents.length > 0 && (
         <Card className="space-y-4 lg:col-span-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Upcoming (next 7 days)</h2>
+            <h2 className="text-sm font-semibold">Coming up (next 7 days)</h2>
             <CalendarClock className="h-4 w-4 text-muted-foreground" />
           </div>
           <UpcomingEventsList
@@ -179,13 +179,13 @@ export function JobsOverview({
             variant="bare"
             icon={Inbox}
             title="No applications yet"
-            description="Track a job to see its status and history here."
+            description="Save a job to see its status and history here."
             action={
               <Link
                 href="/jobs"
                 className="text-sm text-brand-400 underline-offset-4 hover:underline"
               >
-                Add your first application
+                Save your first job
               </Link>
             }
           />

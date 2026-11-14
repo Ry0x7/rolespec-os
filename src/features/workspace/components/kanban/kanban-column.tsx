@@ -60,11 +60,14 @@ export const KanbanColumn = memo(function KanbanColumn({
   jobs,
   selectedIds,
   onToggleSelect,
+  mobile = false,
 }: {
   status: ApplicationStatus
   jobs: WorkspaceJobRow[]
   selectedIds?: string[]
   onToggleSelect?: (id: string) => void
+  /** Phone layout: one full-width column under the status navigator. */
+  mobile?: boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
   const [expanded, setExpanded] = useState(false)
@@ -75,15 +78,25 @@ export const KanbanColumn = memo(function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-w-[240px] shrink-0 flex-col gap-2 rounded-lg border border-border bg-background/40 p-2",
+        // Below xl the desktop board scrolls sideways, so a column keeps a
+        // usable minimum. At xl the seven columns share the row: they may
+        // shrink and must be allowed to go narrower than their content's
+        // intrinsic width. The phone variant is the one full-width column the
+        // status navigator shows, so it has neither a minimum nor a scrollbar.
+        "flex flex-col gap-2 rounded-lg border border-border bg-background/40 p-2",
+        mobile
+          ? "w-full"
+          : "w-[240px] min-w-[240px] shrink-0 xl:w-auto xl:min-w-0 xl:shrink",
         isOver && "border-primary/50 bg-primary/5"
       )}
     >
-      <div className="flex items-center gap-2 px-1">
-        <span className={cn("h-2 w-2 rounded-full", STATUS_DOT[status])} />
-        <span className="text-sm font-medium">{STATUS_LABELS[status]}</span>
-        <span className="ml-auto text-xs text-muted-foreground">{jobs.length}</span>
-      </div>
+      {!mobile && (
+        <div className="flex items-center gap-2 px-1">
+          <span className={cn("h-2 w-2 rounded-full", STATUS_DOT[status])} />
+          <span className="text-sm font-medium">{STATUS_LABELS[status]}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{jobs.length}</span>
+        </div>
+      )}
       {/*
         The card list scrolls on its own so a busy column can't stretch the
         board to thousands of pixels. The droppable node stays the column root:
@@ -91,10 +104,19 @@ export const KanbanColumn = memo(function KanbanColumn({
         anywhere over the column still collides. dnd-kit auto-scrolls this
         element while dragging near its edges.
       */}
-      <div className="flex max-h-[min(60vh,480px)] flex-col gap-2 overflow-y-auto overscroll-contain pr-0.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:w-1.5">
+      <div
+        className={cn(
+          "flex flex-col gap-2",
+          mobile
+            ? ""
+            : "max-h-[min(70vh,640px)] overflow-y-auto overscroll-contain pr-0.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:w-1.5"
+        )}
+      >
         {jobs.length === 0 ? (
           <p className="px-1 py-4 text-center text-xs text-muted-foreground">
-            Drop here
+            {mobile
+              ? `No applications in ${STATUS_LABELS[status]} yet.`
+              : "Drop here"}
           </p>
         ) : (
           <>

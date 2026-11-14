@@ -13,6 +13,7 @@ export const AI_PROVIDERS = [
   "claude-code",
   "codex-cli",
   "opencode-cli",
+  "antigravity-cli",
 ] as const
 
 export type AiProvider = (typeof AI_PROVIDERS)[number]
@@ -134,6 +135,16 @@ export const AI_PROVIDER_META: Record<AiProvider, AiProviderMeta> = {
     label: "OpenCode (free models)",
     modelEnvVar: "OPENCODE_MODEL",
     defaultModel: "opencode/deepseek-v4.1-flash-free",
+    credentialEnvVar: null,
+    localOnly: true,
+  },
+  // Antigravity shares one Google sign-in across its app, IDE extensions and
+  // CLI, cached in the OS keyring. The CLI is the only thing RoleSpec touches;
+  // there is no API key and no credential env var to check.
+  "antigravity-cli": {
+    label: "Google Antigravity (CLI)",
+    modelEnvVar: "ANTIGRAVITY_CLI_MODEL",
+    defaultModel: "gemini-4-hydrogen-high",
     credentialEnvVar: null,
     localOnly: true,
   },

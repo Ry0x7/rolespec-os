@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element -- showcase is a standalone esbuild bundle, not a Next page */
 import React, { useState, useEffect, useRef } from "react"
 import { createRoot } from "react-dom/client"
 import { MotionConfig, motion, useScroll, useTransform } from "framer-motion"
@@ -10,6 +9,7 @@ import { FeatureSections } from "./components/feature-sections"
 import { ModelMatrix } from "./components/model-matrix"
 import { QuickstartTabs } from "./components/quickstart-tabs"
 import { ShowcaseFooter } from "./components/showcase-footer"
+import { ShotImage } from "./components/shot-image"
 
 const RELEASES_URL = "https://github.com/Ry0x7/rolespec-os/releases/latest"
 
@@ -92,8 +92,9 @@ function ShowcaseApp() {
               className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed sm:text-xl"
               style={{ color: "var(--text-2)" }}
             >
-              Tailor your resume to any role, score against ATS filters, write your
-              outreach, and track every application — on your own machine.
+              Tailor your resume to any role, score against ATS filters, let the
+              agent prepare the application, and track every step — on your own
+              machine.
             </motion.p>
 
             <motion.div
@@ -125,20 +126,21 @@ function ShowcaseApp() {
             {/* The product, at product size */}
             <div ref={heroRef} className="mt-12">
               <motion.div style={{ scale: shotScale, y: shotY }} className="shot mx-auto max-w-4xl">
-                <img
-                  src="RoleSpecOS/workspace.png"
-                  alt="The RoleSpec OS landing page with the workspace preview and ATS keyword chips"
+                <ShotImage
+                  light="dashboard.png"
+                  dark="dashboard-dark.png"
+                  alt="The RoleSpec OS dashboard with the next action, attention queue and ranked opportunities"
                   width={1440}
                   height={960}
                 />
               </motion.div>
               <p className="mt-4 text-sm" style={{ color: "var(--text-3)" }}>
-                The workspace preview, as it ships today — in light mode.
+                The dashboard after a ranking pass — next action, attention and ranked roles in one view.
               </p>
             </div>
           </section>
 
-          <Hyperframe isReducedMotion={isReducedMotion} />
+          <Hyperframe isReducedMotion={isReducedMotion} theme={theme} />
           <FeatureSections />
           <ModelMatrix />
           <QuickstartTabs />

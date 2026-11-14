@@ -75,6 +75,7 @@ import {
   Laptop,
   Crosshair,
   BellRing,
+  Sparkles,
 } from "lucide-react"
 import { buttonVariants } from "@/shared/ui/button"
 import { PageShell } from "@/shared/components/page-shell"
@@ -557,6 +558,15 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={application.status} />
             <RiskBadge level={application.riskLevel} />
+            {!isTerminalStatus(application.status) && (
+              <Link
+                href={`/jobs/${application.id}#preparation`}
+                className={buttonVariants({ size: "sm" })}
+              >
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                Apply with agent
+              </Link>
+            )}
             <JobDetailActions
               application={application}
               savedResumeId={chosenResumeId}
@@ -671,7 +681,7 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           Prepare
         </h2>
 
-        <TaskTabs label="Preparation tools" items={[{ id: "preparation", label: "Workflow" }, { id: "research", label: "Research" }, { id: "resume-tools", label: "Resume & match" }, { id: "application-drafts", label: "Letters & interview" }]}>
+        <TaskTabs label="Preparation tools" items={[{ id: "preparation", label: "Agent" }, { id: "research", label: "Research" }, { id: "resume-tools", label: "Resume & match" }, { id: "application-drafts", label: "Letters & interview" }]}>
         <div><PreparationPanel jobApplicationId={application.id} resumeId={chosenResumeId} resumeTitle={resumes.find(resume => resume.id === chosenResumeId)?.title} /></div>
 
         {/* Factual company and role research with verified citations. The card

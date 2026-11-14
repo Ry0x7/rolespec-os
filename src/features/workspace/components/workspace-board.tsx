@@ -124,6 +124,17 @@ export function WorkspaceBoard(props: WorkspaceBoardProps) {
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed)
   const togglePanelSize = useWorkspaceStore((s) => s.togglePanelSize)
 
+  // Returning users still have the old goal → quick-add → pipeline order in
+  // localStorage. Showing that order would hide the board below two setup
+  // panels, so lift the board to the front visually until they rearrange it.
+  // Their explicit custom order is left alone.
+  const orderedPanels =
+    panelOrder[0] === "goal" &&
+    panelOrder[1] === "quickAdd" &&
+    panelOrder[2] === "pipeline"
+      ? (["pipeline", "goal", "quickAdd"] as PanelId[])
+      : panelOrder
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, {
@@ -163,11 +174,11 @@ export function WorkspaceBoard(props: WorkspaceBoardProps) {
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    const from = panelOrder.indexOf(active.id as PanelId)
-    const to = panelOrder.indexOf(over.id as PanelId)
+    const from = orderedPanels.indexOf(active.id as PanelId)
+    const to = orderedPanels.indexOf(over.id as PanelId)
     if (from === -1 || to === -1) return
 
-    setOrder(arrayMove(panelOrder, from, to))
+    setOrder(arrayMove(orderedPanels, from, to))
   }
 
   // Before hydration, render a non-draggable copy using default order/sizes to
@@ -175,7 +186,7 @@ export function WorkspaceBoard(props: WorkspaceBoardProps) {
   if (!hasHydrated) {
     return (
       <div className={GRID_CLASS}>
-        {panelOrder.map((panelId) => (
+        {orderedPanels.map((panelId) => (
           <div
             key={panelId}
             className={cn(
@@ -216,9 +227,9 @@ export function WorkspaceBoard(props: WorkspaceBoardProps) {
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext items={panelOrder} strategy={rectSortingStrategy}>
+      <SortableContext items={orderedPanels} strategy={rectSortingStrategy}>
         <div className={GRID_CLASS}>
-          {panelOrder.map((panelId) => (
+          {orderedPanels.map((panelId) => (
             <WorkspacePanel
               key={panelId}
               id={panelId}

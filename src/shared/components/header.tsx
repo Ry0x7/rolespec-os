@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { memo, useCallback, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { Lock, Search, Settings } from "lucide-react"
+import { CircleHelp, Lock, Search, Settings } from "lucide-react"
 
 import { lockWorkspaceAction } from "@/features/auth/unlock.actions"
 import { getPageTitle } from "@/config/navigation"
@@ -18,6 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu"
 import { MobileNav } from "./mobile-nav"
+import { GuidedTour } from "./guided-tour"
+import { startGuidedTour } from "@/shared/lib/guided-tour"
 import { AttentionInbox } from "@/features/dashboard/components/attention-inbox"
 import { WorkflowModeSwitch } from "@/features/workflows/components/workflow-mode-switch"
 
@@ -53,6 +55,7 @@ export const Header = memo(function Header({ owner, canLock = false }: HeaderPro
   return (
     <>
       <CommandPalette openToken={paletteToken} />
+      <GuidedTour />
       {/* Apple toolbar material: translucent + blur + saturation, content scrolls under. */}
       <header className="sticky top-0 z-[var(--z-sticky)] flex min-h-14 flex-wrap items-center gap-2 border-b border-border bg-background/72 px-4 py-1 backdrop-blur-xl lg:px-6">
         <MobileNav />
@@ -63,6 +66,15 @@ export const Header = memo(function Header({ owner, canLock = false }: HeaderPro
 
         <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
           <div className="hidden sm:block"><WorkflowModeSwitch compact /></div>
+          <button
+            type="button"
+            onClick={startGuidedTour}
+            aria-label="Open help and the guided tour"
+            title="Help and guided tour"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <CircleHelp className="h-4 w-4" aria-hidden="true" />
+          </button>
           <AttentionInbox />
           <button
             type="button"

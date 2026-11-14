@@ -25,6 +25,60 @@ export const DEFAULT_ACCENT_THEME: AccentTheme = "blue"
 
 export const ACCENT_STORAGE_KEY = "rolespec-accent"
 
+/**
+ * Surface presets. These are broader than the accent: they retint the canvas,
+ * cards, rail and borders so the app can feel like a different product without
+ * changing which accent colour is selected. Midnight is the shipped look and
+ * carries no class, matching the @theme defaults.
+ */
+export const THEME_PRESETS = [
+  { id: "midnight", label: "Midnight", description: "Pure black, the default", swatch: "#000000" },
+  { id: "graphite", label: "Graphite", description: "Soft charcoal, less contrast", swatch: "#17171A" },
+  { id: "ocean", label: "Ocean", description: "Deep blue-green surfaces", swatch: "#0E2030" },
+  { id: "warm", label: "Warm", description: "Warm brown-black canvas", swatch: "#1D1714" },
+] as const
+
+export type ThemePreset = (typeof THEME_PRESETS)[number]["id"]
+
+export const DEFAULT_THEME_PRESET: ThemePreset = "midnight"
+
+export const PRESET_STORAGE_KEY = "rolespec-preset"
+
+export function isThemePreset(value: unknown): value is ThemePreset {
+  return THEME_PRESETS.some((preset) => preset.id === value)
+}
+
+/** Swaps the `preset-*` class on <html>. Midnight carries no class. */
+export function applyPreset(preset: ThemePreset): void {
+  if (typeof document === "undefined") return
+  const root = document.documentElement
+  for (const candidate of THEME_PRESETS) {
+    root.classList.remove(`preset-${candidate.id}`)
+  }
+  if (preset !== DEFAULT_THEME_PRESET) {
+    root.classList.add(`preset-${preset}`)
+  }
+}
+
+export function getStoredPreset(): ThemePreset {
+  if (typeof window === "undefined") return DEFAULT_THEME_PRESET
+  try {
+    const stored = window.localStorage.getItem(PRESET_STORAGE_KEY)
+    return isThemePreset(stored) ? stored : DEFAULT_THEME_PRESET
+  } catch {
+    return DEFAULT_THEME_PRESET
+  }
+}
+
+export function storePreset(preset: ThemePreset): void {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(PRESET_STORAGE_KEY, preset)
+  } catch {
+    // Non-fatal: the preset still applies for this session.
+  }
+}
+
 export function isAccentTheme(value: unknown): value is AccentTheme {
   return ACCENT_THEMES.some((theme) => theme.id === value)
 }
@@ -202,5 +256,9 @@ export const ACCENT_INIT_SCRIPT = `try{var d=document.documentElement;var t=loca
   ACCENT_THEMES.map((theme) => theme.id).filter(
     (id) => id !== DEFAULT_ACCENT_THEME
   )
-)};if(v.indexOf(t)>-1)d.classList.add("theme-"+t);var m=localStorage.getItem("${MODE_STORAGE_KEY}");if(m==="system")m=matchMedia("${DARK_SCHEME_QUERY}").matches?"dark":"light";if(m!=="light")m="dark";d.classList.toggle("dark",m==="dark");d.classList.toggle("light",m==="light");var mot=localStorage.getItem("${MOTION_STORAGE_KEY}");var red=(mot==="reduced")||(mot!=="full"&&matchMedia("${REDUCED_MOTION_QUERY}").matches);d.classList.toggle("reduce-motion",red);if(mot==="full")d.classList.add("motion-full");if(mot)d.setAttribute("data-motion",mot);}catch(e){}`
+)};if(v.indexOf(t)>-1)d.classList.add("theme-"+t);var p=localStorage.getItem("${PRESET_STORAGE_KEY}");var pv=${JSON.stringify(
+  THEME_PRESETS.map((preset) => preset.id).filter(
+    (id) => id !== DEFAULT_THEME_PRESET
+  )
+)};if(pv.indexOf(p)>-1)d.classList.add("preset-"+p);var m=localStorage.getItem("${MODE_STORAGE_KEY}");if(m==="system")m=matchMedia("${DARK_SCHEME_QUERY}").matches?"dark":"light";if(m!=="light")m="dark";d.classList.toggle("dark",m==="dark");d.classList.toggle("light",m==="light");var mot=localStorage.getItem("${MOTION_STORAGE_KEY}");var red=(mot==="reduced")||(mot!=="full"&&matchMedia("${REDUCED_MOTION_QUERY}").matches);d.classList.toggle("reduce-motion",red);if(mot==="full")d.classList.add("motion-full");if(mot)d.setAttribute("data-motion",mot);}catch(e){}`
 

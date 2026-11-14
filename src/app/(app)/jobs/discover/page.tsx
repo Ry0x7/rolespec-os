@@ -7,6 +7,7 @@ import { DiscoveryView } from "@/features/discovery/components/discovery-view"
 import { buildBoardSearchGroups } from "@/features/discovery/services/board-search-groups.service"
 import { resolveProfileCountry } from "@/features/discovery/services/market-fit.service"
 import { parsePreferences } from "@/features/settings/schemas/preferences.schema"
+import { getFirecrawlStatus } from "@/features/settings/services/integration-settings.service"
 import { PageShell } from "@/shared/components/page-shell"
 import { prisma } from "@/shared/lib/prisma"
 
@@ -19,12 +20,13 @@ export default async function DiscoverJobsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/unlock")
 
-  const [profile, user] = await Promise.all([
+  const [profile, user, firecrawl] = await Promise.all([
     loadCareerProfile(session.user.id),
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { preferences: true },
     }),
+    getFirecrawlStatus(),
   ])
   // `activeTargetRoleCount` is what the run would search if nothing were
   // capped, so the page can say why some of the user's roles are missing.
@@ -34,11 +36,13 @@ export default async function DiscoverJobsPage() {
   return (
     <PageShell>
       <div>
-        <h1 className="text-2xl font-bold">Discover</h1>
+        <h1 className="text-2xl font-bold">Find jobs</h1>
         <p className="text-sm text-muted-foreground">
           Postings found from the target roles in your Career Profile. Save the
           ones worth tracking — nothing is applied to for you.
-          {process.env.FIRECRAWL_API_KEY ? " Firecrawl web search is on." : " Add FIRECRAWL_API_KEY for deeper web coverage."}
+          {firecrawl.configured
+            ? " Web search is on, so results can include company sites and smaller job boards."
+            : " Web search is off. Add a Firecrawl key in Settings → AI to search beyond the built-in job boards."}
         </p>
       </div>
 

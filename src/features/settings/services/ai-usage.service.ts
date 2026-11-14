@@ -38,12 +38,22 @@ export const USER_AI_USAGE_WINDOW_DAYS = 30
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface UserAiUsageTotals {
+  /** Every attempt in the window, including calls that failed before replying. */
   calls: number
+  /** Attempts that reached the provider and returned a result. */
   okCalls: number
   failedCalls: number
+  /** Share of attempts that succeeded, 0–1. Null when there were no attempts. */
+  successRate: number | null
   inputTokens: number
   outputTokens: number
+  /** Cached input is a subset of input; it is never added on top. */
+  cachedInputTokens: number
+  /** Reasoning is a subset of output; it is never added on top. */
+  reasoningTokens: number
   totalTokens: number
+  /** Cached input ÷ input tokens, 0–1. Null when no input was recorded. */
+  cacheHitRate: number | null
   /** null when no call in the window has a known price. */
   estimatedCostUsd: number | null
 }
@@ -54,6 +64,11 @@ export interface UserAiUsageModelRow {
   calls: number
   inputTokens: number
   outputTokens: number
+  cachedInputTokens: number
+  reasoningTokens: number
+  totalTokens: number
+  /** Cached input ÷ input tokens, 0–1. Null when no input was recorded. */
+  cacheHitRate: number | null
   estimatedCostUsd: number | null
 }
 
@@ -81,6 +96,12 @@ function startOfUtcDay(date: Date) {
   )
 }
 
+/** A 0–1 share, or null when the denominator is zero. */
+function ratio(numerator: number, denominator: number): number | null {
+  if (denominator <= 0) return null
+  return Math.max(0, Math.min(1, numerator / denominator))
+}
+
 /**
  * One user's AI usage over the last 30 days, for /settings/usage.
  *
@@ -104,7 +125,13 @@ export async function getUserAiUsage(userId: string): Promise<UserAiUsage> {
       prisma.aiUsageEvent.aggregate({
         where,
         _count: { _all: true },
-        _sum: { inputTokens: true, outputTokens: true, totalTokens: true },
+        _sum: {
+          inputTokens: true,
+          outputTokens: true,
+          totalTokens: true,
+          cachedInputTokens: true,
+          reasoningTokens: true,
+        },
       }),
       prisma.aiUsageEvent.count({ where: { ...where, ok: true } }),
       prisma.aiUsageEvent.groupBy({
@@ -116,6 +143,7 @@ export async function getUserAiUsage(userId: string): Promise<UserAiUsage> {
           outputTokens: true,
           totalTokens: true,
           cachedInputTokens: true,
+          reasoningTokens: true,
         },
       }),
       prisma.aiUsageEvent.groupBy({
@@ -146,12 +174,15 @@ export async function getUserAiUsage(userId: string): Promise<UserAiUsage> {
     .map((row) => {
       const inputTokens = row._sum.inputTokens ?? 0
       const outputTokens = row._sum.outputTokens ?? 0
+      const cachedInputTokens = row._sum.cachedInputTokens ?? 0
+      const reasoningTokens = row._sum.reasoningTokens ?? 0
+      const totalTokens = row._sum.totalTokens ?? inputTokens + outputTokens
       const cost = estimateCostUsd({
         provider: row.provider,
         model: row.model,
         inputTokens,
         outputTokens,
-        cachedInputTokens: row._sum.cachedInputTokens ?? 0,
+        cachedInputTokens,
       })
       if (cost !== null) {
         costTotal += cost
@@ -163,23 +194,31 @@ export async function getUserAiUsage(userId: string): Promise<UserAiUsage> {
         calls: row._count._all,
         inputTokens,
         outputTokens,
+        cachedInputTokens,
+        reasoningTokens,
+        totalTokens,
+        cacheHitRate: ratio(cachedInputTokens, inputTokens),
         estimatedCostUsd: cost,
       }
     })
     .sort(
-      (a, b) =>
-        b.outputTokens + b.inputTokens - (a.outputTokens + a.inputTokens) ||
-        b.calls - a.calls
+      (a, b) => b.totalTokens - a.totalTokens || b.calls - a.calls
     )
 
   const calls = totalsRow._count._all
+  const inputTokens = totalsRow._sum.inputTokens ?? 0
+  const cachedInputTokens = totalsRow._sum.cachedInputTokens ?? 0
   const totals: UserAiUsageTotals = {
     calls,
     okCalls,
     failedCalls: calls - okCalls,
-    inputTokens: totalsRow._sum.inputTokens ?? 0,
+    successRate: ratio(okCalls, calls),
+    inputTokens,
     outputTokens: totalsRow._sum.outputTokens ?? 0,
+    cachedInputTokens,
+    reasoningTokens: totalsRow._sum.reasoningTokens ?? 0,
     totalTokens: totalsRow._sum.totalTokens ?? 0,
+    cacheHitRate: ratio(cachedInputTokens, inputTokens),
     estimatedCostUsd: anyPriced ? costTotal : null,
   }
 

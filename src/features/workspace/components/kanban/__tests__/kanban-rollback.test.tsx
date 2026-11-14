@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { render, fireEvent, act, waitFor } from "@testing-library/react"
 import { ApplicationStatus } from "@/generated/prisma/enums"
 import { KanbanBoard } from "../kanban-board"
@@ -43,7 +43,23 @@ describe("kanban failed move rollback", () => {
   beforeEach(() => {
     updateJobApplicationStatus.mockReset()
     toastError.mockReset()
+    // This test follows two cards across columns, which needs the seven-column
+    // desktop board. jsdom has no matchMedia, so pin it to the desktop query.
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(min-width: 1280px)",
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }))
+    )
   })
+  afterEach(() => vi.unstubAllGlobals())
 
   it("rolls back only the failed card, keeping a card moved in the meantime", async () => {
     let failFirst: (value: unknown) => void = () => {}

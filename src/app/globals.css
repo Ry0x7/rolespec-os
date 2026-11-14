@@ -513,172 +513,12 @@ html.light.theme-cyan {
     background-clip: text;
   }
 
-  /* Ambient hero glow blobs. Translate-only animation (no layout/size churn).
-     Phones get a cheaper static version: no drift, a much smaller blur radius
-     and no promoted layer, since a 72px blur on a 416px square is expensive to
-     composite on mobile GPUs. Drift + full blur come back at `sm` (640px). */
-  .hero-blob {
-    position: absolute;
-    border-radius: 9999px;
-    filter: blur(28px);
-    pointer-events: none;
-  }
-
-  @media (min-width: 40rem) {
-    .hero-blob {
-      filter: blur(72px);
-      will-change: transform;
-    }
-  }
-
-  /* On light grounds the brand wash must be a whisper, not a cloud. */
-  html.light .hero-blob-brand {
-    opacity: 0.22;
-  }
-
-  html.light .hero-blob-indigo {
-    opacity: 0.16;
-  }
-
-  html.light .hero-blob-pink {
-    opacity: 0.12;
-  }
-
-  .hero-blob-brand {
-    background: radial-gradient(
-      circle,
-      color-mix(in srgb, var(--color-brand-700) 60%, transparent),
-      transparent 72%
-    );
-    opacity: 0.55;
-  }
-
-  .hero-blob-indigo {
-    background: radial-gradient(
-      circle,
-      color-mix(
-        in srgb,
-        color-mix(in srgb, var(--color-brand-500) 60%, var(--accent-warm)) 42%,
-        transparent
-      ),
-      transparent 70%
-    );
-    opacity: 0.45;
-  }
-
-  .hero-blob-pink {
-    background: radial-gradient(
-      circle,
-      color-mix(in srgb, var(--accent-warm) 32%, transparent),
-      transparent 70%
-    );
-    opacity: 0.35;
-  }
-
-  /* Drift is desktop/tablet only — see the `.hero-blob` note above. */
-  @media (min-width: 40rem) {
-    .hero-blob-brand {
-      animation: hero-drift-a 18s ease-in-out infinite;
-    }
-
-    .hero-blob-indigo {
-      animation: hero-drift-b 22s ease-in-out infinite;
-    }
-
-    .hero-blob-pink {
-      animation: hero-drift-c 26s ease-in-out infinite;
-    }
-  }
-
-  /* Fine grid texture, masked so it fades out toward the edges. */
-  .hero-grid {
-    background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-    background-size: 48px 48px;
-    -webkit-mask-image: radial-gradient(
-      ellipse 72% 62% at 50% 28%,
-      #000 0%,
-      transparent 78%
-    );
-    mask-image: radial-gradient(
-      ellipse 72% 62% at 50% 28%,
-      #000 0%,
-      transparent 78%
-    );
-  }
-
-  /* Glass surface whose 1px border is a gradient hairline (brand → white →
-     pink), matching the hero's p-px wrappers without an extra element.
-     Hover brightening is done with a transitionable inset ring by the caller. */
-  .card-hairline {
-    border: 1px solid transparent;
-    border-radius: var(--radius-lg);
-    background-image:
-      linear-gradient(rgba(19, 19, 25, 0.72), rgba(19, 19, 25, 0.72)),
-      linear-gradient(
-        140deg,
-        color-mix(in srgb, var(--color-brand-700) 45%, transparent),
-        rgba(255, 255, 255, 0.08) 52%,
-        color-mix(in srgb, var(--accent-warm) 30%, transparent)
-      );
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
-    backdrop-filter: blur(12px);
-  }
-
-  /* Single soft radial for sections that want a glow without the full
-     hero blob stack. */
-  .section-glow {
-    background: radial-gradient(
-      ellipse 70% 60% at 50% 40%,
-      color-mix(in srgb, var(--color-brand-700) 22%, transparent),
-      transparent 72%
-    );
-  }
-
-  /* Connector rail for the how-it-works step sequence. */
-  .step-rail {
-    background-image: linear-gradient(
-      to right,
-      transparent,
-      color-mix(in srgb, var(--color-brand-700) 55%, transparent) 18%,
-      color-mix(in srgb, var(--accent-warm) 45%, transparent) 82%,
-      transparent
-    );
-  }
 }
 
-@keyframes hero-drift-a {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(4%, 5%, 0); }
-}
-
-@keyframes hero-drift-b {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(-5%, 4%, 0); }
-}
-
-@keyframes hero-drift-c {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(3%, -4%, 0); }
-}
 
 @media (prefers-reduced-motion: reduce) {
-  :root:not(.motion-full) .hero-blob-brand,
-  :root:not(.motion-full) .hero-blob-indigo,
-  :root:not(.motion-full) .hero-blob-pink {
-    animation: none !important;
-  }
-
   /* Beats Framer's server-rendered initial inline style so reduced-motion
-     users never see hidden hero content, even before hydration. */
-  :root:not(.motion-full) .hero-reveal-item {
-    opacity: 1 !important;
-    transform: none !important;
-  }
-
-  /* Same guarantee for scroll-triggered section reveals. */
+     users never see hidden section content, even before hydration. */
   :root:not(.motion-full) .scroll-reveal-item {
     opacity: 1 !important;
     transform: none !important;
@@ -686,14 +526,10 @@ html.light.theme-cyan {
 }
 
 /* Explicit user toggle enabling reduce motion */
-:root.reduce-motion .hero-blob-brand,
-:root.reduce-motion .hero-blob-indigo,
-:root.reduce-motion .hero-blob-pink,
 :root.reduce-motion [class*="animate-"] {
   animation: none !important;
 }
 
-:root.reduce-motion .hero-reveal-item,
 :root.reduce-motion .scroll-reveal-item {
   opacity: 1 !important;
   transform: none !important;
@@ -725,9 +561,172 @@ html.light.theme-cyan {
 /* Belt-and-braces alongside the <noscript> block in the root layout: browsers
    that support this query reveal the content without waiting for hydration. */
 @media (scripting: none) {
-  .hero-reveal-item,
   .scroll-reveal-item {
     opacity: 1 !important;
     transform: none !important;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Surface presets
+   ---------------------------------------------------------------------------
+   Theme style is separate from accent: a preset retints the canvas, cards,
+   rail, muted fills and borders, while the accent ramp stays exactly as picked.
+   Midnight is the shipped look and has no class. Every preset needs a matching
+   `html.light.preset-*` block (0,2,1) so it beats the base `html.light` block
+   (0,1,1) regardless of source order. */
+html.preset-graphite {
+  --color-background: #0A0A0C;
+  --color-foreground: #F4F4F6;
+  --color-sidebar: #141417;
+  --color-card: #18181C;
+  --color-card-foreground: #F4F4F6;
+  --color-muted: #26262B;
+  --color-muted-foreground: #A8A8B0;
+  --color-border: #34343A;
+  --color-input: #42424A;
+  --glass-bg: rgba(24, 24, 28, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --scrollbar-thumb: #42424A;
+  --scrollbar-thumb-hover: #5A5A64;
+}
+
+html.light.preset-graphite {
+  --color-background: #F2F2F4;
+  --color-foreground: #1B1B1E;
+  --color-sidebar: #EAEAEE;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #1B1B1E;
+  --color-muted: #E2E2E7;
+  --color-muted-foreground: #62626A;
+  --color-border: #CECED5;
+  --color-input: #C3C3CC;
+  --glass-bg: rgba(255, 255, 255, 0.94);
+  --glass-border: rgba(9, 9, 12, 0.12);
+  --scrollbar-thumb: #CECED5;
+  --scrollbar-thumb-hover: #B0B0B8;
+}
+
+html.preset-ocean {
+  --color-background: #05131B;
+  --color-foreground: #ECF7FB;
+  --color-sidebar: #0A1C26;
+  --color-card: #0E2330;
+  --color-card-foreground: #ECF7FB;
+  --color-muted: #163544;
+  --color-muted-foreground: #9AB8C5;
+  --color-border: #214453;
+  --color-input: #2B5365;
+  --glass-bg: rgba(14, 35, 48, 0.75);
+  --glass-border: rgba(154, 184, 197, 0.12);
+  --scrollbar-thumb: #2B5365;
+  --scrollbar-thumb-hover: #3C6B80;
+}
+
+html.light.preset-ocean {
+  --color-background: #EDF6FA;
+  --color-foreground: #132831;
+  --color-sidebar: #E2EFF5;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #132831;
+  --color-muted: #D8E9F1;
+  --color-muted-foreground: #4A6775;
+  --color-border: #C4DCE7;
+  --color-input: #B5D2E0;
+  --glass-bg: rgba(255, 255, 255, 0.94);
+  --glass-border: rgba(19, 40, 49, 0.12);
+  --scrollbar-thumb: #C4DCE7;
+  --scrollbar-thumb-hover: #A9C8D8;
+}
+
+html.preset-warm {
+  --color-background: #100C0A;
+  --color-foreground: #F7F0EB;
+  --color-sidebar: #1A1411;
+  --color-card: #201814;
+  --color-card-foreground: #F7F0EB;
+  --color-muted: #2D231D;
+  --color-muted-foreground: #B5A59A;
+  --color-border: #3D3029;
+  --color-input: #4C3C33;
+  --glass-bg: rgba(32, 24, 20, 0.75);
+  --glass-border: rgba(247, 240, 235, 0.08);
+  --scrollbar-thumb: #4C3C33;
+  --scrollbar-thumb-hover: #655247;
+}
+
+html.light.preset-warm {
+  --color-background: #F7F1EB;
+  --color-foreground: #2A211C;
+  --color-sidebar: #F0E7DE;
+  --color-card: #FFFDFB;
+  --color-card-foreground: #2A211C;
+  --color-muted: #ECE1D6;
+  --color-muted-foreground: #6F6056;
+  --color-border: #DACBBE;
+  --color-input: #CDB9AA;
+  --glass-bg: rgba(255, 253, 251, 0.94);
+  --glass-border: rgba(42, 33, 28, 0.12);
+  --scrollbar-thumb: #DACBBE;
+  --scrollbar-thumb-hover: #C2AB9A;
+}
+
+/* ---------------------------------------------------------------------------
+   Collapsible desktop sidebar rail
+   ---------------------------------------------------------------------------
+   Width lives in a variable because the server-rendered (app) layout offsets
+   the content by it. `data-sidebar` is written to <html> before paint by the
+   inline script in that layout, so the stored state survives a reload without
+   a flash of the expanded rail. Everything below is scoped to `.app-sidebar`;
+   the mobile drawer reuses `SidebarNav` and keeps its full-width labels. */
+:root {
+  --sidebar-width: 15rem;
+}
+
+html[data-sidebar="collapsed"] {
+  --sidebar-width: 4.5rem;
+}
+
+.app-sidebar {
+  width: var(--sidebar-width);
+  transition: width 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar {
+    transition: none;
+  }
+}
+
+html[data-sidebar="collapsed"] .app-sidebar .sidebar-brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+html[data-sidebar="collapsed"] .app-sidebar .sidebar-brand-text,
+html[data-sidebar="collapsed"] .app-sidebar .sidebar-label,
+html[data-sidebar="collapsed"] .app-sidebar .sidebar-group-label,
+html[data-sidebar="collapsed"] .app-sidebar .sidebar-hint {
+  display: none;
+}
+
+html[data-sidebar="collapsed"] .app-sidebar nav {
+  padding-inline: 0.5rem;
+}
+
+/* Group dividers would read as stray lines in a 72px rail. */
+html[data-sidebar="collapsed"] .app-sidebar nav > div {
+  border-top-width: 0;
+  padding-top: 0;
+}
+
+html[data-sidebar="collapsed"] .app-sidebar .sidebar-nav-link,
+html[data-sidebar="collapsed"] .app-sidebar .sidebar-toggle {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+html[data-sidebar="collapsed"] .app-sidebar > div:last-child,
+html[data-sidebar="collapsed"] .app-sidebar .sidebar-footer {
+  padding-inline: 0.5rem;
 }

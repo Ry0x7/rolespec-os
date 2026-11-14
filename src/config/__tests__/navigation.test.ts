@@ -5,7 +5,7 @@ import { getBreadcrumbs, getPageTitle } from "../navigation"
 describe("getPageTitle", () => {
   it("uses the section title for nested routes", () => {
     expect(getPageTitle("/settings/profile")).toBe("Settings")
-    expect(getPageTitle("/jobs/cover-letter/new")).toBe("Cover Letters")
+    expect(getPageTitle("/jobs/cover-letter/new")).toBe("Cover letters")
   })
 
   it("falls back to the full product name", () => {
@@ -16,23 +16,23 @@ describe("getPageTitle", () => {
 describe("getBreadcrumbs", () => {
   it("collapses a dynamic record id to Details", () => {
     expect(getBreadcrumbs("/resumes/cmw7045sh000458dw2pixdzbv")).toEqual([
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "Resumes", href: "/resumes" },
+      { label: "Home", href: "/dashboard" },
+      { label: "My resumes", href: "/resumes" },
       { label: "Details", href: "" },
     ])
   })
 
   it("does not call a static settings sub-page a detail record", () => {
     expect(getBreadcrumbs("/settings/profile")).toEqual([
-      { label: "Dashboard", href: "/dashboard" },
+      { label: "Home", href: "/dashboard" },
       { label: "Settings", href: "/settings" },
     ])
   })
 
   it("keeps a static create route under its section", () => {
     expect(getBreadcrumbs("/jobs/cover-letter/new")).toEqual([
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "Cover Letters", href: "/jobs/cover-letter" },
+      { label: "Home", href: "/dashboard" },
+      { label: "Cover letters", href: "/jobs/cover-letter" },
     ])
   })
 })

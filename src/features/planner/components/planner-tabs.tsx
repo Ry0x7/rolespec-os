@@ -71,7 +71,7 @@ export function PlannerTabs({ todos, notes, agenda, jobOptions, today }: Planner
       <div
         role="tablist"
         aria-label="Planner sections"
-        className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-muted p-1"
+        className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted p-1 sm:grid-cols-4"
       >
         {TABS.map(({ id, label, icon: Icon }, index) => (
           <button
@@ -88,10 +88,9 @@ export function PlannerTabs({ todos, notes, agenda, jobOptions, today }: Planner
             onClick={() => setTab(id)}
             onKeyDown={(event) => handleKeyDown(event, index)}
             className={cn(
-              // Four labels plus icons are wider than a phone: tighten the
-              // mobile sizing first and let the row scroll only if it still
-              // cannot fit (very narrow screens), rather than clipping Goals.
-              "inline-flex min-w-0 flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-2 sm:px-3 sm:text-sm",
+              // Four tabs stack two-by-two on a phone instead of scrolling, so
+              // Goals is visible without a sideways swipe.
+              "inline-flex min-h-10 w-full min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-2 sm:px-3 sm:text-sm",
               tab === id
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground active:bg-input"

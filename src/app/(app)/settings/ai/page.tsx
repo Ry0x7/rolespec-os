@@ -4,6 +4,7 @@ import { getEffectiveAiConfigForUser } from "@/shared/lib/ai-provider"
 import { AI_PROVIDER_META } from "@/shared/lib/ai-providers/constants"
 import { listOpenCodeModels } from "@/shared/lib/ai-providers/opencode-models"
 import { UserAiKeyForm } from "@/features/settings/components/user-ai-key-form"
+import { WebResearchCard } from "@/features/settings/components/web-research-card"
 import { getUserAiKeyStatus } from "@/features/settings/services/user-ai-settings.service"
 import { Badge } from "@/shared/ui/badge"
 import {
@@ -73,6 +74,8 @@ export default async function SettingsAiPage() {
         </CardContent>
       </Card>
 
+      <WebResearchCard />
+
       <Card>
         <CardHeader>
           <CardTitle>Zero-Cost &amp; Local AI Options</CardTitle>
@@ -93,6 +96,12 @@ export default async function SettingsAiPage() {
             </li>
             <li>
               <strong className="text-foreground">ChatGPT via Codex CLI:</strong> Run <code className="font-mono text-xs">npm i -g @openai/codex &amp;&amp; codex login</code> on the host to use your ChatGPT Plus/Pro quota at $0 extra cost.
+            </li>
+            <li>
+              <strong className="text-foreground">Google Antigravity:</strong> Install the{" "}
+              <code className="font-mono text-xs">agy</code> CLI, run it once to sign
+              in with Google, then choose Google Antigravity above. No API key is
+              needed.
             </li>
             <li>
               <strong className="text-foreground">Ollama / LM Studio:</strong> Run open models locally (e.g. Qwen 2.5, Llama 3) with full offline privacy.

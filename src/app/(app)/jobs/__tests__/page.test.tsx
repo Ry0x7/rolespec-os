@@ -386,12 +386,12 @@ describe("jobs page header cross-links", () => {
     expect(board.getAttribute("href")).toBe("/workspace")
   })
 
-  it("keeps the Discover link beside the board link", async () => {
+  it("keeps the Find jobs link beside the board link", async () => {
     const tree = await JobsPage({ searchParams: Promise.resolve({}) })
     render(tree)
 
     expect(
-      screen.getByRole("link", { name: /discover/i }).getAttribute("href"),
+      screen.getByRole("link", { name: /find jobs/i }).getAttribute("href"),
     ).toBe("/jobs/discover")
   })
 })

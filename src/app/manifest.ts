@@ -7,7 +7,9 @@ export default function manifest(): MetadataRoute.Manifest {
     name: siteConfig.name,
     short_name: siteConfig.shortName,
     description: siteConfig.description,
-    start_url: "/dashboard",
+    // Root decides first-run onboarding vs dashboard; pinning the installed
+    // app to /dashboard skipped setup for a brand-new workspace.
+    start_url: "/",
     scope: "/",
     display: "standalone",
     lang: "en",

@@ -183,10 +183,10 @@ describe("ResumePreview first-open measurement", () => {
     render(<ResumePreview />)
 
     act(() => {
-      screen.getByRole("button", { name: "Customize appearance" }).click()
+      screen.getByRole("button", { name: "Design and layout" }).click()
     })
 
-    const panel = screen.getByRole("dialog", { name: "Resume appearance settings" })
+    const panel = screen.getByRole("dialog", { name: "Resume design settings" })
     expect(panel).toBeTruthy()
 
     act(() => {

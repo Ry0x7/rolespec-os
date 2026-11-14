@@ -17,6 +17,7 @@ import {
   useResumeStore,
   type ATSResults as ATSResultsType,
   type ATSIssue,
+  type ATSSuggestion,
   type Section,
 } from "../hooks/use-resume-store"
 import { useATSTrigger } from "../hooks/use-ats-trigger"
@@ -417,25 +418,43 @@ function IssueItem({
   )
 }
 
+/**
+ * Older analyses stored suggestions as plain strings. They still exist in
+ * saved rows, and treating one as an object rendered two empty lines with no
+ * explanation. Normalise both shapes at the render boundary.
+ */
+function normalizeSuggestion(value: ATSSuggestion | string): ATSSuggestion {
+  if (typeof value !== "string") return value
+  return {
+    category: "General",
+    title: "Suggestion",
+    description: value,
+    priority: "low",
+  }
+}
+
 function SuggestionsList({
   suggestions,
 }: {
-  suggestions: ATSResultsType["suggestions"]
+  suggestions: Array<ATSSuggestion | string>
 }) {
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Suggestions
       </h4>
-      {suggestions.map((s, idx) => (
-        <div key={idx} className="flex gap-2 rounded-md border border-border bg-background p-2.5 text-xs">
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5 text-green-600 dark:text-green-500" />
-          <div className="space-y-0.5">
-            <p className="font-medium text-foreground">{s.title}</p>
-            <p className="text-muted-foreground">{s.description}</p>
+      {suggestions.map((value, idx) => {
+        const s = normalizeSuggestion(value)
+        return (
+          <div key={idx} className="flex gap-2 rounded-md border border-border bg-background p-2.5 text-xs">
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5 text-green-600 dark:text-green-500" />
+            <div className="space-y-0.5">
+              <p className="font-medium text-foreground">{s.title}</p>
+              <p className="text-muted-foreground">{s.description}</p>
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

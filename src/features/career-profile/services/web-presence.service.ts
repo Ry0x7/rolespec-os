@@ -4,6 +4,7 @@ import { request as httpsRequest } from "node:https"
 import type { LookupFunction } from "node:net"
 
 import { normalizeUrl } from "@/shared/lib/url"
+import { firecrawlScrape, isFirecrawlConfigured } from "@/features/discovery/services/firecrawl.client"
 
 /**
  * Opt-in evidence from public web sources.
@@ -397,6 +398,43 @@ function mapNetworkError(error: unknown): WebSourceError {
   return new WebSourceError("FETCH_FAILED", "That page could not be reached.")
 }
 
+/**
+ * Validates a URL without fetching it, for a service that will fetch the page
+ * on our behalf (Firecrawl). Literal private addresses and local hostnames are
+ * rejected by `parseTarget`; a public hostname that resolves privately is
+ * rejected here too. Firecrawl still makes its own request, so this is the
+ * safety gate on what we are willing to hand it.
+ */
+export async function assertPublicUrl(rawUrl: string): Promise<URL> {
+  const target = parseTarget(rawUrl)
+  const hostname = target.url.hostname.replace(/^\[|\]$/g, "").toLowerCase()
+  if (parseIpv4(hostname) !== null || hostname.includes(":")) {
+    return target.url
+  }
+
+  const addresses = await new Promise<{ address: string; family: number }[]>(
+    (resolve, reject) => {
+      dnsLookup(hostname, { all: true, verbatim: true }, (error, list) => {
+        if (error) reject(error)
+        else resolve(list)
+      })
+    }
+  ).catch(() => {
+    throw new WebSourceError("FETCH_FAILED", "That address could not be resolved.")
+  })
+
+  if (
+    addresses.length === 0 ||
+    addresses.some((entry) => !isPublicIpAddress(entry.address))
+  ) {
+    throw new WebSourceError(
+      "BLOCKED_HOST",
+      "Private and local addresses cannot be scanned."
+    )
+  }
+  return target.url
+}
+
 /** Public-only GET with redirects revalidated at every hop. */
 export async function fetchPublicUrl(
   rawUrl: string,
@@ -786,12 +824,49 @@ export function extractPortfolioPage(html: string, rawUrl: string): PortfolioSca
 /** Fetches and extracts a portfolio page. Only HTML is accepted. */
 export async function scanPortfolio(rawUrl: string): Promise<PortfolioScan> {
   const target = parseTarget(rawUrl)
-  const result = await fetchPublicUrl(target.url.toString(), {
-    headers: { accept: "text/html,application/xhtml+xml" },
-    accept: (contentType) =>
-      contentType.includes("text/html") || contentType.includes("application/xhtml+xml"),
-  })
-  return extractPortfolioPage(result.body, result.url)
+  const address = target.url.toString()
+  let direct: PortfolioScan | null = null
+  let directError: unknown = null
+
+  try {
+    const result = await fetchPublicUrl(address, {
+      headers: { accept: "text/html,application/xhtml+xml" },
+      accept: (contentType) =>
+        contentType.includes("text/html") || contentType.includes("application/xhtml+xml"),
+    })
+    direct = extractPortfolioPage(result.body, result.url)
+    // A JS-only shell can arrive as valid HTML with almost no readable text.
+    if (direct.text.trim().length >= 40 || direct.projects.length > 0) return direct
+  } catch (error) {
+    directError = error
+    // Never route a private or malformed target through a third-party fetcher,
+    // even when the direct request failed before it could connect.
+    if (
+      error instanceof WebSourceError &&
+      (error.code === "INVALID_URL" || error.code === "BLOCKED_HOST")
+    ) {
+      throw error
+    }
+  }
+
+  if (await isFirecrawlConfigured()) {
+    try {
+      await assertPublicUrl(address)
+      const html = await firecrawlScrape(address, undefined, "html")
+      if (html) {
+        const scanned = extractPortfolioPage(html, address)
+        if (scanned.text.trim().length > 0 || scanned.projects.length > 0) return scanned
+      }
+    } catch {
+      // The direct result or error below is the useful answer when Firecrawl
+      // cannot add anything. A failed fallback is never surfaced on its own.
+    }
+  }
+
+  if (direct) return direct
+  throw directError instanceof Error
+    ? directError
+    : new WebSourceError("FETCH_FAILED", "That page could not be reached.")
 }
 
 // ─── Deterministic mapping ──────────────────────────────────────────────────

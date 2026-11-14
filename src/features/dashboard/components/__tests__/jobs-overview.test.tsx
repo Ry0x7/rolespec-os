@@ -136,7 +136,7 @@ describe("JobsOverview layout", () => {
   it("leaves the upcoming card out entirely when nothing is scheduled", () => {
     renderOverview()
 
-    expect(screen.queryByText("Upcoming (next 7 days)")).toBeNull()
+    expect(screen.queryByText("Coming up (next 7 days)")).toBeNull()
     expect(screen.queryByText("Nothing scheduled")).toBeNull()
   })
 
@@ -151,7 +151,7 @@ describe("JobsOverview layout", () => {
       />,
     )
 
-    expect(screen.getByText("Upcoming (next 7 days)")).toBeTruthy()
+    expect(screen.getByText("Coming up (next 7 days)")).toBeTruthy()
   })
 
   it("puts the daily goal after recent applications", () => {

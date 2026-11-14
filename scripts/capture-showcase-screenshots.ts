@@ -1,20 +1,90 @@
 import "dotenv/config"
 import fs from "node:fs"
 import path from "node:path"
-import { chromium, type Browser, type Page } from "playwright"
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright"
+
+/**
+ * Captures the product screenshots used by the GitHub Pages showcase.
+ *
+ * These are the real authenticated screens, not crops of a marketing page.
+ * Each shot is captured twice — light and dark — because the showcase swaps
+ * images with its own theme toggle.
+ *
+ * Usage:
+ *   SCREENSHOT_BASE_URL=http://localhost:3100 npx tsx scripts/capture-showcase-screenshots.ts
+ *
+ * The local workspace is seeded with scripts/seed-showcase-alex.ts so the
+ * dashboard, jobs board and resume editor contain realistic data.
+ */
 
 const BASE_URL = process.env.SCREENSHOT_BASE_URL ?? "http://localhost:3100"
 const ACCESS_KEY = process.env.ROLSPEC_ACCESS_KEY ?? ""
-
 const OUT_DIR = path.join(process.cwd(), "screenshots")
 const STORAGE_STATE = path.join(process.cwd(), "scripts", "screenshots", ".auth.json")
+
+type Shot = {
+  name: string
+  route: string
+  prepare?: (page: Page) => Promise<void>
+}
+
+const SHOTS: Shot[] = [
+  {
+    name: "dashboard",
+    route: "/dashboard",
+    async prepare(page) {
+      // Make the hero show the ranked shortlist rather than an empty panel.
+      // Re-running the capture still works: the button reads "Refresh ranking".
+      const rank = page.getByRole("button", { name: /Rank saved jobs/i })
+      if (await rank.count()) {
+        await rank.first().click()
+        await page.waitForTimeout(2500)
+      }
+    },
+  },
+  { name: "jobs", route: "/jobs" },
+  {
+    name: "resume-editor",
+    route: "/resumes/showcase_alex_morgan_resume",
+  },
+  {
+    name: "job-prepare",
+    route: "/jobs/app_job_stripe_infra#prepare",
+    async prepare(page) {
+      await page.getByRole("heading", { name: "Apply with the agent" }).waitFor({ timeout: 15_000 })
+    },
+  },
+  {
+    name: "job-ats",
+    route: "/resumes/showcase_alex_morgan_resume",
+    async prepare(page) {
+      // The header labels the chip by the analysis it ran: "Quality score 94"
+      // for an overall check or "Match score 88" for a job description.
+      const atsButton = page.getByRole("button", { name: /(Quality|Match|ATS) score \d+/ })
+      await atsButton.first().click()
+      await page.locator('[aria-label="ATS analysis"]').waitFor({ timeout: 15_000 })
+      await page.waitForTimeout(400)
+    },
+  },
+  {
+    name: "workspace",
+    route: "/workspace",
+    async prepare(page) {
+      // Collapse the goal and quick-add panels so the pipeline, not the forms,
+      // is the visible part of the workspace.
+      for (const label of ["Collapse Goal panel", "Collapse Quick add panel"]) {
+        const button = page.getByRole("button", { name: label })
+        if (await button.count()) await button.first().click()
+      }
+      await page.waitForTimeout(500)
+    },
+  },
+]
 
 async function unlockIfNeeded(page: Page) {
   if (!page.url().includes("/unlock")) return
   if (!ACCESS_KEY) {
-    throw new Error(
-      "This deployment uses the owner key gate. Set ROLSPEC_ACCESS_KEY to capture the workspace."
-    )
+    throw new Error("This deployment uses the owner key gate. Set ROLSPEC_ACCESS_KEY to capture the workspace.")
   }
   await page.fill("#owner-access-key", ACCESS_KEY)
   await Promise.all([
@@ -41,79 +111,55 @@ async function hideDevOverlays(page: Page) {
   })
 }
 
-async function main() {
-  fs.mkdirSync(OUT_DIR, { recursive: true })
-
-  const browser: Browser = await chromium.launch()
-
-  // 1. Setup authenticated context
-  const context = await browser.newContext({
-    viewport: { width: 1560, height: 960 },
+async function captureMode(browser: Browser, mode: "light" | "dark", suffix: string) {
+  const context: BrowserContext = await browser.newContext({
+    viewport: { width: 1440, height: 960 },
+    deviceScaleFactor: 1,
     storageState: fs.existsSync(STORAGE_STATE) ? STORAGE_STATE : undefined,
   })
 
-  const checkPage = await context.newPage()
-  await checkPage.goto(`${BASE_URL}/workspace`, { waitUntil: "domcontentloaded" })
-  await unlockIfNeeded(checkPage)
-  await checkPage.close()
+  // The app reads its stored mode before first paint, so set it on the origin
+  // once and reload; addInitScript alone would not have an origin yet.
+  const page = await context.newPage()
+  await page.goto(BASE_URL, { waitUntil: "domcontentloaded" })
+  await unlockIfNeeded(page)
+  await page.evaluate((nextMode) => {
+    localStorage.setItem("rolespec-mode", nextMode)
+    // The first-run tour card is useful in the app, but it covers the lower
+    // third of every marketing capture.
+    localStorage.setItem("rolespec-tour", "skipped")
+  }, mode)
+  await page.close()
 
-  // SCREENSHOT 1: /workspace (Kanban board)
-  console.log("Capturing /workspace...")
-  {
+  for (const shot of SHOTS) {
     const page = await context.newPage()
-    await page.setViewportSize({ width: 1600, height: 1120 })
-    await page.goto(`${BASE_URL}/workspace`, { waitUntil: "networkidle" })
+    await page.goto(`${BASE_URL}${shot.route}`, { waitUntil: "networkidle" })
     await hideDevOverlays(page)
-    // Collapse the Quick Add panel so the Pipeline gets center stage
-    const collapseButtons = page.locator('button[aria-label="Collapse panel"], button:has-text("Quick add") + div button, div:has-text("Quick add") button')
-    const count = await collapseButtons.count()
-    if (count > 0) {
-      await collapseButtons.first().click().catch(() => {})
-    }
-    await page.waitForTimeout(600)
+    if (shot.prepare) await shot.prepare(page)
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.waitForTimeout(500)
 
-    const outPath = path.join(OUT_DIR, "workspace.png")
+    const outPath = path.join(OUT_DIR, `${shot.name}${suffix}.png`)
     await page.screenshot({ path: outPath, fullPage: false })
-    console.log(`Saved ${outPath}`)
-    await page.close()
-  }
-
-  // SCREENSHOT 2: /resumes/showcase_alex_morgan_resume (Resume Editor)
-  console.log("Capturing /resumes/showcase_alex_morgan_resume...")
-  {
-    const page = await context.newPage()
-    await page.setViewportSize({ width: 1520, height: 980 })
-    await page.goto(`${BASE_URL}/resumes/showcase_alex_morgan_resume`, { waitUntil: "networkidle" })
-    await hideDevOverlays(page)
-    await page.waitForTimeout(1000)
-
-    const outPath = path.join(OUT_DIR, "resume-editor.png")
-    await page.screenshot({ path: outPath, fullPage: false })
-    console.log(`Saved ${outPath}`)
-    await page.close()
-  }
-
-  // SCREENSHOT 3: /jobs (Job Applications & Opportunity Radar)
-  console.log("Capturing /jobs...")
-  {
-    const page = await context.newPage()
-    await page.setViewportSize({ width: 1520, height: 980 })
-    await page.goto(`${BASE_URL}/jobs`, { waitUntil: "networkidle" })
-    await hideDevOverlays(page)
-    await page.waitForTimeout(1000)
-
-    const outPath = path.join(OUT_DIR, "jobs-discover.png")
-    await page.screenshot({ path: outPath, fullPage: false })
-    console.log(`Saved ${outPath}`)
+    console.log(`${mode}: ${shot.route} -> ${path.relative(process.cwd(), outPath)}`)
     await page.close()
   }
 
   await context.close()
-  await browser.close()
-  console.log("All Playwright screenshots captured successfully!")
 }
 
-main().catch((err) => {
-  console.error(err)
+async function main() {
+  fs.mkdirSync(OUT_DIR, { recursive: true })
+  const browser = await chromium.launch()
+
+  await captureMode(browser, "light", "")
+  await captureMode(browser, "dark", "-dark")
+
+  await browser.close()
+  console.log("Showcase screenshots captured.")
+}
+
+main().catch((error) => {
+  console.error(error)
   process.exit(1)
 })

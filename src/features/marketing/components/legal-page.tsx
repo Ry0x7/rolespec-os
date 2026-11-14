@@ -1,12 +1,13 @@
 import Link from "next/link"
 import { ArrowLeft, Shield } from "lucide-react"
 import { siteConfig } from "@/config/site"
-import { MarketingNav } from "./marketing-nav"
-import { MarketingFooter } from "./marketing-footer"
+import { LogoMark } from "./logo-mark"
 
 /**
  * Shared chrome for /terms and /privacy.
  *
+ * The in-app landing page is gone, so these pages carry the product header
+ * rather than the marketing navigation that used to point at removed sections.
  * The copy is derived from what this codebase actually does. Legal review of the
  * final wording is still an operator responsibility, so it is tracked in the
  * release checklist rather than shown as a banner to every visitor.
@@ -22,7 +23,20 @@ export function LegalPage({
 }) {
   return (
     <div className="force-dark dark flex min-h-dvh flex-col bg-background text-foreground">
-      <MarketingNav />
+      <header className="border-b border-border">
+        <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-2">
+            <LogoMark className="h-8 w-8" />
+            <span className="text-lg font-bold tracking-tight">{siteConfig.name}</span>
+          </Link>
+          <Link
+            href="/dashboard"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Open workspace
+          </Link>
+        </div>
+      </header>
 
       <main className="relative flex-1 overflow-hidden">
         {/* Ambient background aura glow */}
@@ -34,11 +48,11 @@ export function LegalPage({
         <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16">
           <div className="mb-8 flex items-center justify-between">
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back to overview</span>
+              <span>Back to workspace</span>
             </Link>
             <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">
               <Shield className="h-3.5 w-3.5 text-brand-400" />
@@ -56,8 +70,6 @@ export function LegalPage({
           </div>
         </div>
       </main>
-
-      <MarketingFooter />
     </div>
   )
 }

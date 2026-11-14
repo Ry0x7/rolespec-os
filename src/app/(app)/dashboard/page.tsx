@@ -50,6 +50,7 @@ export default async function DashboardPage() {
     resumeCount,
     atsScannedCount,
     jobCount,
+    stagedAttempt,
     jobStats,
     attention,
   ] = await Promise.all([
@@ -75,6 +76,20 @@ export default async function DashboardPage() {
         },
       }),
       prisma.jobApplication.count({ where: { userId: session.user.id } }),
+      // A prepared package that has not been sent yet is the most concrete
+      // unfinished task in the workspace, so it outranks undecided saved jobs.
+      prisma.submissionAttempt.findFirst({
+        where: {
+          userId: session.user.id,
+          status: "STAGED",
+          jobApplicationId: { not: null },
+          // A manually-recorded application must not keep asking the owner to
+          // "finish" a package they already sent outside the tracker.
+          jobApplication: { status: "INTERESTED" },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { jobApplicationId: true, jobTitle: true, companyName: true },
+      }),
       getJobsDashboardStats(session.user.id, todayStart),
       getDashboardAttention(session.user.id, todayStart, tzOffsetMinutes),
     ])
@@ -100,6 +115,13 @@ export default async function DashboardPage() {
     resumeCount,
     applicationCount: jobCount,
     interestedCount,
+    stagedAttempt: stagedAttempt?.jobApplicationId
+      ? {
+          jobApplicationId: stagedAttempt.jobApplicationId,
+          companyName: stagedAttempt.companyName,
+          jobTitle: stagedAttempt.jobTitle,
+        }
+      : undefined,
     followUpDueCount: jobStats.followUpDue,
     topDecide: topDecide && {
       id: topDecide.id,
@@ -125,9 +147,9 @@ export default async function DashboardPage() {
   return (
     <PageShell>
       <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl font-bold">Home</h1>
         <p className="text-sm text-muted-foreground">
-          Decide what deserves your time. Prepare with evidence, apply on your terms.
+          See what to do next, what the agent prepared, and what is waiting on your answer.
         </p>
       </div>
 

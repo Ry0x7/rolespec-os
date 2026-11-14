@@ -1011,16 +1011,23 @@ export function IntakePanel({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-brand-400" aria-hidden="true" />
-          {reviewOnly ? "Profile proposals" : "Unified intake"}
+          {reviewOnly ? "Profile suggestions" : "Add everything in one place"}
         </CardTitle>
         <CardDescription>
-          Bring in what you already have from a resume, GitHub, a LinkedIn export,
-          your website, a conversation or a voice transcript. Every source produces
-          the same reviewable facts. Nothing is confirmed or submitted automatically,
-          and manual profile editing still works without any of this.
+          Start with a resume, your GitHub, a LinkedIn file, your website, or just
+          tell us about your work in chat. You only need to do this once: we turn it
+          into suggestions you can review, and the rest of your profile updates as
+          you confirm them.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+          <p className="font-medium">What happens next</p>
+          <p className="mt-1 text-muted-foreground">
+            We show the facts we found. Check each one, fix anything that is wrong,
+            then choose what to add. Nothing changes until you confirm it.
+          </p>
+        </div>
         {offline && <p role="status" className="rounded-md bg-muted p-3 text-sm">You’re offline. Showing the last loaded proposals. Changes are not queued.</p>}
         {streamError && !offline && <p role="status" className="text-sm text-muted-foreground">Live source updates disconnected. Retrying persisted status reads; you can also refresh this run.</p>}
         {!reviewOnly && <>

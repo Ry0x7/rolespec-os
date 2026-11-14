@@ -625,6 +625,20 @@ model AiSettings {
   @@map("ai_settings")
 }
 
+/// Optional third-party connections saved from Settings instead of a shell
+/// environment file. This is what makes the desktop build usable without an
+/// `.env`: the Firecrawl key is encrypted with the same secret-box used for AI
+/// keys, and an environment value remains a fallback for self-hosted setups.
+model IntegrationSettings {
+  id                 String  @id @default("singleton")
+  firecrawlApiKeyEnc String? @db.Text
+  firecrawlBaseUrl   String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("integration_settings")
+}
+
 /// Per-user override of the deployment-wide `AiSettings`. `apiKeyEnc` holds the
 /// user's own LLM API key encrypted with AES-256-GCM
 /// (`src/shared/lib/secret-box.ts`); plaintext is never stored or returned.
