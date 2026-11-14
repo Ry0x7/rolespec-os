@@ -20,6 +20,7 @@ import { PageShell } from "@/shared/components/page-shell"
 import { getUserDayStart, getUserTzOffsetMinutes } from "@/shared/lib/user-day"
 import { OpportunityLeaderboard } from "@/features/ranking/components/opportunity-leaderboard"
 import { AttentionOverview } from "@/features/dashboard/components/attention-inbox"
+import { parsePreferences } from "@/features/settings/schemas/preferences.schema"
 
 /** True when an AI call would pass its own preflight right now. */
 async function hasUsableAiConfig(userId: string): Promise<boolean> {
@@ -54,6 +55,7 @@ export default async function DashboardPage() {
     stagedAttempt,
     jobStats,
     attention,
+    userSettings,
   ] = await Promise.all([
       // The exact inverse of `needsSetup` on /career-profile, so the checkmark
       // and that page's guided-setup redirect can never disagree. The old
@@ -93,7 +95,15 @@ export default async function DashboardPage() {
       }),
       getJobsDashboardStats(session.user.id, todayStart),
       getDashboardAttention(session.user.id, todayStart, tzOffsetMinutes),
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { preferences: true },
+      }),
     ])
+
+  // The rail preference also carries the daily application target. Parse it once
+  // here so the server-rendered strip and the Settings field cannot disagree.
+  const { dailyApplicationGoal } = parsePreferences(userSettings?.preferences)
 
   const hasCareerProfile = Boolean(
     careerProfile &&
@@ -159,6 +169,7 @@ export default async function DashboardPage() {
         todayStart={jobStats.todayStart}
         appliedToday={jobStats.appliedToday}
         followUpDue={jobStats.followUpDue}
+        dailyGoal={dailyApplicationGoal}
         upcomingEvents={jobStats.upcomingEvents}
       />
 

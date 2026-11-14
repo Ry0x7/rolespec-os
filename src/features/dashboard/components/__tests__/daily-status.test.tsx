@@ -34,6 +34,7 @@ describe("DailyStatus", () => {
         todayStart={todayStart}
         appliedToday={1}
         followUpDue={2}
+        dailyGoal={2}
         upcomingEvents={[interview]}
       />,
     )
@@ -60,6 +61,7 @@ describe("DailyStatus", () => {
         todayStart={todayStart}
         appliedToday={2}
         followUpDue={0}
+        dailyGoal={2}
         upcomingEvents={[]}
       />,
     )
@@ -76,5 +78,26 @@ describe("DailyStatus", () => {
     expect(
       within(metric("upcoming")).getByText("Next 7 days are clear"),
     ).toBeTruthy()
+  })
+
+  it("reads the daily goal from Settings instead of a fixed target", () => {
+    render(
+      <DailyStatus
+        todayStart={todayStart}
+        appliedToday={3}
+        followUpDue={0}
+        dailyGoal={5}
+        upcomingEvents={[]}
+      />,
+    )
+
+    const applications = metric("applications")
+    expect(within(applications).getByText("2 to go")).toBeTruthy()
+    expect(within(applications).getByText("of 5 goal")).toBeTruthy()
+    expect(
+      within(applications)
+        .getByRole("progressbar")
+        .getAttribute("aria-valuemax"),
+    ).toBe("5")
   })
 })

@@ -6,17 +6,31 @@ import {
   atsWatchlistSchema,
   parsePreferences,
 } from "../preferences.schema"
+import { DEFAULT_DAILY_JOB_GOAL } from "@/features/jobs/constants/goals"
 
 describe("parsePreferences", () => {
   it("defaults preferredCurrency to PHP on rows saved before the field existed", () => {
     expect(
       parsePreferences({ defaultAiInstructions: "be brief", emailNotifications: false })
     ).toEqual({
+      dailyApplicationGoal: DEFAULT_DAILY_JOB_GOAL,
       defaultAiInstructions: "be brief",
       emailNotifications: false,
       preferredCurrency: "PHP",
       atsWatchlist: DEFAULT_ATS_COMPANY_WATCHLIST,
     })
+  })
+
+  it("keeps a stored daily application goal", () => {
+    expect(
+      parsePreferences({ dailyApplicationGoal: 6 }).dailyApplicationGoal
+    ).toBe(6)
+  })
+
+  it("drops an out-of-range daily goal back to the defaults", () => {
+    expect(parsePreferences({ dailyApplicationGoal: 0 })).toEqual(
+      DEFAULT_PREFERENCES
+    )
   })
 
   it("keeps a stored preferredCurrency", () => {

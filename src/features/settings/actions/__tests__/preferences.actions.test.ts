@@ -13,6 +13,7 @@ vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }))
 import { updatePreferences } from "../preferences.actions"
 
 const INPUT = {
+  dailyApplicationGoal: 4,
   defaultAiInstructions: "be brief",
   emailNotifications: false,
   preferredCurrency: "USD" as const,
@@ -35,11 +36,19 @@ describe("updatePreferences", () => {
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
   })
 
+  it("rejects a daily goal outside the settings range", async () => {
+    expect(
+      await updatePreferences({ ...INPUT, dailyApplicationGoal: 0 })
+    ).toEqual({ error: "Set a daily goal between 1 and 20" })
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+  })
+
   it("keeps the ATS watchlist the settings form never sends", async () => {
     expect(await updatePreferences(INPUT)).toEqual({ success: true })
 
     const data = mockPrisma.user.update.mock.calls[0][0].data
     expect(data.preferences).toEqual({
+      dailyApplicationGoal: 4,
       defaultAiInstructions: "be brief",
       emailNotifications: false,
       preferredCurrency: "USD",

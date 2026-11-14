@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/shared/ui/button"
+import { Input } from "@/shared/ui/input"
 import { Label } from "@/shared/ui/label"
 import { Select } from "@/shared/ui/select"
 import { Textarea } from "@/shared/ui/textarea"
@@ -13,6 +14,10 @@ import {
   type PreferredCurrency,
   type UserPreferences,
 } from "../schemas/preferences.schema"
+import {
+  DAILY_JOB_GOAL_MAX,
+  DAILY_JOB_GOAL_MIN,
+} from "@/features/jobs/constants/goals"
 
 const CURRENCY_OPTIONS: { value: PreferredCurrency; label: string }[] = [
   { value: "USD", label: "$ US Dollar" },
@@ -22,6 +27,9 @@ const CURRENCY_OPTIONS: { value: PreferredCurrency; label: string }[] = [
 export function PreferencesForm({ preferences }: { preferences: UserPreferences }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [dailyGoal, setDailyGoal] = useState(
+    String(preferences.dailyApplicationGoal)
+  )
   const [instructions, setInstructions] = useState(preferences.defaultAiInstructions)
   const emailNotifications = preferences.emailNotifications
   const [preferredCurrency, setPreferredCurrency] = useState<PreferredCurrency>(
@@ -32,6 +40,7 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
     e.preventDefault()
     startTransition(async () => {
       const result = await updatePreferences({
+        dailyApplicationGoal: Number(dailyGoal),
         defaultAiInstructions: instructions,
         emailNotifications,
         preferredCurrency,
@@ -50,8 +59,19 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
     emailNotifications: boolean
     preferredCurrency: PreferredCurrency
   }) {
+    // A half-typed goal must not block the currency toggle. The form submit
+    // still reports the invalid value; an instant toggle keeps the saved one.
+    const parsedGoal = Number(dailyGoal)
+    const savedGoal =
+      Number.isInteger(parsedGoal) &&
+      parsedGoal >= DAILY_JOB_GOAL_MIN &&
+      parsedGoal <= DAILY_JOB_GOAL_MAX
+        ? parsedGoal
+        : preferences.dailyApplicationGoal
+
     startTransition(async () => {
       const result = await updatePreferences({
+        dailyApplicationGoal: savedGoal,
         defaultAiInstructions: instructions,
         ...patch,
       })
@@ -66,6 +86,27 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="dailyApplicationGoal">Daily application goal</Label>
+        <Input
+          id="dailyApplicationGoal"
+          name="dailyApplicationGoal"
+          type="number"
+          inputMode="numeric"
+          min={DAILY_JOB_GOAL_MIN}
+          max={DAILY_JOB_GOAL_MAX}
+          step={1}
+          value={dailyGoal}
+          disabled={isPending}
+          onChange={(e) => setDailyGoal(e.target.value)}
+          className="w-24"
+        />
+        <p className="text-xs text-muted-foreground">
+          How many applications you aim to submit each day ({DAILY_JOB_GOAL_MIN}–
+          {DAILY_JOB_GOAL_MAX}). The dashboard uses this for today&apos;s progress.
+        </p>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="defaultAiInstructions">Default AI instructions</Label>
         <Textarea

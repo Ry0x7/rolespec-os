@@ -55,6 +55,7 @@ export function QuickToggles({ preferences }: { preferences: UserPreferences }) 
   function save(patch: Partial<UserPreferences>) {
     startTransition(async () => {
       const result = await updatePreferences({
+        dailyApplicationGoal: preferences.dailyApplicationGoal,
         defaultAiInstructions: preferences.defaultAiInstructions,
         emailNotifications: preferences.emailNotifications,
         preferredCurrency: preferences.preferredCurrency,

@@ -4,7 +4,6 @@ import { Badge, type BadgeProps } from "@/shared/ui/badge"
 import { Progress } from "@/shared/ui/progress"
 import { cn } from "@/shared/lib/utils"
 import { calendarDaysBetween, formatCalendarDate } from "@/shared/lib/dates"
-import { DAILY_JOB_GOAL } from "@/features/jobs/constants/goals"
 import { FOLLOW_UP_DUE_PARAM } from "@/features/jobs/services/follow-up.service"
 import type { UpcomingEvent } from "@/features/jobs/services/dashboard-stats.service"
 
@@ -23,16 +22,19 @@ function relativeDayLabel(days: number): string {
 
 type Tone = NonNullable<BadgeProps["variant"]>
 
-function applicationsBadge(appliedToday: number): {
+function applicationsBadge(
+  appliedToday: number,
+  dailyGoal: number
+): {
   label: string
   variant: Tone
 } {
-  if (appliedToday >= DAILY_JOB_GOAL) {
+  if (appliedToday >= dailyGoal) {
     return { label: "Goal met", variant: "success" }
   }
   if (appliedToday > 0) {
     return {
-      label: `${DAILY_JOB_GOAL - appliedToday} to go`,
+      label: `${dailyGoal - appliedToday} to go`,
       variant: "info",
     }
   }
@@ -51,17 +53,20 @@ export function DailyStatus({
   todayStart,
   appliedToday,
   followUpDue,
+  dailyGoal,
   upcomingEvents,
 }: {
   /** The user's own calendar day (UTC midnight), resolved on the server page. */
   todayStart: Date
   appliedToday: number
   followUpDue: number
+  /** The user's saved target, so the strip never hardcodes two applications. */
+  dailyGoal: number
   /** Already sorted soonest-first by the dashboard stats service. */
   upcomingEvents: UpcomingEvent[]
 }) {
-  const goalMet = appliedToday >= DAILY_JOB_GOAL
-  const applications = applicationsBadge(appliedToday)
+  const goalMet = appliedToday >= dailyGoal
+  const applications = applicationsBadge(appliedToday, dailyGoal)
   const nextEvent = upcomingEvents[0]
 
   return (
@@ -81,13 +86,13 @@ export function DailyStatus({
             {formatCalendarDate(todayStart)}
           </span>
         </div>
-        <p className="hidden text-xs text-muted-foreground sm:block">
+        <p className="hidden min-w-0 text-xs text-muted-foreground sm:block">
           Applications, follow-ups and what is coming up.
         </p>
       </div>
 
       <div className="grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <div className="px-4 py-3.5 sm:px-5" data-metric="applications">
+        <div className="min-w-0 px-4 py-3.5 sm:px-5" data-metric="applications">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium">Applications today</p>
             <Badge variant={applications.variant} size="sm">
@@ -97,23 +102,23 @@ export function DailyStatus({
           <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums">
             {appliedToday}
             <span className="ml-1 font-sans text-xs font-normal text-muted-foreground">
-              of {DAILY_JOB_GOAL} goal
+              of {dailyGoal} goal
             </span>
           </p>
           <Progress
             value={appliedToday}
-            max={DAILY_JOB_GOAL}
+            max={dailyGoal}
             size="sm"
             className="mt-2 border border-input"
             color={goalMet ? "success" : "brand"}
-            label={`Applications today: ${appliedToday} of ${DAILY_JOB_GOAL}`}
+            label={`Applications today: ${appliedToday} of ${dailyGoal}`}
           />
         </div>
 
         <Link
           href={`/jobs?filter=${FOLLOW_UP_DUE_PARAM}`}
           data-metric="follow-ups"
-          className="group block px-4 py-3.5 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-5"
+          className="group block min-w-0 px-4 py-3.5 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-5"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="flex items-center gap-1.5 text-xs font-medium">
@@ -142,7 +147,7 @@ export function DailyStatus({
           </p>
         </Link>
 
-        <div className="px-4 py-3.5 sm:px-5" data-metric="upcoming">
+        <div className="min-w-0 px-4 py-3.5 sm:px-5" data-metric="upcoming">
           <div className="flex items-center justify-between gap-2">
             <p className="flex items-center gap-1.5 text-xs font-medium">
               <CalendarClock

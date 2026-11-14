@@ -5,6 +5,11 @@ import {
   MAX_WORKDAY_BOARD_URL_LENGTH,
   parseWorkdayBoardUrl,
 } from "@/features/discovery/constants/workday-board"
+import {
+  DAILY_JOB_GOAL_MAX,
+  DAILY_JOB_GOAL_MIN,
+  DEFAULT_DAILY_JOB_GOAL,
+} from "@/features/jobs/constants/goals"
 
 export const MAX_AI_INSTRUCTIONS_LENGTH = 1000
 
@@ -118,6 +123,19 @@ export const PREFERRED_CURRENCIES = ["USD", "PHP"] as const
 export type PreferredCurrency = (typeof PREFERRED_CURRENCIES)[number]
 
 export const preferencesSchema = z.object({
+  /** Applications the dashboard counts toward each day. */
+  dailyApplicationGoal: z
+    .number()
+    .int("Use a whole number of applications")
+    .min(
+      DAILY_JOB_GOAL_MIN,
+      `Set a daily goal between ${DAILY_JOB_GOAL_MIN} and ${DAILY_JOB_GOAL_MAX}`
+    )
+    .max(
+      DAILY_JOB_GOAL_MAX,
+      `Set a daily goal between ${DAILY_JOB_GOAL_MIN} and ${DAILY_JOB_GOAL_MAX}`
+    )
+    .default(DEFAULT_DAILY_JOB_GOAL),
   defaultAiInstructions: z.string().max(MAX_AI_INSTRUCTIONS_LENGTH),
   emailNotifications: z.boolean(),
   preferredCurrency: z.enum(PREFERRED_CURRENCIES),
@@ -130,6 +148,7 @@ export type UserPreferences = z.infer<typeof preferencesSchema>
 export type UpdatePreferencesInput = z.input<typeof preferencesSchema>
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
+  dailyApplicationGoal: DEFAULT_DAILY_JOB_GOAL,
   defaultAiInstructions: "",
   emailNotifications: true,
   // PHP keeps the behaviour every existing row already had.

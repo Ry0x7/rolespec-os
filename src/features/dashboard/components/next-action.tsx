@@ -184,10 +184,15 @@ export function NextActionCard({ action }: { action: NextAction }) {
         <Badge variant="brand" size="sm" className="uppercase tracking-wide">
           Next step
         </Badge>
-        <h2 className="mt-1 break-words text-base font-semibold text-foreground">
+        {/* A saved role can carry absurdly long, unbroken names. The card is a
+            prompt, not the job page, so clamp it rather than letting a single
+            row push the rest of the dashboard far down the screen. */}
+        <h2 className="mt-1 line-clamp-3 break-words text-base font-semibold text-foreground">
           {action.title}
         </h2>
-        <p className="mt-1 break-words text-sm text-muted-foreground">{action.description}</p>
+        <p className="mt-1 line-clamp-2 break-words text-sm text-muted-foreground">
+          {action.description}
+        </p>
       </div>
 
       <Link

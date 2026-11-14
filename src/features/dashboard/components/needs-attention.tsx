@@ -88,8 +88,11 @@ export function NeedsAttention({
           </div>
           <ul className="space-y-2">
             {overdueFollowUps.map((row) => (
-              <li key={row.id} className="flex items-center gap-3">
-                <div className="min-w-0 flex-1">
+              <li
+                key={row.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap"
+              >
+                <div className="min-w-0 flex-1 basis-full sm:basis-0">
                   <Link
                     href={jobDetailHref(row.id, "track")}
                     className="block truncate text-sm font-medium hover:underline"
@@ -105,7 +108,7 @@ export function NeedsAttention({
                 </p>
                 {/* The chase itself, without a trip to the job page. Same
                     actions and same toasts as the tracker row. */}
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0">
                   <QuickActionButtons
                     applicationId={row.id}
                     companyName={row.companyName}
@@ -130,8 +133,11 @@ export function NeedsAttention({
           </h3>
           <ul className="space-y-2">
             {awaitingOutcome.map((row) => (
-              <li key={row.id} className="flex items-center gap-3">
-                <div className="min-w-0 flex-1">
+              <li
+                key={row.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:flex-nowrap"
+              >
+                <div className="min-w-0 flex-1 basis-full sm:basis-0">
                   {/* Track owns the outcome panel and the status control, so
                       recording the result is one click from here. */}
                   <Link
@@ -144,7 +150,7 @@ export function NeedsAttention({
                     {row.jobTitle}
                   </p>
                 </div>
-                <p className="shrink-0 text-xs font-medium text-muted-foreground">
+                <p className="w-full break-words text-xs font-medium text-muted-foreground sm:ml-auto sm:w-auto sm:shrink-0 sm:text-right">
                   {awaitingOutcomeLabel(row.daysSince)}
                 </p>
               </li>

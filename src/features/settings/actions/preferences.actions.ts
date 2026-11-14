@@ -37,6 +37,7 @@ export async function updatePreferences(input: UpdatePreferencesInput) {
       data: {
         preferences: {
           ...parsePreferences(user?.preferences),
+          dailyApplicationGoal: parsed.data.dailyApplicationGoal,
           defaultAiInstructions: parsed.data.defaultAiInstructions,
           emailNotifications: parsed.data.emailNotifications,
           preferredCurrency: parsed.data.preferredCurrency,

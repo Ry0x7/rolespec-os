@@ -109,7 +109,7 @@ const StatusStrip = memo(function StatusStrip({ counts }: { counts: StatusCount[
     <ul className="grid grid-cols-4 gap-x-3 gap-y-3 sm:grid-cols-7">
       {counts.map(({ status, count }) => (
         <li key={status} className="min-w-0">
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <span
               className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT[status])}
               aria-hidden="true"
