@@ -288,6 +288,7 @@ function DraftSummary({ output }: { output: JsonObject }) {
   const changes = numberValue(output.claimCount) ?? numberValue(output.claims) ?? numberValue(output.suggestionCount) ?? 0
   const evidence = numberValue(output.evidenceReferenceCount) ?? numberValue(output.evidenceReferences) ?? 0
   const issues = objectList(output.issues)
+  const issueCount = numberValue(output.issueCount) ?? issues.length
   const coverage = objectValue(output.requirementCoverage)
   const coverageTotal = numberValue(coverage.total) ?? 0
   const needsReview = output.needsReview === true
@@ -300,7 +301,7 @@ function DraftSummary({ output }: { output: JsonObject }) {
     <Stats items={[
       { label: "Changes made", value: changes },
       { label: "Evidence references", value: evidence },
-      { label: "Validation notes", value: issues.length },
+      { label: "Validation notes", value: issueCount },
     ]} />
     {coverageTotal > 0 && <FoldedDetails title="Requirement coverage" count={plural(coverageTotal, "requirement")}>
       <dl className="grid grid-cols-3 gap-3 text-sm">
@@ -309,7 +310,7 @@ function DraftSummary({ output }: { output: JsonObject }) {
         <div><dt className="text-muted-foreground">Not supported</dt><dd className="font-medium tabular-nums">{numberValue(coverage.unsupported) ?? 0}</dd></div>
       </dl>
     </FoldedDetails>}
-    {issues.length > 0 && <FoldedDetails title="Validation notes" count={plural(issues.length, "note")}>
+    {issues.length > 0 && <FoldedDetails title="Validation notes" count={plural(issueCount, "note")}>
       <ul className="space-y-2 text-sm">{issues.map((issue, index) => {
         const severity = textValue(issue.severity)
         return <li key={index}><Badge variant={severity === "error" ? "error" : "warning"}>{readable(severity ?? "note")}</Badge><p className="mt-1">{textValue(issue.message) ?? textValue(issue.code) ?? "Review this note."}</p></li>
