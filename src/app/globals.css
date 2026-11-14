@@ -14,42 +14,41 @@
 }
 
 @theme {
-  /* Neutral ramp. Deliberately NOT Tailwind's zinc: every surface carries a
-     slight cool (blue-violet) cast and the three chrome levels are spread far
-     enough apart to read as separate planes — canvas < sidebar < card. */
-  --color-background: #09090C;
-  --color-foreground: #FAFAFA;
+  /* Apple-style neutral ramp: pure black canvas, #1D1D1F surfaces. The three
+     chrome levels read as separate planes — canvas < sidebar < card. */
+  --color-background: #000000;
+  --color-foreground: #F5F5F7;
 
   /* App chrome (desktop rail + mobile drawer). Sits BETWEEN the canvas and the
      cards so the navigation never merges into the content it frames. */
-  --color-sidebar: #0C0C10;
+  --color-sidebar: #1D1D1F;
 
-  --color-card: #131319;
-  --color-card-foreground: #FAFAFA;
+  --color-card: #1D1D1F;
+  --color-card-foreground: #F5F5F7;
 
-  --color-muted: #1C1C23;
-  /* Raised a step off zinc-400 (#A1A1AA): helper text is frequently rendered at
-     11-12px, where the old value was the AA floor with no headroom. */
-  --color-muted-foreground: #A9A9B6;
+  --color-muted: #2C2C2E;
+  /* Helper text is frequently rendered at 11-12px: keep AA headroom. */
+  --color-muted-foreground: #A1A1A6;
 
-  --color-accent: #7C3AED;
-  --color-accent-foreground: #FAFAFA;
+  --color-accent: #1447E6;
+  --color-accent-foreground: #FFFFFF;
 
-  --color-border: #26262E;
-  --color-input: #33333D;
-  --color-ring: #7C3AED;
+  --color-border: #38383A;
+  --color-input: #48484A;
+  --color-ring: #1447E6;
 
-  --color-brand-50: #FAF5FF;
-  --color-brand-100: #F3E8FF;
-  --color-brand-200: #E9D5FF;
-  --color-brand-300: #D8B4FE;
-  --color-brand-400: #C084FC;
-  --color-brand-500: #A855F7;
-  --color-brand-600: #9333EA;
-  --color-brand-700: #7C3AED;
-  --color-brand-800: #6B21A8;
-  --color-brand-900: #581C87;
-  --color-brand-950: #3B0764;
+  /* Default accent: Apple blue. Other accents remain switchable themes below. */
+  --color-brand-50: #EFF6FF;
+  --color-brand-100: #DBEAFE;
+  --color-brand-200: #BEDBFF;
+  --color-brand-300: #8EC5FF;
+  --color-brand-400: #51A2FF;
+  --color-brand-500: #2B7FFF;
+  --color-brand-600: #155DFC;
+  --color-brand-700: #1447E6;
+  --color-brand-800: #193CB8;
+  --color-brand-900: #1C398E;
+  --color-brand-950: #162456;
 
   --color-success: #22C55E;
   --color-warning: #EAB308;
@@ -58,10 +57,9 @@
 
   /* next/font injects these on <html>; fall back to the named family, then system. */
   --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
-  /* Headings only (h1/h2 base rule + CardTitle). Space Grotesk's wider counters
-     and squarer terminals give titles a voice of their own against Inter body
-     copy, which is what stops the UI reading as an untouched shadcn preset. */
-  --font-display: var(--font-space-grotesk), "Space Grotesk", var(--font-inter),
+  /* Headings only (h1/h2 base rule + CardTitle). Apple-style: tightened Inter
+     at semibold weight with negative tracking for display sizes. */
+  --font-display: var(--font-inter), "Inter", -apple-system, "SF Pro Display",
     ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace,
     monospace;
@@ -70,9 +68,11 @@
      browser fell back to Georgia and the two render trees diverged. */
   --font-serif: "Times New Roman", Times, serif;
 
+  /* Apple radius scale: controls 8, cards 14, sheets/panels 18. */
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
 
   /* Elevation: dark-UI shadows (black, not neutral) for lifted surfaces. */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
@@ -107,7 +107,7 @@
 /* ---------------------------------------------------------------------------
    Accent theming
    ---------------------------------------------------------------------------
-   The @theme brand ramp above is the DEFAULT accent (violet). Every other
+   The @theme brand ramp above is the DEFAULT accent (blue). Every other
    accent is a plain (unlayered) rule on <html> that overrides the same custom
    properties, so `bg-brand-700`, `text-brand-400`, `ring-ring` etc. re-theme
    without any component changes. These blocks must stay OUTSIDE @theme so they
@@ -121,16 +121,24 @@
    Derived accent vars (below) are what the decorative glow/gradient rules read,
    so they follow the active ramp automatically. */
 :root {
-  --glow: var(--color-brand-700);
-  --glow-weak: color-mix(in srgb, var(--glow) 20%, transparent);
-  --glow-soft: color-mix(in srgb, var(--glow) 30%, transparent);
-  --glow-medium: color-mix(in srgb, var(--glow) 40%, transparent);
-  --glow-strong: color-mix(in srgb, var(--glow) 55%, transparent);
-  --glow-bright: color-mix(in srgb, var(--glow) 50%, transparent);
-  --glow-ring: color-mix(in srgb, var(--color-brand-400) 35%, transparent);
+  /* Motion easings (Emil/Apple): entrances ease-out, on-screen movement
+     ease-in-out, drawers iOS-like. Never ease-in on a UI entrance. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
-  /* Warm partner stop for the hero wordmark gradient. */
-  --accent-warm: #EC4899;
+  --glow: var(--color-brand-700);
+  /* Legacy glow shadows kept as faint elevation so older components still
+     compile, but Apple restraint: no halo, just a whisper of depth. */
+  --glow-weak: color-mix(in srgb, var(--glow) 8%, transparent);
+  --glow-soft: color-mix(in srgb, var(--glow) 12%, transparent);
+  --glow-medium: color-mix(in srgb, var(--glow) 18%, transparent);
+  --glow-strong: color-mix(in srgb, var(--glow) 24%, transparent);
+  --glow-bright: color-mix(in srgb, var(--glow) 20%, transparent);
+  --glow-ring: color-mix(in srgb, var(--color-brand-400) 25%, transparent);
+
+  /* Partner stop for gradients; light sky blue in the default theme. */
+  --accent-warm: #2997FF;
 
   /* Chevron for `shared/ui/select.tsx`. A native <select> cannot host a
      pseudo-element, so the arrow is a background image; a data URI cannot read
@@ -140,17 +148,17 @@
 
   /* Frosted surface (`.glass`) and scrollbar, as tokens so `html.light` and
      `.force-dark` can retint them without re-authoring the utilities. */
-  --glass-bg: rgba(19, 19, 25, 0.7);
+  --glass-bg: rgba(28, 28, 30, 0.72);
   --glass-border: rgba(255, 255, 255, 0.06);
-  --scrollbar-thumb: #33333D;
-  --scrollbar-thumb-hover: #474753;
+  --scrollbar-thumb: #48484A;
+  --scrollbar-thumb-hover: #636366;
 
   /* Immutable copies of the three brand steps that `html.light` re-points at
      darker literals (see the light block below). `.force-dark` reads these to
      restore the dark ramp for the permanently-dark marketing/auth subtrees. */
-  --brand-300-dark: #D8B4FE;
-  --brand-400-dark: #C084FC;
-  --brand-500-dark: #A855F7;
+  --brand-300-dark: #8EC5FF;
+  --brand-400-dark: #51A2FF;
+  --brand-500-dark: #2B7FFF;
 }
 
 html.theme-blue {
@@ -171,6 +179,26 @@ html.theme-blue {
   --brand-300-dark: #8EC5FF;
   --brand-400-dark: #51A2FF;
   --brand-500-dark: #2B7FFF;
+}
+
+html.theme-violet {
+  --color-brand-50: #FAF5FF;
+  --color-brand-100: #F3E8FF;
+  --color-brand-200: #E9D5FF;
+  --color-brand-300: #D8B4FE;
+  --color-brand-400: #C084FC;
+  --color-brand-500: #A855F7;
+  --color-brand-600: #9333EA;
+  --color-brand-700: #7C3AED;
+  --color-brand-800: #6B21A8;
+  --color-brand-900: #581C87;
+  --color-brand-950: #3B0764;
+  --color-accent: #7C3AED;
+  --color-ring: #7C3AED;
+  --accent-warm: #ED6AFF;
+  --brand-300-dark: #D8B4FE;
+  --brand-400-dark: #C084FC;
+  --brand-500-dark: #A855F7;
 }
 
 html.theme-emerald {
@@ -268,7 +296,7 @@ html.theme-cyan {
    cycle across the theme blocks, so instead each step is re-pointed at a LITERAL
    from the same hue's darker end (300 -> that hue's 800, 400/500 -> its 700).
    Every accent therefore needs its own `html.light.theme-*` block; the bare
-   `html.light` block below carries the default (violet) values. Specificity
+   `html.light` block below carries the default (blue) values. Specificity
    note: `html.light` (0,1,1) ties with `html.theme-*` and wins on source order,
    which is why the per-accent blocks must be (0,2,1). */
 html.light {
@@ -276,27 +304,20 @@ html.light {
      white) so every card, panel and sidebar reads as a raised surface instead of
      dissolving into the page. Everything below is re-seated a zinc step darker
      to keep the hierarchy canvas < muted < border < input intact. */
-  --color-background: #EDEDF2;
-  --color-foreground: #09090C;
+  /* Apple light: #F5F5F7 canvas, white cards, #F5F5F7 rail. */
+  --color-background: #F5F5F7;
+  --color-foreground: #1D1D1F;
 
-  /* Mirrors the dark ramp's canvas < sidebar < card ordering, inverted: the rail
-     is lifted off the canvas but still sits below the white cards. */
-  --color-sidebar: #F7F7FA;
+  --color-sidebar: #F5F5F7;
 
   --color-card: #FFFFFF;
-  --color-card-foreground: #09090C;
+  --color-card-foreground: #1D1D1F;
 
-  /* `bg-muted` is the fill for inputs/selects and the hover state of ghost
-     buttons: zinc-200 keeps fields visible on white cards and distinct from
-     the canvas. */
-  --color-muted: #E3E3E9;
-  --color-muted-foreground: #55555F;
+  --color-muted: #E5E5EA;
+  --color-muted-foreground: #6E6E73;
 
-  /* `border-input` is the hover/focus border above `border-border`, and
-     `bg-input` a slightly heavier field fill, so it has to stay darker than
-     the border without turning fields muddy: between zinc-300 and zinc-400. */
-  --color-border: #D3D3DB;
-  --color-input: #C9C9D3;
+  --color-border: #D1D1D6;
+  --color-input: #C7C7CC;
 
   /* Status colours at the weight that clears 4.5:1 as small text on white:
      green/amber need 700, red/blue already pass at 600. */
@@ -315,22 +336,28 @@ html.light {
   /* Near-opaque: a 70% white fill washes out over light page content, which
      made dialogs read as a tint rather than a panel. */
   --glass-bg: rgba(255, 255, 255, 0.94);
-  /* Matches this mode's #55555F muted-foreground. */
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2355555F' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  /* Matches this mode's #6E6E73 muted-foreground. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236E6E73' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
 
   --glass-border: rgba(9, 9, 12, 0.12);
-  --scrollbar-thumb: #D3D3DB;
-  --scrollbar-thumb-hover: #A9A9B6;
+  --scrollbar-thumb: #D1D1D6;
+  --scrollbar-thumb-hover: #AEAEB2;
 
-  --color-brand-300: #6B21A8;
-  --color-brand-400: #7C3AED;
-  --color-brand-500: #7C3AED;
+  --color-brand-300: #193CB8;
+  --color-brand-400: #1447E6;
+  --color-brand-500: #1447E6;
 }
 
 html.light.theme-blue {
   --color-brand-300: #193CB8;
   --color-brand-400: #1447E6;
   --color-brand-500: #1447E6;
+}
+
+html.light.theme-violet {
+  --color-brand-300: #6B21A8;
+  --color-brand-400: #7C3AED;
+  --color-brand-500: #7C3AED;
 }
 
 html.light.theme-emerald {
@@ -364,19 +391,19 @@ html.light.theme-cyan {
    per-element, so re-declaring everything `html.light` touches re-darkens the
    whole subtree, and the extra `dark` class keeps `dark:` utilities live. */
 .force-dark {
-  --color-background: #09090C;
-  --color-foreground: #FAFAFA;
+  --color-background: #000000;
+  --color-foreground: #F5F5F7;
 
-  --color-sidebar: #0C0C10;
+  --color-sidebar: #1D1D1F;
 
-  --color-card: #131319;
-  --color-card-foreground: #FAFAFA;
+  --color-card: #1D1D1F;
+  --color-card-foreground: #F5F5F7;
 
-  --color-muted: #1C1C23;
-  --color-muted-foreground: #A9A9B6;
+  --color-muted: #2C2C2E;
+  --color-muted-foreground: #A1A1A6;
 
-  --color-border: #26262E;
-  --color-input: #33333D;
+  --color-border: #38383A;
+  --color-input: #48484A;
 
   --color-success: #22C55E;
   --color-warning: #EAB308;
@@ -411,10 +438,12 @@ html.light.theme-cyan {
   }
 
   /* Titles get the display face app-wide. `h3` is deliberately excluded: it is
-     the generic in-panel heading level and CardTitle opts in explicitly. */
+     the generic in-panel heading level and CardTitle opts in explicitly.
+     Display tracking tightens with size (Apple optical-sizing discipline). */
   h1,
   h2 {
     font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
 
   /* The resume preview must render in the same family as the PDF export, so the
@@ -444,6 +473,15 @@ html.light.theme-cyan {
 }
 
 @layer utilities {
+  /* Hide the scrollbar on horizontally scrolling tab strips; the strip stays
+     keyboard- and touch-scrollable. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   .glass {
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
@@ -491,6 +529,19 @@ html.light.theme-cyan {
       filter: blur(72px);
       will-change: transform;
     }
+  }
+
+  /* On light grounds the brand wash must be a whisper, not a cloud. */
+  html.light .hero-blob-brand {
+    opacity: 0.22;
+  }
+
+  html.light .hero-blob-indigo {
+    opacity: 0.16;
+  }
+
+  html.light .hero-blob-pink {
+    opacity: 0.12;
   }
 
   .hero-blob-brand {
@@ -654,6 +705,21 @@ html.light.theme-cyan {
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
+}
+
+/* Apple material fallbacks: reduced transparency frosts chrome solid, and
+   forced-contrast gets a defined border instead of relying on translucency. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: var(--color-card);
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .glass {
+    border-color: var(--color-border);
+  }
 }
 
 /* Belt-and-braces alongside the <noscript> block in the root layout: browsers

@@ -1,10 +1,11 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest"
-import { cleanup, render, screen, fireEvent } from "@testing-library/react"
+import { cleanup, render, screen, fireEvent, within } from "@testing-library/react"
 import { AppearanceForm } from "../appearance-form"
 import {
   ACCENT_STORAGE_KEY,
   ACCENT_THEMES,
   MODE_STORAGE_KEY,
+  MOTION_MODES,
   THEME_MODES,
 } from "@/shared/lib/theme"
 
@@ -23,15 +24,16 @@ describe("AppearanceForm", () => {
       expect(screen.getByRole("button", { name: accent.label })).toBeTruthy()
     }
     expect(screen.getAllByRole("button")).toHaveLength(
-      ACCENT_THEMES.length + THEME_MODES.length
+      ACCENT_THEMES.length + THEME_MODES.length + MOTION_MODES.length
     )
   })
 
   it("renders one button per colour mode", () => {
     render(<AppearanceForm />)
 
+    const group = screen.getByRole("group", { name: "Colour mode" })
     for (const mode of THEME_MODES) {
-      expect(screen.getByRole("button", { name: mode.label })).toBeTruthy()
+      expect(within(group).getByRole("button", { name: mode.label })).toBeTruthy()
     }
   })
 
@@ -75,8 +77,9 @@ describe("AppearanceForm", () => {
 
     render(<AppearanceForm />)
 
+    const group = screen.getByRole("group", { name: "Colour mode" })
     expect(
-      screen.getByRole("button", { name: "System" }).getAttribute("aria-pressed")
+      within(group).getByRole("button", { name: "System" }).getAttribute("aria-pressed")
     ).toBe("true")
   })
 
@@ -84,8 +87,11 @@ describe("AppearanceForm", () => {
     render(<AppearanceForm />)
 
     expect(
-      screen.getByRole("button", { name: "Violet" }).getAttribute("aria-pressed")
+      screen.getByRole("button", { name: "Blue" }).getAttribute("aria-pressed")
     ).toBe("true")
+    expect(
+      screen.getByRole("button", { name: "Violet" }).getAttribute("aria-pressed")
+    ).toBe("false")
     expect(
       screen.getByRole("button", { name: "Emerald" }).getAttribute("aria-pressed")
     ).toBe("false")
@@ -102,7 +108,7 @@ describe("AppearanceForm", () => {
       screen.getByRole("button", { name: "Emerald" }).getAttribute("aria-pressed")
     ).toBe("true")
     expect(
-      screen.getByRole("button", { name: "Violet" }).getAttribute("aria-pressed")
+      screen.getByRole("button", { name: "Blue" }).getAttribute("aria-pressed")
     ).toBe("false")
   })
 

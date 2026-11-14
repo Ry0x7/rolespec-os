@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google"
+import { Inter, JetBrains_Mono } from "next/font/google"
 import { siteConfig } from "@/config/site"
 import { AppToaster } from "@/shared/components/app-toaster"
 import { AppMotionProvider } from "@/shared/components/app-motion-provider"
@@ -13,16 +13,8 @@ const inter = Inter({
   preload: true,
 })
 
-// Heading face (see `--font-display` in globals.css). Only the weights headings
-// actually use are requested, so the extra face costs one small subset file.
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-  preload: false,
-})
-
+// Headings reuse Inter (see `--font-display` in globals.css) — one text face
+// for the whole product, Apple-style. No separate display face to load.
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
@@ -115,7 +107,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} dark`}
+      className={`${inter.variable} ${jetbrainsMono.variable} dark`}
       // The init script below adds a `theme-*` class and can swap `dark` for
       // `light` before hydration, so <html>'s className legitimately differs
       // from the server markup.

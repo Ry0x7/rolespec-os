@@ -53,7 +53,8 @@ export const Header = memo(function Header({ owner, canLock = false }: HeaderPro
   return (
     <>
       <CommandPalette openToken={paletteToken} />
-      <header className="sticky top-0 z-[var(--z-sticky)] flex min-h-14 flex-wrap items-center gap-2 border-b border-border bg-background/80 px-4 py-1 backdrop-blur-sm lg:px-6">
+      {/* Apple toolbar material: translucent + blur + saturation, content scrolls under. */}
+      <header className="sticky top-0 z-[var(--z-sticky)] flex min-h-14 flex-wrap items-center gap-2 border-b border-border bg-background/72 px-4 py-1 backdrop-blur-xl lg:px-6">
         <MobileNav />
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">{title}</p>

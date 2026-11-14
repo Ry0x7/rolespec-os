@@ -1,107 +1,124 @@
-import React from "react"
-import { EyeOff, Sparkles, Download } from "lucide-react"
+import React, { useEffect, useRef, useState } from "react"
+import { LogoMarkIcon, MenuIcon, XIcon, DownloadIcon, SunIcon, MoonIcon } from "./icons"
 
 interface ShowcaseNavProps {
   isReducedMotion: boolean
   onToggleMotion: () => void
+  theme: "light" | "dark"
+  onToggleTheme: () => void
 }
 
-export function ShowcaseNav({ isReducedMotion, onToggleMotion }: ShowcaseNavProps) {
+const LINKS = [
+  { href: "#hyperframes", label: "How it works" },
+  { href: "#features", label: "Features" },
+  { href: "#models", label: "AI models" },
+  { href: "#quickstart", label: "Download" },
+]
+
+export function ShowcaseNav({ isReducedMotion, onToggleMotion, theme, onToggleTheme }: ShowcaseNavProps) {
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const wasOpen = useRef(false)
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [open])
+
+  useEffect(() => {
+    if (!open && wasOpen.current) triggerRef.current?.focus()
+    wasOpen.current = open
+  }, [open])
+
   return (
-    <header className="glass sticky top-0 z-50 w-full border-b border-white/[0.08] backdrop-blur-xl">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Brand */}
-        <div className="flex items-center gap-3">
-          <a href="#" className="flex items-center gap-2.5 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 p-0.5 shadow-[0_0_15px_rgba(168,85,247,0.4)]">
-              <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-[#09090e]">
-                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-purple-400" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
-                </svg>
-              </div>
-            </div>
-            <span className="font-display text-lg font-bold tracking-tight text-white group-hover:text-purple-300 transition-colors">
-              RoleSpec <span className="text-purple-400">OS</span>
-            </span>
-          </a>
+    <header className="sticky top-0 z-50 w-full border-b" style={{ background: "var(--nav-bg)", borderColor: "var(--border-soft)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}>
+      <div className="mx-auto flex h-12 w-full max-w-5xl items-center justify-between gap-2 px-4 sm:px-6">
+        <a href="#" className="flex shrink-0 items-center gap-2" aria-label="RoleSpec OS home" style={{ color: "var(--text)" }}>
+          <LogoMarkIcon className="h-6 w-6" />
+          <span className="text-sm font-semibold tracking-tight">RoleSpec OS</span>
+        </a>
 
-          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 font-mono text-[11px] font-medium text-purple-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            v2.0.1 / v1.0.5
-          </span>
-        </div>
-
-        {/* Links */}
-        <nav aria-label="Main" className="hidden md:flex items-center gap-7 font-sans text-sm font-medium text-zinc-400">
-          <a href="#hyperframes" className="hover:text-white transition-colors">
-            Hyperframes
-          </a>
-          <a href="#features" className="hover:text-white transition-colors">
-            Core Workflows
-          </a>
-          <a href="#models" className="hover:text-white transition-colors">
-            AI Models
-          </a>
-          <a href="#quickstart" className="hover:text-white transition-colors">
-            Downloads
-          </a>
+        <nav aria-label="Main" className="hidden items-center gap-7 text-sm md:flex" style={{ color: "var(--text-2)" }}>
+          {LINKS.map((l) => (
+            <a key={l.href} href={l.href} className="opacity-80 transition-opacity hover:opacity-100">{l.label}</a>
+          ))}
         </nav>
 
-        {/* Actions & Motion Controls */}
-        <div className="flex items-center gap-2.5">
-          {/* Reduce Motion Toggle Button */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={theme === "dark" ? "Switch to light appearance" : "Switch to dark appearance"}
+            aria-pressed={theme === "dark"}
+            title={theme === "dark" ? "Light appearance" : "Dark appearance"}
+            className="hidden h-9 w-9 items-center justify-center rounded-full transition-opacity hover:opacity-70 sm:inline-flex"
+            style={{ color: "var(--text-2)" }}
+          >
+            {theme === "dark" ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
+          </button>
           <button
             type="button"
             onClick={onToggleMotion}
             aria-label={isReducedMotion ? "Reduced motion active. Click to enable full animations." : "Full motion active. Click to reduce animations."}
-            title={isReducedMotion ? "Reduced motion enabled (click to enable full motion)" : "Full motion active (click to reduce motion)"}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-mono font-medium transition-all ${
-              isReducedMotion
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                : "border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20"
-            }`}
+            aria-pressed={isReducedMotion}
+            className="hidden rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:block"
+            style={{ color: "var(--text-2)" }}
           >
-            {isReducedMotion ? (
-              <>
-                <EyeOff className="h-3.5 w-3.5 text-amber-400" />
-                <span className="hidden sm:inline">Reduce Motion: On</span>
-                <span className="sm:hidden">Reduced</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                <span className="hidden sm:inline">Motion: Full</span>
-                <span className="sm:hidden">Motion</span>
-              </>
-            )}
+            Motion: {isReducedMotion ? "reduced" : "full"}
           </button>
 
-          {/* GitHub Link */}
           <a
-            href="https://github.com/Ry0x7/rolespec-os"
+            href="https://github.com/Ry0x7/rolespec-os/releases/latest"
             target="_blank"
             rel="noreferrer"
-            aria-label="GitHub Repository"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:border-white/20 hover:text-white transition-all"
+            className="btn-primary !px-4 !py-1.5 !text-sm"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
-              <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-            </svg>
-            <span>GitHub</span>
+            <DownloadIcon className="h-4 w-4" />
+            Download
           </a>
 
-          {/* Windows Download CTA */}
-          <a
-            href="https://github.com/Ry0x7/rolespec-os/releases/download/v1.0.5/RoleSpec_1.0.5_x64-setup.exe"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_0_15px_rgba(147,51,234,0.35)] hover:from-purple-500 hover:to-indigo-500 transition-all"
+          <button
+            ref={triggerRef}
+            type="button"
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="showcase-mobile-menu"
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full md:hidden"
+            style={{ color: "var(--text)" }}
           >
-            <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Download Windows</span>
-            <span className="sm:hidden">Download</span>
-          </a>
+            {open ? <XIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {open && (
+        <nav id="showcase-mobile-menu" aria-label="Mobile" className="border-t md:hidden" style={{ borderColor: "var(--border-soft)", background: "var(--background)" }}>
+          <ul className="mx-auto w-full max-w-5xl px-4 py-2 sm:px-6">
+            {LINKS.map((l) => (
+              <li key={l.href}>
+                <a href={l.href} onClick={() => setOpen(false)} className="flex min-h-11 items-center text-base" style={{ color: "var(--text)" }}>{l.label}</a>
+              </li>
+            ))}
+            <li>
+              <button type="button" onClick={onToggleTheme} className="flex min-h-11 w-full items-center justify-between text-base" style={{ color: "var(--text)" }}>
+                <span>Dark appearance</span>
+                <span className="rounded-full px-2.5 py-0.5 text-xs" style={{ background: "var(--surface)", color: "var(--text-2)" }}>{theme === "dark" ? "On" : "Off"}</span>
+              </button>
+            </li>
+            <li>
+              <button type="button" onClick={onToggleMotion} className="flex min-h-11 w-full items-center justify-between text-base" style={{ color: "var(--text)" }}>
+                <span>Reduce motion</span>
+                <span className="rounded-full px-2.5 py-0.5 text-xs" style={{ background: "var(--surface)", color: "var(--text-2)" }}>{isReducedMotion ? "On" : "Off"}</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      )}
     </header>
   )
 }

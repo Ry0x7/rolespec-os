@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og"
 
-const ACCENT = "#7C3AED"
+// Matches the default accent theme (Apple blue) and LogoMark's tile.
+const ACCENT = "#1447E6"
 
 type IconSpec = {
   id: string
@@ -63,8 +64,7 @@ export default async function Icon({ id }: { id: Promise<string | number> }) {
           fontSize,
           fontWeight: 700,
           letterSpacing: "-0.05em",
-        }}
-      >
+        }}        >
         R
       </div>
     ),

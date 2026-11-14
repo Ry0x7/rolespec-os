@@ -46,7 +46,9 @@ const NavLink = memo(function NavLink({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex min-h-11 items-center gap-3 rounded-md px-2 py-2 lg:min-h-9 text-sm transition-colors duration-150",
+        // Apple sidebar: 8px selection pill, quick ease-out transitions,
+        // press feedback on the row itself.
+        "flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 lg:min-h-9 text-sm transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.99]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
           ? "bg-muted font-medium text-foreground"
@@ -55,8 +57,8 @@ const NavLink = memo(function NavLink({
     >
       <Icon
         className={cn(
-          "h-4 w-4 shrink-0",
-          active ? "text-brand-400" : "text-muted-foreground"
+          "h-[18px] w-[18px] shrink-0",
+          active ? "text-foreground" : "text-muted-foreground"
         )}
       />
       {label}
