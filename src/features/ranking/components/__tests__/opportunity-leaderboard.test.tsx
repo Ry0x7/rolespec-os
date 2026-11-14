@@ -42,6 +42,43 @@ describe("persisted opportunity leaderboard", () => {
     expect(screen.getByRole("link", { name: "Systems engineer" })).toBeTruthy()
     expect(screen.getByRole("alert").textContent).toContain("Too many ranking requests")
   })
+  it("shows only the first ranked roles and expands on request", async () => {
+    const entries = Array.from({ length: 8 }, (_, i) => ({
+      ...result.entries[0],
+      postingId: `posting-${i + 1}`,
+      rank: i + 1,
+    }))
+    const many = { ...result, entries }
+    const manyJobs = entries.map((entry, i) => ({
+      id: `application-${i + 1}`,
+      jobId: entry.postingId,
+      status: "INTERESTED",
+      job: {
+        title: `Role ${i + 1}`,
+        companyName: "Example",
+        location: null,
+        workType: null,
+      },
+    }))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => json({ snapshot: { id: "snapshot-1", result: many, poolSize: 8, reranked: false } }))
+    )
+
+    render(<OpportunityLeaderboard jobs={manyJobs} />)
+
+    await screen.findByText("Role 1")
+    // jsdom has no matchMedia, so the component uses its phone branch (two
+    // rows). The desktop branch shows five.
+    expect(screen.queryByText("Role 3")).toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "Show all 8 ranked roles" }))
+    expect(screen.getByText("Role 8")).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Show top 2" }))
+    expect(screen.queryByText("Role 3")).toBeNull()
+  })
+
   it("disables ranking when offline and offers honest empty state", async () => {
     vi.stubGlobal("fetch", vi.fn(() => json({ snapshot: null })))
     render(<OpportunityLeaderboard jobs={[]} />)
