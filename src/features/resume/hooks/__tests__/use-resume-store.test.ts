@@ -13,6 +13,12 @@ import {
   saveCustomization,
 } from "../../types/customization"
 import { enhanceStateKey, saveEnhanceState } from "../../lib/enhance-persistence"
+import {
+  DEFAULT_GROUP_ADDITIONAL,
+  groupAdditionalStorageKey,
+  loadGroupAdditional,
+  saveGroupAdditional,
+} from "../../lib/group-additional-persistence"
 
 const makeResume = (overrides: Partial<ResumeData> = {}): ResumeData => ({
   id: "resume-1",
@@ -390,6 +396,48 @@ describe("useResumeStore - dismissing enhance suggestions", () => {
     useResumeStore.getState().setEnhanceSuggestions(current.map((s) => ({ ...s })))
 
     expect(find(pending.id)!.dismissed).toBeFalsy()
+  })
+})
+
+describe("useResumeStore - combine Skills & Certifications preference", () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    useResumeStore.setState({
+      resume: null,
+      groupAdditional: DEFAULT_GROUP_ADDITIONAL.enabled,
+      groupAdditionalTitle: DEFAULT_GROUP_ADDITIONAL.title,
+    })
+  })
+
+  it("persists the toggle and title per resume and restores them on load", () => {
+    useResumeStore.getState().setResume(makeResume())
+    useResumeStore.getState().setGroupAdditional(true)
+    useResumeStore.getState().setGroupAdditionalTitle("Credentials")
+
+    const stored = window.localStorage.getItem(groupAdditionalStorageKey("resume-1"))
+    expect(stored && JSON.parse(stored)).toEqual({ enabled: true, title: "Credentials" })
+
+    // A resume that never enabled the toggle opens separately with the
+    // default title instead of inheriting the previous resume's choice.
+    useResumeStore.getState().setResume(makeResume({ id: "resume-2" }))
+    expect(useResumeStore.getState().groupAdditional).toBe(false)
+    expect(useResumeStore.getState().groupAdditionalTitle).toBe(
+      DEFAULT_GROUP_ADDITIONAL.title
+    )
+
+    useResumeStore.getState().setResume(makeResume())
+    expect(useResumeStore.getState().groupAdditional).toBe(true)
+    expect(useResumeStore.getState().groupAdditionalTitle).toBe("Credentials")
+  })
+
+  it("loads a stored preference saved before the store hydrates", () => {
+    saveGroupAdditional("resume-3", { enabled: true, title: "Additional" })
+
+    useResumeStore.getState().setResume(makeResume({ id: "resume-3" }))
+
+    expect(useResumeStore.getState().groupAdditional).toBe(true)
+    expect(useResumeStore.getState().groupAdditionalTitle).toBe("Additional")
+    expect(loadGroupAdditional("resume-3")).toEqual({ enabled: true, title: "Additional" })
   })
 })
 

@@ -223,6 +223,11 @@ export function ResumePreview() {
   // Certifications only fold into another section when a visible Skills section
   // exists to host the combined block — otherwise they'd disappear.
   const hasVisibleSkills = resume?.sections.some((s) => s.type === "SKILLS" && s.visible !== false) ?? false
+  // A combine control with nothing to combine is a dead button: the seeded and
+  // most first-run resumes have Skills but no Certifications yet. Only offer
+  // the toggle once there is a visible Certifications section to fold in.
+  const hasVisibleCertifications =
+    resume?.sections.some((s) => s.type === "CERTIFICATIONS" && s.visible !== false) ?? false
 
   const layoutSections = useMemo(() => {
     if (!resume) return [] as Section[]
@@ -431,16 +436,24 @@ export function ResumePreview() {
             <span className="hidden text-[11px] font-medium sm:inline">Design</span>
           </button>
           {customizerOpen && <CustomizerPanel onClose={() => setCustomizerOpen(false)} />}
-          <button
-            type="button"
-            onClick={() => setGroupAdditional(!groupAdditional)}
-            title={groupAdditional ? "Show separate sections" : "Combine Skills & Certifications"}
-            aria-label={groupAdditional ? "Show separate sections" : "Combine Skills & Certifications"}
-            aria-pressed={groupAdditional}
-            className={cn(TOOLBAR_BUTTON, groupAdditional && "bg-accent text-accent-foreground")}
-          >
-            <Layers className="h-4 w-4" />
-          </button>
+          {hasVisibleCertifications && (
+            <button
+              type="button"
+              onClick={() => setGroupAdditional(!groupAdditional)}
+              title={
+                groupAdditional
+                  ? "Show skills and certifications separately"
+                  : "Combine Skills & Certifications into one section"
+              }
+              aria-label={
+                groupAdditional ? "Show separate sections" : "Combine Skills & Certifications"
+              }
+              aria-pressed={groupAdditional}
+              className={cn(TOOLBAR_BUTTON, groupAdditional && "bg-accent text-accent-foreground")}
+            >
+              <Layers className="h-4 w-4" />
+            </button>
+          )}
 
           <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden="true" />
 

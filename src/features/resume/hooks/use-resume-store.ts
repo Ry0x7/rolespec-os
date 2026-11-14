@@ -16,6 +16,11 @@ import {
   saveCustomization,
   type ResumeCustomization,
 } from "../types/customization"
+import {
+  DEFAULT_GROUP_ADDITIONAL,
+  loadGroupAdditional,
+  saveGroupAdditional,
+} from "../lib/group-additional-persistence"
 
 export interface SectionItem {
   id: string
@@ -462,15 +467,18 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
   enhanceError: null,
   enhanceFocus: null,
   openInspector: null,
-  groupAdditional: false,
-  groupAdditionalTitle: "Skills & Certifications",
+  groupAdditional: DEFAULT_GROUP_ADDITIONAL.enabled,
+  groupAdditionalTitle: DEFAULT_GROUP_ADDITIONAL.title,
   customization: { ...DEFAULT_CUSTOMIZATION },
 
   setResume: (resume) => {
     const restored = restoreEnhanceState(resume)
+    const groupAdditional = loadGroupAdditional(resume.id)
     set({
       resume,
       customization: loadCustomization(resume.id),
+      groupAdditional: groupAdditional.enabled,
+      groupAdditionalTitle: groupAdditional.title,
       isDirty: false,
       saveStatus: "idle",
       exportStale: false,
@@ -775,8 +783,26 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
         ) ?? null,
     })),
 
-  setGroupAdditional: (groupAdditional) => set({ groupAdditional }),
-  setGroupAdditionalTitle: (groupAdditionalTitle) => set({ groupAdditionalTitle }),
+  setGroupAdditional: (groupAdditional) =>
+    set((state) => {
+      if (state.resume) {
+        saveGroupAdditional(state.resume.id, {
+          enabled: groupAdditional,
+          title: state.groupAdditionalTitle,
+        })
+      }
+      return { groupAdditional }
+    }),
+  setGroupAdditionalTitle: (groupAdditionalTitle) =>
+    set((state) => {
+      if (state.resume) {
+        saveGroupAdditional(state.resume.id, {
+          enabled: state.groupAdditional,
+          title: groupAdditionalTitle,
+        })
+      }
+      return { groupAdditionalTitle }
+    }),
 
   setCustomization: (partial) =>
     set((state) => {
