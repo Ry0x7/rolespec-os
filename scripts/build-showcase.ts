@@ -55,11 +55,11 @@ async function build() {
   console.log("🖼️ Copying social banner...")
   const screenshotsDir = path.join(ROOT_DIR, "screenshots")
   const targetRoleSpecDir = path.join(OUT_DIR, "RoleSpecOS")
-  const bannerPath = path.join(screenshotsDir, "banner.png")
+  const bannerPath = path.join(screenshotsDir, "banner-2.1.png")
   if (!fs.existsSync(bannerPath)) {
-    throw new Error("Missing showcase banner: screenshots/banner.png")
+    throw new Error("Missing showcase banner: screenshots/banner-2.1.png")
   }
-  fs.copyFileSync(bannerPath, path.join(targetRoleSpecDir, "banner.png"))
+  fs.copyFileSync(bannerPath, path.join(targetRoleSpecDir, "banner-2.1.png"))
 
   // Copy favicon. This is the square app mark, not the wide README banner:
   // a 1280x420 banner rendered in a browser tab is unreadable.
@@ -106,13 +106,13 @@ async function build() {
   <meta property="og:url" content="https://rolespec.ry0x7.dev/">
   <meta property="og:title" content="RoleSpec OS — Private job-search workspace">
   <meta property="og:description" content="A dashboard that leads with today, explainable ranking and a phone-first pipeline. Resume studio, ATS matching and tracking on your own database. Zero telemetry.">
-  <meta property="og:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner.png">
+  <meta property="og:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner-2.1.png">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="RoleSpec OS — Private job-search workspace">
   <meta name="twitter:description" content="A dashboard that leads with today, explainable ranking and a phone-first pipeline. Resume studio, ATS matching and tracking on your own database. Zero telemetry.">
-  <meta name="twitter:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner.png">
+  <meta name="twitter:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner-2.1.png">
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
   <link rel="apple-touch-icon" href="favicon.svg?v=2">

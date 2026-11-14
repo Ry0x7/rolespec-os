@@ -196,10 +196,10 @@ function generatePixelArtSvg(): string {
   out += rect(344, 74, 80, 2, "#38bdf8")
 
   // LINE 3: Subtitle at y=92 (18px below divider!)
-  out += `<text x="224" y="92" class="pixel-sub" fill="#38bdf8">AUTONOMOUS JOB-SEEKING AI OS</text>`
+  out += `<text x="224" y="92" class="pixel-sub" fill="#38bdf8">THE PRIVATE JOB-SEARCH WORKSPACE</text>`
 
   // LINE 4: Description at y=109 (17px below subtitle!)
-  out += `<text x="224" y="109" class="pixel-desc" fill="#94a3b8">Tailor Resumes • Radar Discovery • Kanban</text>`
+  out += `<text x="224" y="109" class="pixel-desc" fill="#94a3b8">Resume Studio • Explainable Ranking • Pipeline</text>`
 
   // LINE 5: Badges at y=122 (13px below description!)
   // Badge 1: Personal use (w=90, h=16) -> x=224 to 314
@@ -212,17 +212,17 @@ function generatePixelArtSvg(): string {
   out += rect(322, 122, 112, 16, "#1e1b4b")
   out += rect(323, 123, 110, 14, "#0f172a")
   out += rect(322, 122, 112, 1, "#6366f1")
-  out += `<text x="330" y="133" class="pixel-tag" fill="#818cf8">⚡ ZERO-API CLI</text>`
+  out += `<text x="330" y="133" class="pixel-tag" fill="#818cf8">⚡ LOCAL-FIRST</text>`
 
   // Badge 3: 100% PRIVATE (w=112, h=16) -> x=442 to 554
   out += rect(442, 122, 112, 16, "#581c87")
   out += rect(443, 123, 110, 14, "#2e1065")
   out += rect(442, 122, 112, 1, "#a855f7")
-  out += `<text x="450" y="133" class="pixel-tag" fill="#c084fc">★ 100% PRIVATE</text>`
+  out += `<text x="450" y="133" class="pixel-tag" fill="#c084fc">★ ZERO TELEMETRY</text>`
 
   // LINE 6: Terminal command prompt at y=158 (20px below badges!)
   out += rect(224, 150, 4, 10, "#10b981")
-  out += `<text x="234" y="158" class="pixel-cli">guest@rolespec:~$ codex login &amp;&amp; npm run dev</text>`
+  out += `<text x="234" y="158" class="pixel-cli">guest@rolespec:~$ npm run dev</text>`
   out += rect(542, 150, 5, 10, "#00ffcc") // blinking prompt cursor
 
   // 4. RETRO CORNER BRACKETS & OUTER PIXEL BORDER
@@ -244,11 +244,14 @@ function generatePixelArtSvg(): string {
 
 async function main() {
   const svgContent = generatePixelArtSvg()
-  const svgPath = path.join(process.cwd(), "screenshots", "banner.svg")
-  const pngPath = path.join(process.cwd(), "screenshots", "banner.png")
+  const svgPath = path.join(process.cwd(), "screenshots", "banner-2.1.svg")
+  const pngPath = path.join(process.cwd(), "screenshots", "banner-2.1.png")
+  const publicBannerPath = path.join(process.cwd(), "public", "banner.svg")
 
   fs.writeFileSync(svgPath, svgContent, "utf-8")
+  fs.writeFileSync(publicBannerPath, svgContent, "utf-8")
   console.log(`Saved pixel SVG to ${svgPath}`)
+  console.log(`Updated public banner at ${publicBannerPath}`)
 
   const browser = await chromium.launch()
   const page = await browser.newPage({

@@ -35,7 +35,7 @@ function checkDeployable() {
     "robots.txt",
     "sitemap.xml",
     "favicon.svg",
-    path.join("RoleSpecOS", "banner.png"),
+    path.join("RoleSpecOS", "banner-2.1.png"),
   ]
   for (const rel of required) {
     if (!fs.existsSync(path.join(OUT, rel))) fail(`missing deploy artifact: ${rel}`)

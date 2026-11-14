@@ -1,6 +1,6 @@
 # RoleSpec OS
 
-![RoleSpec OS](screenshots/banner.png)
+![RoleSpec OS — a private, local-first job-search workspace](screenshots/banner-2.1.png)
 
 A private, local-first job-search workspace: resume studio, ATS matching, job discovery,
 application tracking and agent-prepared applications. Published by **Chryypt Inc**.
@@ -126,6 +126,7 @@ Load `extension/dist` through **Load unpacked** in your browser's extension sett
 | --- | --- |
 | Codex CLI / Claude Code | Install the vendor CLI and sign in with an eligible account |
 | OpenCode | Install OpenCode; free hosted model availability and limits can change |
+| Google Antigravity CLI | Install and sign in to the Antigravity CLI; no API key is stored |
 | Ollama / LM Studio | Install and run a local model server |
 | OpenAI / Anthropic / DeepSeek / Google | Supply a provider API key; provider charges apply |
 
