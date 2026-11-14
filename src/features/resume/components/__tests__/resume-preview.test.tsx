@@ -200,6 +200,46 @@ describe("ResumePreview first-open measurement", () => {
     expect(useResumeStore.getState().customization).toEqual(DEFAULT_CUSTOMIZATION)
   })
 
+  it("hides the combine control when there are no certifications to combine", () => {
+    useResumeStore.setState({ resume: makeResume(), groupAdditional: false })
+    render(<ResumePreview />)
+
+    expect(
+      screen.queryByRole("button", { name: "Combine Skills & Certifications" })
+    ).toBeNull()
+  })
+
+  it("combines Skills and Certifications into one section from the toolbar", () => {
+    const resume = makeResume()
+    resume.sections = [
+      ...resume.sections,
+      section("s-certs", "CERTIFICATIONS", [
+        {
+          id: "c1",
+          sectionId: "s-certs",
+          content: {
+            name: "AWS Solutions Architect",
+            organization: "Amazon Web Services",
+            dateObtained: "2025",
+          },
+          order: 0,
+        },
+      ]),
+    ]
+
+    useResumeStore.setState({ resume, groupAdditional: false })
+    render(<ResumePreview />)
+
+    act(() => {
+      screen.getByRole("button", { name: "Combine Skills & Certifications" }).click()
+    })
+
+    expect(useResumeStore.getState().groupAdditional).toBe(true)
+    expect(screen.getAllByText("Skills & Certifications").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("AWS Solutions Architect").length).toBeGreaterThan(0)
+    expect(screen.queryByText("CERTIFICATIONS")).toBeNull()
+  })
+
   it("renders detailed certifications on their own rows when no Skills section is visible", () => {
     const resume = makeResume()
     resume.sections = [
