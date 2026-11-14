@@ -129,13 +129,13 @@ function ShowcaseApp() {
                 <ShotImage
                   light="dashboard.png"
                   dark="dashboard-dark.png"
-                  alt="The RoleSpec OS dashboard with the next action, attention queue and ranked opportunities"
+                  alt="The RoleSpec OS dashboard with today's application status, next action, attention queue and ranked opportunities"
                   width={1440}
-                  height={960}
+                  height={1080}
                 />
               </motion.div>
               <p className="mt-4 text-sm" style={{ color: "var(--text-3)" }}>
-                The dashboard after a ranking pass — next action, attention and ranked roles in one view.
+                The dashboard after a ranking pass — today&apos;s status, next action, attention and ranked roles in one view.
               </p>
             </div>
           </section>

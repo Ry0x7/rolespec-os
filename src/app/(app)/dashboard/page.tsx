@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { JobsOverview } from "@/features/dashboard/components/jobs-overview"
 import { NeedsAttention } from "@/features/dashboard/components/needs-attention"
 import { GettingStarted } from "@/features/dashboard/components/getting-started"
+import { DailyStatus } from "@/features/dashboard/components/daily-status"
 import {
   NextActionCard,
   resolveNextAction,
@@ -153,9 +154,24 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {/* The daily numbers lead: they are the first thing to read, not a footer. */}
+      <DailyStatus
+        todayStart={jobStats.todayStart}
+        appliedToday={jobStats.appliedToday}
+        followUpDue={jobStats.followUpDue}
+        upcomingEvents={jobStats.upcomingEvents}
+      />
+
       {showAiKeyBanner && <AiKeyBanner />}
 
       <NextActionCard action={nextAction} />
+
+      <GettingStarted
+        hasResume={resumeCount > 0}
+        hasAtsScan={atsScannedCount > 0}
+        hasJob={jobCount > 0}
+        hasProfile={hasCareerProfile}
+      />
 
       <AttentionOverview />
 
@@ -169,16 +185,8 @@ export default async function DashboardPage() {
         interestedTotal={attention.interestedTotal}
       />
 
-      <GettingStarted
-        hasResume={resumeCount > 0}
-        hasAtsScan={atsScannedCount > 0}
-        hasJob={jobCount > 0}
-        hasProfile={hasCareerProfile}
-      />
-
       <JobsOverview
         todayStart={jobStats.todayStart}
-        appliedToday={jobStats.appliedToday}
         statusCounts={jobStats.statusCounts}
         upcomingEvents={jobStats.upcomingEvents}
         recentApplications={jobStats.recentApplications}

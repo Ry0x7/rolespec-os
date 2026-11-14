@@ -25,6 +25,8 @@ const STORAGE_STATE = path.join(process.cwd(), "scripts", "screenshots", ".auth.
 type Shot = {
   name: string
   route: string
+  /** Taller than the default when the first viewport needs to tell the full story. */
+  height?: number
   prepare?: (page: Page) => Promise<void>
 }
 
@@ -32,6 +34,10 @@ const SHOTS: Shot[] = [
   {
     name: "dashboard",
     route: "/dashboard",
+    // The daily status strip belongs at the top, which pushes the first ranked
+    // row just below a 960px viewport. A slightly taller capture keeps both the
+    // status and a real ranked result in the screenshot without moving content.
+    height: 1080,
     async prepare(page) {
       // Make the hero show the ranked shortlist rather than an empty panel.
       // Re-running the capture still works: the button reads "Refresh ranking".
@@ -133,6 +139,9 @@ async function captureMode(browser: Browser, mode: "light" | "dark", suffix: str
 
   for (const shot of SHOTS) {
     const page = await context.newPage()
+    if (shot.height) {
+      await page.setViewportSize({ width: 1440, height: shot.height })
+    }
     await page.goto(`${BASE_URL}${shot.route}`, { waitUntil: "networkidle" })
     await hideDevOverlays(page)
     if (shot.prepare) await shot.prepare(page)

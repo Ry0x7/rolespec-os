@@ -22,7 +22,6 @@ function renderOverview(counts: StatusCount[] = statusCounts) {
   return render(
     <JobsOverview
       todayStart={new Date("2026-09-09T00:00:00.000Z")}
-      appliedToday={1}
       statusCounts={counts}
       upcomingEvents={[]}
       recentApplications={[]}
@@ -71,7 +70,6 @@ describe("JobsOverview upcoming events", () => {
     render(
       <JobsOverview
         todayStart={new Date("2026-09-09T00:00:00.000Z")}
-        appliedToday={1}
         statusCounts={statusCounts}
         upcomingEvents={upcomingEvents}
         recentApplications={[]}
@@ -86,7 +84,6 @@ describe("JobsOverview upcoming events", () => {
     render(
       <JobsOverview
         todayStart={new Date("2026-09-09T00:00:00.000Z")}
-        appliedToday={1}
         statusCounts={statusCounts}
         upcomingEvents={[
           ...upcomingEvents,
@@ -144,7 +141,6 @@ describe("JobsOverview layout", () => {
     render(
       <JobsOverview
         todayStart={new Date("2026-09-09T00:00:00.000Z")}
-        appliedToday={1}
         statusCounts={statusCounts}
         upcomingEvents={[event]}
         recentApplications={[]}
@@ -154,14 +150,10 @@ describe("JobsOverview layout", () => {
     expect(screen.getByText("Coming up (next 7 days)")).toBeTruthy()
   })
 
-  it("puts the daily goal after recent applications", () => {
+  it("does not repeat the daily goal card at the bottom of the overview", () => {
     renderOverview()
 
-    const recent = screen.getByText("Recent applications")
-    const goal = screen.getByText("Applied today")
-    expect(
-      recent.compareDocumentPosition(goal) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    expect(screen.queryByText("Applied today")).toBeNull()
   })
 })
 
@@ -182,7 +174,6 @@ describe("JobsOverview upcoming overflow", () => {
     return render(
       <JobsOverview
         todayStart={new Date("2026-09-09T00:00:00.000Z")}
-        appliedToday={1}
         statusCounts={statusCounts}
         upcomingEvents={upcomingEvents}
         recentApplications={[]}

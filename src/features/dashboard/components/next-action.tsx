@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { buttonVariants } from "@/shared/ui/button"
+import { Badge } from "@/shared/ui/badge"
 import { cn } from "@/shared/lib/utils"
 import { jobDetailHref } from "@/features/jobs/lib/job-detail-href"
 
@@ -180,11 +181,13 @@ export function NextActionCard({ action }: { action: NextAction }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-muted-foreground">Your next step</p>
-        <h2 className="mt-0.5 text-base font-semibold text-foreground">
+        <Badge variant="brand" size="sm" className="uppercase tracking-wide">
+          Next step
+        </Badge>
+        <h2 className="mt-1 break-words text-base font-semibold text-foreground">
           {action.title}
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{action.description}</p>
+        <p className="mt-1 break-words text-sm text-muted-foreground">{action.description}</p>
       </div>
 
       <Link

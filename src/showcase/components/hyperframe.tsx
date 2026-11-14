@@ -21,7 +21,7 @@ export function Hyperframe({ isReducedMotion, theme }: { isReducedMotion: boolea
   const reduce = useReducedMotion()
 
   const screenshots = [
-    { title: "Dashboard", light: "dashboard.png", dark: "dashboard-dark.png", desc: "Next action, attention and ranked roles in one view." },
+    { title: "Dashboard", light: "dashboard.png", dark: "dashboard-dark.png", height: 1080, desc: "Today's status, next action, attention and ranked roles in one view." },
     { title: "Job applications", light: "jobs.png", dark: "jobs-dark.png", desc: "Every saved role, fit signal and next step on one board." },
     { title: "Resume editor", light: "resume-editor.png", dark: "resume-editor-dark.png", desc: "Structured editing with a live ATS score and PDF export." },
     { title: "Agent preparation", light: "job-prepare.png", dark: "job-prepare-dark.png", desc: "One click researches, tailors and prepares; you review before submitting." },
@@ -284,7 +284,7 @@ export function Hyperframe({ isReducedMotion, theme }: { isReducedMotion: boolea
                       dark={selected.dark}
                       alt={selected.title}
                       width={1440}
-                      height={960}
+                      height={selected.height ?? 960}
                       loading="lazy"
                     />
                   </div>

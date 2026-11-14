@@ -33,7 +33,7 @@ application silently** — the final submit stays with you.
 
 <table>
   <tr>
-    <td width="50%"><img src="screenshots/dashboard.png" alt="Dashboard with the next action and ranked roles" width="100%"></td>
+    <td width="50%"><img src="screenshots/dashboard.png" alt="Dashboard with today's application status, next action and ranked roles" width="100%"></td>
     <td width="50%"><img src="screenshots/jobs.png" alt="Job applications board" width="100%"></td>
   </tr>
   <tr>
