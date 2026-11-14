@@ -141,8 +141,8 @@ async function build() {
   <meta name="twitter:description" content="Resume studio, ATS matching, outreach and application tracking on your own database. Zero telemetry.">
   <meta name="twitter:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner.png">
 
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
+  <link rel="apple-touch-icon" href="favicon.svg?v=2">
   <link rel="stylesheet" href="styles.css">
 
   <!-- Pre-paint: apply stored/system theme + motion preference before first paint -->
