@@ -9,7 +9,7 @@ import { FeatureSections } from "./components/feature-sections"
 import { ModelMatrix } from "./components/model-matrix"
 import { QuickstartTabs } from "./components/quickstart-tabs"
 import { ShowcaseFooter } from "./components/showcase-footer"
-import { ShotImage } from "./components/shot-image"
+import { TiltShot } from "./components/tilt-shot"
 
 const RELEASES_URL = "https://github.com/Ry0x7/rolespec-os/releases/latest"
 
@@ -120,18 +120,19 @@ function ShowcaseApp() {
               className="mt-6 text-sm"
               style={{ color: "var(--text-3)" }}
             >
-              Free and open source · Runs offline · Zero telemetry
+              Free for personal use · Runs offline · Zero telemetry
             </motion.p>
 
             {/* The product, at product size */}
             <div ref={heroRef} className="mt-12">
-              <motion.div style={{ scale: shotScale, y: shotY }} className="shot mx-auto max-w-4xl">
-                <ShotImage
+              <motion.div style={{ scale: shotScale, y: shotY }} className="mx-auto max-w-4xl">
+                <TiltShot
                   light="dashboard.png"
                   dark="dashboard-dark.png"
                   alt="The RoleSpec OS dashboard with today's application status, next action, attention queue and ranked opportunities"
                   width={1440}
                   height={1080}
+                  reducedMotion={isReducedMotion}
                 />
               </motion.div>
               <p className="mt-4 text-sm" style={{ color: "var(--text-3)" }}>
@@ -141,7 +142,7 @@ function ShowcaseApp() {
           </section>
 
           <Hyperframe isReducedMotion={isReducedMotion} theme={theme} />
-          <FeatureSections />
+          <FeatureSections isReducedMotion={isReducedMotion} />
           <ModelMatrix />
           <QuickstartTabs />
         </main>

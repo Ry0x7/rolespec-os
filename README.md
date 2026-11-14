@@ -5,7 +5,7 @@
 A private, local-first job-search workspace: resume studio, ATS matching, job discovery,
 application tracking and agent-prepared applications. Published by **Chryypt Inc**.
 
-[Website](https://rolespec.ry0x7.dev/) · [Download for Windows](https://github.com/Ry0x7/rolespec-os/releases/latest) · [Issues](https://github.com/Ry0x7/rolespec-os/issues) · [AGPL-3.0-or-later](LICENSE)
+[Website](https://rolespec.ry0x7.dev/) · [Download for Windows](https://github.com/Ry0x7/rolespec-os/releases/latest) · [Issues](https://github.com/Ry0x7/rolespec-os/issues) · [Personal-use license](LICENSE)
 
 ## What it is
 
@@ -18,13 +18,26 @@ it. When enabled, the agent can research a company, tailor and validate a resume
 application answers and assemble the package for your review. **It never submits an
 application silently** — the final submit stays with you.
 
+## What's new in 2.1
+
+- **A dashboard that leads with today.** Applications, follow-ups and the next seven days sit at the top, each with a colour-coded state. The daily application goal is configurable in **Settings → Preferences**.
+- **Readable ranking.** Each role shows its score, evidence coverage and a plain-language "Why this rank?" with colour-coded factor badges instead of one wall of text.
+- **Phone-first board.** Navigation no longer scrolls sideways, the pipeline becomes one column at a time on a phone, and the desktop rail collapses from the mark beside the logo.
+- **Lighter preparation runs.** Ranked roles and preparation runs use progressive disclosure, so long lists stop turning into a page-long scroll.
+- **Dashboard visual regression.** A deterministic fixture catches card reflow at 390px and 1440px before a screenshot review.
+- **Personal-use license.** Commercial use, monetization, redistribution and patent claims are no longer permitted. See [LICENSE](LICENSE).
+
+Full notes: [RoleSpec OS v2.1.0](docs/releases/v2.1.0.md).
+
 ## Features
 
 - **Resume studio** — master, role-family and job-tailored resumes; eight PDF templates; live preview.
 - **ATS matching** — quality and job-match scores with concrete fixes and a re-analyze loop.
 - **Agent-assisted apply** — research, tailor, validate, prepare ATS answers, then hand off for review.
 - **Job discovery and tracking** — saved roles, applications, interviews, follow-ups and outcomes.
-- **Pipeline board** — drag applications across seven statuses, with weekly goals and response stats.
+- **Dashboard and daily status** — today's applications, follow-ups due and the next seven days first, with a configurable daily goal and colour-coded states.
+- **Pipeline board** — drag applications across seven statuses on desktop, or work one column at a time on a phone, with goals and response stats.
+- **Explainable ranking** — fit score, evidence coverage and a readable "Why this rank?" breakdown for every saved role.
 - **Resume import** — text-based PDF/DOCX up to 5 MB, grouped into editable sections; no AI required.
 - **Browser extension** — clip a job posting from Chrome or Edge straight into your workspace.
 - **Local-first by default** — offline use, zero telemetry, encrypted provider keys.
@@ -134,6 +147,7 @@ that a listing is fraudulent.
 
 - [Architecture and invariants](docs/ARCHITECTURE.md)
 - [Roadmap and known gaps](docs/ROADMAP.md)
+- [Release notes](docs/releases/v2.1.0.md)
 - [Frontend verification and release limits](docs/FRONTEND_QA.md)
 - [Windows runtime, installer metadata and releases](docs/DESKTOP.md)
 - [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
@@ -145,5 +159,11 @@ RoleSpec OS is published by **Chryypt Inc** and developed and maintained by
 acknowledged as an AI-assisted development tool; code decisions, review and maintenance remain
 the maintainer's responsibility. This credit does not imply endorsement by Anthropic.
 
-Licensed under [AGPL-3.0-or-later](LICENSE). Feedback is welcome through GitHub issues; include
-your installation method, reproduction steps and expected behavior, and redact personal data.
+## License
+
+RoleSpec OS is source-available under the [RoleSpec OS Personal Use License 1.0](LICENSE).
+It is for **personal, non-commercial use only**. Commercial use, monetization, redistribution,
+sublicensing and patent claims are not permitted. It is not an OSI-approved open-source license.
+
+Feedback is welcome through GitHub issues; include your installation method, reproduction steps
+and expected behavior, and redact personal data.

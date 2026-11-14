@@ -118,7 +118,7 @@ export function QuickstartTabs() {
             <div role="tabpanel" id="quickstart-panel-desktop" aria-labelledby="quickstart-tab-desktop" className="flex flex-col gap-6">
               <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
                 <div>
-                  <p className="text-xl font-semibold tracking-tight">RoleSpec OS for Windows <span className="text-sm font-medium" style={{ color: "var(--text-3)" }}>v2.0.1</span></p>
+                  <p className="text-xl font-semibold tracking-tight">RoleSpec OS for Windows <span className="text-sm font-medium" style={{ color: "var(--text-3)" }}>v2.1.0</span></p>
                   <p className="mt-1 text-sm" style={{ color: "var(--text-2)" }}>Bundled database, single-owner, local-first.</p>
                   <p className="mt-2 text-xs" style={{ color: "var(--text-3)" }}>Windows 10/11 x64 · WebView2 · Unsigned installer</p>
                 </div>

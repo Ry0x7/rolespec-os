@@ -80,7 +80,7 @@
       <rect width="360" height="32" rx="16" fill="url(#badge-grad)" stroke="#38bdf8" stroke-opacity="0.3" stroke-width="1"/>
       <circle cx="16" cy="16" r="4" fill="#38bdf8"/>
       <text x="28" y="21" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#bae6fd" letter-spacing="0.5">
-        ZERO API KEYS NEEDED • FREE &amp; OPEN SOURCE
+        ZERO API KEYS NEEDED • FREE FOR PERSONAL USE
       </text>
     </g>
 
@@ -143,7 +143,7 @@
         </text>
       </g>
 
-      <!-- Badge 4: Self-Hosted / AGPL -->
+      <!-- Badge 4: Self-Hosted / Private -->
       <g transform="translate(691, 0)">
         <rect width="180" height="42" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1"/>
         <text x="14" y="26" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#e2e8f0">

@@ -124,7 +124,7 @@ async function build() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RoleSpec OS — Private job-search workspace</title>
-  <meta name="description" content="Local-first job-search workspace: resume studio, ATS matching, outreach and application tracking on your own database.">
+  <meta name="description" content="Private, local-first job-search workspace: today's application status, explainable ranking, resume studio, ATS matching and tracking on your own database.">
   <meta name="theme-color" content="#ffffff">
   <meta name="application-name" content="RoleSpec OS">
 
@@ -132,13 +132,13 @@ async function build() {
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://rolespec.ry0x7.dev/">
   <meta property="og:title" content="RoleSpec OS — Private job-search workspace">
-  <meta property="og:description" content="Resume studio, ATS matching, outreach and application tracking on your own database. Zero telemetry.">
+  <meta property="og:description" content="A dashboard that leads with today, explainable ranking and a phone-first pipeline. Resume studio, ATS matching and tracking on your own database. Zero telemetry.">
   <meta property="og:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner.png">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="RoleSpec OS — Private job-search workspace">
-  <meta name="twitter:description" content="Resume studio, ATS matching, outreach and application tracking on your own database. Zero telemetry.">
+  <meta name="twitter:description" content="A dashboard that leads with today, explainable ranking and a phone-first pipeline. Resume studio, ATS matching and tracking on your own database. Zero telemetry.">
   <meta name="twitter:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner.png">
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">

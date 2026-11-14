@@ -1,9 +1,11 @@
 # Frontend handoff
 
-Updated: 2026-11-12. This is the integration contract for a future UI. It
-describes the backend that exists in this repository; it does **not** claim that
-a workflow or web review screen has been built. The current app still has its
-existing resume, discovery, tracker, ATS-extension and settings surfaces.
+Updated: 2026-11-14. This is the historical backend integration contract from
+2026-11-12. The workflow runs view (`/workspace?view=runs`) and review screen
+(`/review`) have since shipped, so read this file for endpoint and transport
+details rather than as a statement that those surfaces are missing. Current UI
+behavior is summarized in [README](../README.md) and verified in
+[FRONTEND_QA.md](FRONTEND_QA.md).
 
 ## Identity and transport
 

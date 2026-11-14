@@ -1,6 +1,6 @@
 import React from "react"
 import { motion } from "framer-motion"
-import { ShotImage } from "./shot-image"
+import { TiltShot } from "./tilt-shot"
 
 const SECTIONS = [
   {
@@ -12,7 +12,7 @@ const SECTIONS = [
   },
   {
     title: "Every application, one board",
-    body: "Saved roles, fit signals, follow-ups and the next action sit together — not in a spreadsheet, five tabs and your memory. Nothing gets lost in the handoff.",
+    body: "Saved roles, fit signals, follow-ups and the next action sit together — not in a spreadsheet, five tabs and your memory. On a phone the same board becomes one readable column, so nothing gets lost in the handoff.",
     light: "jobs.png",
     dark: "jobs-dark.png",
     alt: "The Job Applications board with saved roles, status badges and Apply with agent actions",
@@ -33,14 +33,14 @@ const SECTIONS = [
   },
   {
     title: "The pipeline, not a spreadsheet",
-    body: "Drag applications across seven statuses and keep the weekly goal, response rate and follow-ups in the same view. The board is the tracker.",
+    body: "Drag applications across seven statuses on desktop, or work one column at a time on a phone. The weekly goal, response rate and follow-ups stay in the same view, without a sideways scroll.",
     light: "workspace.png",
     dark: "workspace-dark.png",
     alt: "The workspace pipeline board with Interested, Applied, Screening, Interview and Offer columns",
   },
 ]
 
-export function FeatureSections() {
+export function FeatureSections({ isReducedMotion }: { isReducedMotion: boolean }) {
   return (
     <section id="features" aria-label="Features" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6">
       <div className="flex flex-col gap-16">
@@ -59,16 +59,15 @@ export function FeatureSections() {
                 {section.body}
               </p>
             </div>
-            <div className="shot">
-              <ShotImage
-                light={section.light}
-                dark={section.dark}
-                alt={section.alt}
-                width={1440}
-                height={960}
-                loading="lazy"
-              />
-            </div>
+            <TiltShot
+              light={section.light}
+              dark={section.dark}
+              alt={section.alt}
+              width={1440}
+              height={960}
+              loading="lazy"
+              reducedMotion={isReducedMotion}
+            />
           </motion.div>
         ))}
       </div>

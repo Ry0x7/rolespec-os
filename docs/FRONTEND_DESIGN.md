@@ -1,6 +1,8 @@
 # RoleSpec frontend design specification
 
-Date: 2026-11-12. Status: implementation specification; no UI or backend changes are delivered by this document.
+Date: 2026-11-12; routes reconciled 2026-11-14. Status: implementation reference.
+The shipped UI may differ in detail; current behavior is summarized in
+[README](../README.md) and verified in [FRONTEND_QA.md](FRONTEND_QA.md).
 
 ## 1. Product direction and authority
 
@@ -54,7 +56,7 @@ Retain `Sidebar`, `Header`, `MobileNav`, breadcrumbs, skip link and the single c
 | Start | Dashboard | `/dashboard` | Daily command center and latest ranked opportunities |
 | Career | Career Profile, Resumes, LinkedIn | Existing URLs | Candidate truth, documents, export-based LinkedIn tools |
 | Opportunities | Discover, Jobs | `/jobs/discover`, `/jobs` | Find opportunities; manage tracked applications |
-| Activity | Workspace, Review, Planner | `/workspace`, `/workspace/review` (new), `/planner` | Existing board with local views; decisions; calendar/tasks/notes |
+| Activity | Workspace, Review, Planner | `/workspace`, `/review`, `/planner` | Existing board with local views; decisions; calendar/tasks/notes |
 | Tools | Cover Letters | `/jobs/cover-letter` | Existing letter workflows |
 | Footer | Settings | `/settings` | Existing settings tabs |
 
@@ -279,7 +281,7 @@ Do not expose generic Skip step, Retry this successful step, drag-to-reorder, ed
 
 ### Review destination
 
-`/workspace/review` provides local sections **Questions / Profile proposals / Answer memory**. Questions is the default. This is one destination with provenance-aware resource types, not a new all-purpose review table or browser-local queue.
+`/review` provides local sections **Questions / Profile proposals / Answer memory**. Questions is the default. This is one destination with provenance-aware resource types, not a new all-purpose review table or browser-local queue.
 
 Questions list uses `GET /api/review-tasks` with status (default OPEN), kind and limit ≤50. Each row shows exact question, blocking reason, kind, application/run/preparation identifiers and created date. Resolve company/title from owned application data when available. If absent, label “Unlinked ATS preparation” or “Standalone question”; do not guess company from question text. Show “Latest 50 matching questions” at the cap; no invented total or next-page cursor. Refresh is explicit and after mutations, not continuous shared-bucket polling.
 

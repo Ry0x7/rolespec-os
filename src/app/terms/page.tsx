@@ -10,13 +10,13 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Service" effectiveDate="November 8, 2026">
+    <LegalPage title="Terms of Service" effectiveDate="November 14, 2026">
       <Section heading="The agreement">
         <p>
           These terms are between you and {siteConfig.publisher} (&quot;we&quot;, &quot;us&quot;)
           for the hosted instance we operate. A self-hosted deployment is operated by whoever
-          runs it, under the AGPL-3.0-or-later licence, and that operator is responsible for
-          its own terms. By using this instance you accept these terms. If you do not agree,
+          runs it, under the RoleSpec OS Personal Use License, and that operator is responsible
+          for its own terms. By using this instance you accept these terms. If you do not agree,
           do not use {siteConfig.name}.
         </p>
       </Section>
@@ -37,17 +37,32 @@ export default function TermsPage() {
 
       <Section heading="Licence">
         <p>
-          {siteConfig.name} is free and open-source software licensed under the GNU Affero
-          General Public License, version 3 or later (AGPL-3.0-or-later). Running, studying,
-          modifying and redistributing it are permitted under that licence. There is no
-          purchase, activation key, subscription or refund: the software is provided at no
-          charge. The licence does not transfer ownership of the project&apos;s trademarks or
-          branding.
+          {siteConfig.name} is source-available software licensed under the RoleSpec OS
+          Personal Use License, version 1.0. It is not an open-source license. The licence
+          permits you to run and modify the software for your own personal, non-commercial
+          use, and for no other purpose. There is no purchase, activation key, subscription
+          or refund: the software is provided at no charge.
         </p>
         <p>
-          If you modified the app and make it available to users over a network, the AGPL
-          requires you to offer those users the corresponding source. That obligation belongs
-          to the operator of that deployment.
+          <strong>
+            Commercial use, monetization, redistribution, sublicensing and patent claims are
+            prohibited.
+          </strong>{" "}
+          You may not use the software for or on behalf of an employer, client, business or
+          other organization, charge for access or services connected to it, or make it
+          available to another person. You also may not file a patent application covering
+          the software or assert a patent claim against the publisher, a contributor or a
+          user. The licence does not transfer ownership of the project&apos;s trademarks or
+          branding. Read the full terms in the{" "}
+          <a
+            href="https://github.com/Ry0x7/rolespec-os/blob/main/LICENSE"
+            target="_blank"
+            rel="noreferrer"
+            className="text-foreground underline underline-offset-4"
+          >
+            LICENSE file
+          </a>
+          .
         </p>
       </Section>
 

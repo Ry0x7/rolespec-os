@@ -1,8 +1,9 @@
 # Implementation plan
 
-Updated: 2026-11-11. Dependency-ordered work to close the gaps in
-[FEATURE_PARITY.md](FEATURE_PARITY.md) without changing RoleSpec's manual
-workflow, single-owner model, PostgreSQL schema or AI-optional posture.
+Updated: 2026-11-11; status reconciled 2026-11-14. Historical, dependency-ordered
+work plan. Most phases are now delivered; current status is in
+[FEATURE_PARITY.md](FEATURE_PARITY.md), and this document is retained for the
+decision history rather than as a remaining-work list.
 
 ## Dependency order
 

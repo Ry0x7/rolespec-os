@@ -1,6 +1,6 @@
 # Architecture
 
-Updated: 2026-11-12.
+Updated: 2026-11-14.
 
 RoleSpec is a private, single-owner job-search workspace. The web app, Windows
 desktop shell and browser extension share one set of career, resume, job and
@@ -69,13 +69,13 @@ Four rules shape the design:
 | Layer | Existing modules | Current / target additions |
 | --- | --- | --- |
 | Intake | `src/features/intake` (run, apply, six adapters), `src/features/career-profile/services`, `src/features/linkedin/services` | Delivered: `IntakeRun`/`IntakeSourceRun`/`IntakePatch`/`IntakeConflict`/`IntakeCorrection` and `/api/intake/*`. Intake remains request-scoped with Cancel → Retry recovery, separate from the workflow lease worker. |
-| Workflow | `src/features/workflows`, `src/app/api/workflows`, `src/app/api/review-tasks` | Delivered: `WorkflowRun`/`WorkflowStep`/`WorkflowEvent`/`ReviewTask`, the eleven executors, the leased in-process worker, manual mode, review checkpoints and SSE progress. A partial unique index (`workflow_runs_one_active_per_application`) enforces one active run per application. Remaining: no workflow UI. |
+| Workflow | `src/features/workflows`, `src/app/api/workflows`, `src/app/api/review-tasks` | Delivered: `WorkflowRun`/`WorkflowStep`/`WorkflowEvent`/`ReviewTask`, the eleven executors, the leased in-process worker, manual mode, review checkpoints and SSE progress. A partial unique index (`workflow_runs_one_active_per_application`) enforces one active run per application. The first-party runs view is `/workspace?view=runs`; the review screen is `/review`. |
 | Profile | `career-profile` actions/services, `CareerEvidence`, `CareerCapability` | per-field provenance envelope, merge candidates |
 | Discovery | `src/features/discovery/services/adapters` | unchanged read-only adapters, run record |
 | Ranking | `qualify.service.ts`, `intelligent-matching.service.ts` | `src/features/ranking/bm25.ts`, `RankingSnapshot` |
 | Research | `company-research.service.ts`, `job-requirements.service.ts` | culture block, per-job research run |
 | Tailoring | `resume/actions/tailor.ts`, `tailor-resume.ts`, `export` | validation report, coverage score, repair pass |
-| Autofill | `extension/src/autofill-core.ts`, `extension/src/autofill-page.ts` | Delivered: `AtsPreparation`/`AtsAnswer`, server-authoritative field classification, persistent `ReviewTask` queue, approved-answer memory with revoke, staged record and user-confirmed submission. Remaining: live vendor validation; no web queue screen. |
+| Autofill | `extension/src/autofill-core.ts`, `extension/src/autofill-page.ts` | Delivered: `AtsPreparation`/`AtsAnswer`, server-authoritative field classification, persistent `ReviewTask` queue, approved-answer memory with revoke, staged record and user-confirmed submission. The `/review` screen is the web queue. Remaining: live vendor validation. |
 | Submission | `src/features/workflows/executors/staging.executor.ts`, `src/features/submissions/services/submission.service.ts`, `src/features/ats/services/ats-preparation.service.ts` | Delivered: one `SubmissionAttempt` row (STAGED) for both the workflow's `SUBMISSION_STAGING` step and `AtsPreparation`, with `/api/submission-attempts` and an explicit confirmation endpoint. `WorkflowStep.output` remains a summary, not a second submission record. |
 | Tracking | `job-application.actions.ts`, `ApplicationStatusEvent` | workflow linkage; confirmation advances `INTERESTED → APPLIED` only |
 | Follow-up | `src/features/jobs/services/follow-up-task.service.ts`, `outreach-sequence.service.ts` | Delivered: durable `FollowUpTask` +5 business-day EMAIL and +12 business-day LINKEDIN reminders; named `OutreachSequence`/`OutreachTouch` plans for manual actions. No send path. |
@@ -687,7 +687,7 @@ The release audit and its per-capability labels live in [VERIFICATION.md](VERIFI
 backend is a real persisted system: workflow state, review tasks, ATS preparations, encrypted answer
 memory, submission attempts, follow-up tasks, outreach plans, tailoring provenance and application
 history are PostgreSQL rows, not UI state. The boundaries that remain are explicit there rather than
-implied here: no workflow/review UI, no live employer-ATS fill/attach/submit, no installed or upgraded
+implied here: no live employer-ATS fill/attach/submit, no installed or upgraded
 Windows build from this source revision, and no large-pool load test. The duplicate-active-workflow
 guard is now a partial unique index in PostgreSQL.
 

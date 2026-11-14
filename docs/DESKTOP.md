@@ -12,13 +12,17 @@ but Windows has **no verified publisher** and SmartScreen may warn. A release wi
 publisher. Installation, first launch, onboarding and uninstall were exercised on Windows 11
 x64; a separate clean-VM walkthrough has not been run.
 
+v2.1.0 adds the today-first dashboard, a configurable daily application goal, explainable
+ranking with colour-coded factor badges, a phone-first pipeline board and the RoleSpec OS
+Personal Use License. The installer remains unsigned and is built by the tag workflow. A clean
+native install/upgrade of v2.1.0 has not been verified; the web QA evidence is not a desktop
+upgrade certification. Check the release assets for `latest.json` before relying on automatic
+updates.
+
 v2.0.0 includes the integrated manual and agent-assisted workspace, human review, candidate
 evidence, resume comparison and validation, application tracking, and tabbed layouts for shorter
-pages. The live-browser audit, fixes and remaining limitations are recorded in
-[FRONTEND_QA.md](FRONTEND_QA.md). This release preserves the existing application identifier and
-`%LOCALAPPDATA%\RoleSpecData` location. A native v2.0.0 install/upgrade has not been verified;
-the web QA evidence is not a desktop upgrade certification. Check the release assets for
-`latest.json` before relying on automatic updates.
+pages. This release preserves the existing application identifier and
+`%LOCALAPPDATA%\RoleSpecData` location. A native v2.0.0 install/upgrade has not been verified.
 
 v1.0.5 ships the evidence-backed company research, pipeline and matching changes plus the safer
 ATS autofill flow. The installer remains unsigned and still has no latest.json, so an installed

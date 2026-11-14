@@ -179,7 +179,7 @@ function generatePixelArtSvg(): string {
   out += rect(213, 23, 6, 6, "#ef4444")
   out += rect(222, 23, 6, 6, "#f59e0b")
   out += rect(231, 23, 6, 6, "#10b981")
-  out += `<text x="245" y="28" font-family="'Press Start 2P', monospace" font-size="6" fill="#64748b">ROLESPEC OS // KERNEL v1.0.0</text>`
+  out += `<text x="245" y="28" font-family="'Press Start 2P', monospace" font-size="6" fill="#64748b">ROLESPEC OS // KERNEL v2.1.0</text>`
 
   // Inner Screen Body: y: 34 to 182
   out += rect(212, 38, 366, 140, "#080a10")
@@ -202,11 +202,11 @@ function generatePixelArtSvg(): string {
   out += `<text x="224" y="109" class="pixel-desc" fill="#94a3b8">Tailor Resumes • Radar Discovery • Kanban</text>`
 
   // LINE 5: Badges at y=122 (13px below description!)
-  // Badge 1: AGPL-3.0 (w=90, h=16) -> x=224 to 314
+  // Badge 1: Personal use (w=90, h=16) -> x=224 to 314
   out += rect(224, 122, 90, 16, "#064e3b")
   out += rect(225, 123, 88, 14, "#022c22")
   out += rect(224, 122, 90, 1, "#10b981")
-  out += `<text x="234" y="133" class="pixel-tag" fill="#34d399">◆ AGPL-3.0</text>`
+  out += `<text x="234" y="133" class="pixel-tag" fill="#34d399">◆ PERSONAL USE</text>`
 
   // Badge 2: ZERO-API CLI (w=112, h=16) -> x=322 to 434
   out += rect(322, 122, 112, 16, "#1e1b4b")

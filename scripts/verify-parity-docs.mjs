@@ -113,8 +113,8 @@ const REQUIRED_STATUS = {
   F09: ["Implemented"],
   F13: ["Implemented"],
   F14: ["Implemented"],
-  // Backend complete, first-party leaderboard UI still absent.
-  F15: ["Partial"],
+  // Persisted leaderboard and the dashboard explanation are delivered.
+  F15: ["Implemented"],
   F22: ["Implemented"],
   F25: ["Implemented"],
   F30: ["Implemented"],
@@ -124,15 +124,15 @@ const REQUIRED_STATUS = {
   // Attachment works from fixtures; a live employer page was not filled.
   F34: ["Partial"],
   F35: ["Implemented"],
-  // Extension queue only; no web review screen.
-  F37: ["Partial"],
+  // Extension queue and the first-party /review screen are delivered.
+  F37: ["Implemented"],
   F38: ["Implemented"],
   F41: ["Implemented"],
   F42: ["Implemented"],
   F44: ["Implemented"],
   F45: ["Implemented"],
-  // Backend complete, dashboard leaderboard still absent.
-  F46: ["Partial"],
+  // Dashboard leaderboard is delivered.
+  F46: ["Implemented"],
   F49: ["Not ported"],
   F50: ["Not ported"],
   F53: ["Implemented"],

@@ -2,7 +2,7 @@
   "name": "rolespec-job-clipper",
   "version": "0.2.0",
   "private": true,
-  "license": "AGPL-3.0-or-later",
+  "license": "SEE LICENSE IN ../LICENSE",
   "type": "module",
   "description": "RoleSpec OS Job Clipper — clip jobs and assist with ATS application forms",
   "scripts": {

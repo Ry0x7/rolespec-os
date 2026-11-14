@@ -1,8 +1,9 @@
 # Frontend verification and release limits
 
-Audited on 12 November 2026 against the real development and production web
-application, PostgreSQL and a configured provider. This is a **conditional local
-beta assessment**, not unrestricted production certification.
+Updated on 14 November 2026; the browser and provider audit below was run on 12
+November 2026 against the real development and production web application,
+PostgreSQL and a configured provider. This is a **conditional local beta
+assessment**, not unrestricted production certification.
 
 ## Verified behavior
 
@@ -30,19 +31,22 @@ and no outreach message was sent.
 
 ## Automated checks
 
-- Frontend: 343 files and 5,186 tests passed. After the final workflow layout
-  correction, the affected three suites passed again with 35 tests.
+- Frontend: the v2.1.0 pass ran 349 files and 5,240 tests; the 266 tests covering
+  dashboard, settings, review, navigation and the command palette also passed as
+  a focused run. TypeScript, the showcase build, its output verifier and four
+  dashboard visual-regression comparisons passed.
 - Extension: 21 files and 318 tests passed; its production build passed.
 - TypeScript, ESLint and the production web build passed. Seven browser checks
   also passed against the built production application.
-- The build retained 11 existing dynamic-file-tracing warnings in export storage.
+- The build retained 13 existing dynamic-file-tracing warnings in export storage and the
+  optional Antigravity CLI provider.
 
 These checks establish the stated scope; they do not establish that every legacy
 generator, destructive action, browser or employer integration was exercised.
 
 ## Unverified or limited
 
-- A clean v2.0.0 Windows install, in-place upgrade and native WebView session.
+- A clean v2.1.0 Windows install, in-place upgrade and native WebView session.
   See [the desktop guide](DESKTOP.md) for installation and release mechanics.
 - Live employer ATS filling, file attachment and final application completion.
   Headless Chrome identity authorization was blocked; manual-token reads worked.
@@ -58,6 +62,28 @@ generator, destructive action, browser or employer integration was exercised.
 - Workflow/review list limits, extension-only answer management and historical
   validation binding remain contract limitations. See
   [API_CONTRACTS.md](API_CONTRACTS.md) and [WORKFLOW_STATES.md](WORKFLOW_STATES.md).
+
+## Dashboard visual regression
+
+The dashboard cards have a deterministic fixture at `/visual/dashboard` and
+`/visual/dashboard?state=worst`. The worst-case state feeds long unbroken company
+names, non-Latin text, four-digit counts and nine upcoming events into the real
+components, so reflow failures surface without touching the database.
+
+With a local development server running:
+
+```bash
+npm run test:visual              # compare phone/desktop, default/worst
+npm run test:visual -- --update  # regenerate the checked-in baselines
+```
+
+It captures 390px and 1440px, asserts that the document does not scroll
+horizontally, and fails any child that grows wider than its own container (the
+failure mode an `overflow-hidden` card would otherwise hide). Baselines live in
+`screenshots/visual-regression/`; per-run captures and diffs stay under ignored
+`.unlazy/visual-regression/`. The fixture 404s in production and is not linked
+from the app. The check is not in CI because CI deliberately skips the Playwright
+browser download.
 
 ## Reproducing checks
 

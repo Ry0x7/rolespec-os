@@ -1,8 +1,8 @@
 {
   "name": "rolespec",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "private": true,
-  "license": "AGPL-3.0-or-later",
+  "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "dev": "next dev -p 3100",
     "build": "prisma generate && next build",
@@ -10,6 +10,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:visual": "tsx scripts/visual-regression-dashboard.ts",
     "desktop:postgres": "node scripts/desktop/fetch-postgres.mjs",
     "desktop:stage": "node scripts/desktop/stage-runtime.mjs",
     "desktop:build": "node scripts/desktop/stage-runtime.mjs --build",
@@ -69,6 +70,7 @@
     "eslint-config-next": "16.4.5",
     "jsdom": "^31.0.0",
     "playwright": "^1.65.0",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.23.15",

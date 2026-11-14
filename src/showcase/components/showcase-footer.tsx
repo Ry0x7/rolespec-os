@@ -4,7 +4,7 @@ import { LogoMarkIcon, CheckIcon } from "./icons"
 const LINKS = [
   { href: "https://github.com/Ry0x7/rolespec-os", label: "GitHub source" },
   { href: "https://github.com/Ry0x7/rolespec-os/releases/latest", label: "Latest release" },
-  { href: "https://github.com/Ry0x7/rolespec-os/blob/main/LICENSE", label: "AGPL-3.0 license" },
+  { href: "https://github.com/Ry0x7/rolespec-os/blob/main/LICENSE", label: "Personal-use license" },
   { href: "https://github.com/Ry0x7", label: "Publisher: Chryypt" },
 ]
 
@@ -17,7 +17,7 @@ export function ShowcaseFooter() {
             <p className="flex items-center gap-2">
               <LogoMarkIcon className="h-6 w-6" />
               <span className="text-sm font-semibold">RoleSpec OS</span>
-              <span className="text-xs" style={{ color: "var(--text-3)" }}>v2.0.1</span>
+              <span className="text-xs" style={{ color: "var(--text-3)" }}>v2.1.0</span>
             </p>
             <p className="max-w-sm text-center text-xs leading-relaxed sm:text-left" style={{ color: "var(--text-2)" }}>
               A local-first career workspace. Published by Chryypt Inc.
@@ -38,7 +38,7 @@ export function ShowcaseFooter() {
             <CheckIcon className="h-3.5 w-3.5" />
             Single-owner and local-first. Zero telemetry.
           </p>
-          <p>© {new Date().getFullYear()} RoleSpec OS · AGPL-3.0</p>
+          <p>© {new Date().getFullYear()} RoleSpec OS · Personal use only</p>
         </div>
       </div>
     </footer>

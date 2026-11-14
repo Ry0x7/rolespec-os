@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { CheckIcon, ExternalIcon } from "./icons"
-import { ShotImage } from "./shot-image"
+import { TiltShot } from "./tilt-shot"
 
 type TabKey = "ats" | "diff" | "pipeline" | "screenshots"
 
@@ -278,16 +278,15 @@ export function Hyperframe({ isReducedMotion, theme }: { isReducedMotion: boolea
                     ))}
                   </div>
 
-                  <div className="shot">
-                    <ShotImage
-                      light={selected.light}
-                      dark={selected.dark}
-                      alt={selected.title}
-                      width={1440}
-                      height={selected.height ?? 960}
-                      loading="lazy"
-                    />
-                  </div>
+                  <TiltShot
+                    light={selected.light}
+                    dark={selected.dark}
+                    alt={selected.title}
+                    width={1440}
+                    height={selected.height ?? 960}
+                    loading="lazy"
+                    reducedMotion={reduce || isReducedMotion}
+                  />
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">{selected.title}</p>
@@ -307,7 +306,7 @@ export function Hyperframe({ isReducedMotion, theme }: { isReducedMotion: boolea
               <span className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} />
               Single-owner local security model
             </span>
-            <span>PostgreSQL · Next.js · AGPL-3.0</span>
+            <span>PostgreSQL · Next.js · Personal use</span>
           </div>
         </div>
       </div>

@@ -94,6 +94,61 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 .shot img { display: block; width: 100%; height: auto; }
 
+/* Pointer-driven 3D popup for product screenshots. Framer Motion owns the
+   transform; CSS owns the lift shadow and the glare fade. Touch devices and
+   the reduced-motion switch keep the frame perfectly still. */
+.tilt-scene {
+  width: 100%;
+  perspective: 1200px;
+}
+
+.tilt-card {
+  position: relative;
+  transform-origin: center;
+  will-change: transform;
+  transition: box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease;
+}
+
+.tilt-card:hover {
+  border-color: var(--border);
+  box-shadow: 0 36px 90px rgba(0, 0, 0, 0.2), 0 5px 16px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .tilt-card:hover {
+  box-shadow: 0 36px 100px rgba(0, 0, 0, 0.7), 0 5px 18px rgba(0, 0, 0, 0.35);
+}
+
+.tilt-media {
+  transform-origin: center;
+  will-change: transform;
+}
+
+.tilt-glare {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  transition: opacity 0.25s ease;
+}
+
+.tilt-card:hover .tilt-glare {
+  opacity: 0.55;
+}
+
+@media (hover: none) {
+  .tilt-card:hover .tilt-glare { opacity: 0; }
+}
+
+:root.reduce-motion .tilt-card {
+  transition: none;
+}
+
+:root.reduce-motion .tilt-glare {
+  display: none;
+}
+
 /* Each showcase capture has a light and dark version. The theme toggle sets
    data-theme on <html>, so exactly one image renders and both never stack. */
 .shot img.shot-dark { display: none; }

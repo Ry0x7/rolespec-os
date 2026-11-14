@@ -185,5 +185,7 @@ and whether a test would catch the regression.
 
 ## License
 
-Contributions are accepted under [AGPL-3.0](LICENSE). By submitting a pull request you confirm you
-have the right to license the code under those terms.
+Contributions are accepted under the [RoleSpec OS Personal Use License](LICENSE). By submitting a
+pull request you confirm you have the right to license the code under those terms, and you grant
+Chryypt Inc the rights described in the contributions section of that license. This is a
+source-available, personal-use license, not an OSI-approved open-source license.

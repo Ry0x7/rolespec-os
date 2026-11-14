@@ -1,11 +1,14 @@
 # Roadmap and known gaps
 
-Updated: 2026-11-12. This is a remaining-work list, not a claim that every user
+Updated: 2026-11-14. This is a remaining-work list, not a claim that every user
 journey has been verified. The product is a private, single-owner workspace;
 feedback and portfolio showcasing do not require a hosted service.
 
 ## Available today
 
+- A dashboard that leads with today: configurable daily application goal
+  (1–20), colour-coded application and follow-up status, the next seven days,
+  one next action and a readable "Why this rank?" explanation.
 - Career profile, master/role-family/job-tailored resumes, PDF export, ATS
   analysis and application tracking.
 - Optional AI analysis, enhancement, matching, essay drafting and outreach
@@ -21,7 +24,15 @@ feedback and portfolio showcasing do not require a hosted service.
 - Evidence-checked tailoring with source snapshots, deterministic cliché
   rejection, version-specific rollback and a single-page PDF option.
 - Durable application workflow backend with manual and agent-assisted modes,
-  review checkpoints, SSE progress, retry/cancel and restart recovery.
+  review checkpoints, SSE progress, retry/cancel and restart recovery, plus the
+  first-party preparation runs at `/workspace?view=runs` and the `/review`
+  questions, profile-proposal and answer-memory screen.
+- A phone-first workspace: the pipeline becomes one status column at a time,
+  navigation does not scroll horizontally, and the desktop rail collapses from
+  the mark beside the logo.
+- A deterministic dashboard visual-regression fixture at 390px and 1440px with
+  checked-in baselines; it is not part of CI because CI skips the Playwright
+  browser download.
 - One durable `SubmissionAttempt` per workflow or ATS preparation, with explicit
   user-only confirmation, tracker transition and follow-up scheduling.
 - Automatic +5 business-day email and +12 business-day LinkedIn follow-up tasks,
@@ -29,10 +40,14 @@ feedback and portfolio showcasing do not require a hosted service.
   automatically.
 - Encrypted ATS answer memory, server-side review queue and a documented
   extension API.
-- Docker/Node self-hosting and a freshly rebuilt Windows x64 v1.0.5 NSIS
-  installer. The installer has not been installed or code-signed in this audit.
+- Docker/Node self-hosting and a Windows x64 NSIS installer produced by the
+  tag workflow. v2.1.0 is the current release; a clean install of the current
+  build is still outstanding and the installer is not Authenticode-signed.
 
 ## Verified runtime evidence
+
+This section records the 2026-11-12 backend and desktop audit. The current
+frontend pass is in [FRONTEND_QA.md](FRONTEND_QA.md).
 
 - A real provider-backed workflow completed on 2026-11-12 through the production
   build and the local API: profile → discover → rank → research → tailor →
@@ -85,8 +100,9 @@ feedback and portfolio showcasing do not require a hosted service.
 
 ## Known product decisions still open
 
-- No dashboard leaderboard UI; ranking is API/discovery ordering only.
-- No first-party workflow or web review screen.
+- Answer-memory management remains extension-only; `/review` resolves
+  questions and explains the handoff instead of exposing a writable web memory
+  table.
 - No automatic submission, email sending or outreach sending; all remain user
   actions by design.
 - No multi-tenant accounts, hosted billing or SaaS isolation.
@@ -101,8 +117,9 @@ feedback and portfolio showcasing do not require a hosted service.
   establish a verified publisher.
 - Authenticode signing is not configured. The updater's own signatures are
   separate from Windows publisher identity.
-- A clean-machine install/upgrade of the 2026-11-12 build is still outstanding.
-  Runtime, data paths and troubleshooting are in [DESKTOP.md](DESKTOP.md).
+- A clean-machine install/upgrade of the current v2.1.0 build is still
+  outstanding. Runtime, data paths and troubleshooting are in
+  [DESKTOP.md](DESKTOP.md).
 - CLI and local-model AI options still require separate installation and
   configuration.
 
