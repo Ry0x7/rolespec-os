@@ -20,11 +20,13 @@ import {
 } from "@dnd-kit/core"
 import { ApplicationStatus } from "@/generated/prisma/enums"
 import { cn } from "@/shared/lib/utils"
+import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { localCalendarDateString } from "@/shared/lib/dates"
 import { updateJobApplicationStatus } from "@/features/jobs/actions/job-application.actions"
 import type { WorkspaceJobRow } from "../workspace-board"
 import { KanbanCard } from "./kanban-card"
 import { KanbanColumn } from "./kanban-column"
+import { KanbanMobileBoard, MOBILE_STATUS_TARGET_PREFIX } from "./kanban-mobile"
 import { KanbanStatusContext, KanbanTodayContext } from "./kanban-status"
 
 const COLUMN_ORDER: ApplicationStatus[] = [
@@ -38,6 +40,9 @@ const COLUMN_ORDER: ApplicationStatus[] = [
 ]
 
 const STATUS_SET = new Set<string>(COLUMN_ORDER)
+
+/** Tailwind's `xl` — the first width where seven columns fit side by side. */
+const DESKTOP_BOARD_QUERY = "(min-width: 1280px)"
 
 /**
  * Pointer position first (precise for mouse/touch), falling back to rect
@@ -60,8 +65,16 @@ export function KanbanBoard({
   onToggleSelect?: (id: string) => void
 }) {
   const router = useRouter()
+  const isDesktop = useMediaQuery(DESKTOP_BOARD_QUERY)
   const [items, setItems] = useState(jobs)
   const [activeId, setActiveId] = useState<string | null>(null)
+  // Below xl exactly one status is on screen. Start on the first status that
+  // actually has cards, so the board opens on work rather than an empty column.
+  const [activeStatus, setActiveStatus] = useState<ApplicationStatus>(
+    () =>
+      COLUMN_ORDER.find((status) => jobs.some((job) => job.status === status)) ??
+      ApplicationStatus.INTERESTED
+  )
 
   // `items` is local so a drag can move a card optimistically; this re-syncs it
   // when the server sends a new list. Compared during render rather than in an
@@ -127,7 +140,9 @@ export function KanbanBoard({
       el.removeEventListener("scroll", update)
       observer?.disconnect()
     }
-  }, [])
+    // The scroller only exists in the desktop branch, so subscribe when that
+    // branch mounts rather than once for both layouts.
+  }, [isDesktop])
 
   const changeStatus = useCallback(
     async (jobId: string, newStatus: ApplicationStatus) => {
@@ -173,9 +188,15 @@ export function KanbanBoard({
     const { active, over } = event
     if (!over) return
 
+    // Desktop columns use the bare status as their droppable id; the phone
+    // navigator prefixes its chips so one card can be dropped onto a status
+    // that has no visible column.
     const overId = String(over.id)
-    if (!STATUS_SET.has(overId)) return
-    const newStatus = overId as ApplicationStatus
+    const targetStatus = overId.startsWith(MOBILE_STATUS_TARGET_PREFIX)
+      ? overId.slice(MOBILE_STATUS_TARGET_PREFIX.length)
+      : overId
+    if (!STATUS_SET.has(targetStatus)) return
+    const newStatus = targetStatus as ApplicationStatus
 
     const jobId = String(active.id)
     const job = items.find((j) => j.id === jobId)
@@ -220,42 +241,56 @@ export function KanbanBoard({
             containing block for the fixed-position DragOverlay again.
           */}
           <div className="relative">
-            <div
-              ref={scrollerRef}
-              className="flex gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:h-1.5"
-            >
-              {items.length === 0 ? (
-                <p className="w-full px-2 py-8 text-center text-sm text-muted-foreground">
-                  No applications match the current search or filters.
-                </p>
-              ) : (
-                COLUMN_ORDER.map((status) => (
-                  <KanbanColumn
-                    key={status}
-                    status={status}
-                    jobs={jobsByStatus.get(status) ?? []}
-                    selectedIds={showSelection ? selectedIds : undefined}
-                    onToggleSelect={showSelection ? onToggleSelect : undefined}
-                  />
-                ))
-              )}
-            </div>
-            <div
-              aria-hidden
-              className={cn(
-                // The board sits on a `.glass` panel, so the fade has to resolve
-                // to that surface — `from-background` reads as a haze on it.
-                "pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--glass-bg)] to-transparent transition-opacity duration-200",
-                edges.left ? "opacity-100" : "opacity-0"
-              )}
-            />
-            <div
-              aria-hidden
-              className={cn(
-                "pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--glass-bg)] to-transparent transition-opacity duration-200",
-                edges.right ? "opacity-100" : "opacity-0"
-              )}
-            />
+            {isDesktop ? (
+              <div data-kanban-desktop>
+                <div
+                  ref={scrollerRef}
+                  className="flex gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:h-1.5 xl:grid xl:grid-cols-7 xl:gap-2 xl:overflow-visible xl:pb-0"
+                >
+                  {items.length === 0 ? (
+                    <p className="w-full px-2 py-8 text-center text-sm text-muted-foreground xl:col-span-7">
+                      No applications match the current search or filters.
+                    </p>
+                  ) : (
+                    COLUMN_ORDER.map((status) => (
+                      <KanbanColumn
+                        key={status}
+                        status={status}
+                        jobs={jobsByStatus.get(status) ?? []}
+                        selectedIds={showSelection ? selectedIds : undefined}
+                        onToggleSelect={showSelection ? onToggleSelect : undefined}
+                      />
+                    ))
+                  )}
+                </div>
+                <div
+                  aria-hidden
+                  className={cn(
+                    // The board sits on a `.glass` panel, so the fade has to
+                    // resolve to that surface — `from-background` reads as a
+                    // haze on it.
+                    "pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--glass-bg)] to-transparent transition-opacity duration-200",
+                    edges.left ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                <div
+                  aria-hidden
+                  className={cn(
+                    "pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--glass-bg)] to-transparent transition-opacity duration-200",
+                    edges.right ? "opacity-100" : "opacity-0"
+                  )}
+                />
+              </div>
+            ) : (
+              <KanbanMobileBoard
+                statuses={COLUMN_ORDER}
+                jobsByStatus={jobsByStatus}
+                activeStatus={activeStatus}
+                onSelectStatus={setActiveStatus}
+                selectedIds={showSelection ? selectedIds : undefined}
+                onToggleSelect={showSelection ? onToggleSelect : undefined}
+              />
+            )}
           </div>
           {typeof document === "undefined"
             ? null

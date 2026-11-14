@@ -181,7 +181,11 @@ export function ResumeEditor({
           a future drag-to-resize only has to swap the template for a custom
           property. `minmax(0,…)` is what stops a wide preview page from
           forcing the column wider than its share. */}
-      <div className="flex flex-1 flex-col xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:overflow-hidden">
+      {/* The editing column gets a touch more room than the preview: forms
+          need a comfortable measure, while the preview scales to whatever its
+          pane has. Both tracks are `minmax(0,…)` so a wide A4 page can never
+          force the grid wider than the viewport. */}
+      <div className="flex flex-1 flex-col xl:grid xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:overflow-hidden">
         {/* layoutScroll: framer needs to know this ancestor scrolls, otherwise
             drag/layout measurements go stale once the pane is scrolled. */}
         <motion.div
@@ -196,12 +200,21 @@ export function ResumeEditor({
             {/* Contextual summary, not the full form — Job Target used to be a
                 permanent block of saved-job picker, textarea and up to 20
                 keyword chips. "Change" opens the same content in a drawer. */}
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
-              <div className="min-w-0 space-y-0.5">
-                <p className="truncate text-sm font-medium">
-                  Target: {storeResume?.targetRole ?? "No target role"}
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-[0_1px_0_rgba(0,0,0,0.02)] sm:p-4">
+              <span
+                aria-hidden="true"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400"
+              >
+                <Briefcase className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Job target
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="truncate text-sm font-semibold">
+                  {storeResume?.targetRole ?? "No target role"}
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   {/* Empty until the store has the resume: `setResume` copies
                       the loader's job description in from an effect, so the
                       first paint of an attached-JD resume would otherwise read
@@ -218,8 +231,8 @@ export function ResumeEditor({
                 size="sm"
                 onClick={() => setOpenInspector("job")}
                 aria-label="Change job target"
+                className="shrink-0"
               >
-                <Briefcase className="h-3.5 w-3.5 text-sky-500" />
                 Change
               </Button>
             </div>

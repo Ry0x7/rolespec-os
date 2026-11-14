@@ -11,6 +11,12 @@ interface ResolveNextActionInput {
   /** Applications still sitting at `INTERESTED` — saved but not yet decided on. */
   interestedCount: number
   /**
+   * A workflow-staged package waiting for the owner to submit it on the
+   * employer's site. Ranked above undecided jobs: the preparation is already
+   * paid for and the posting can close.
+   */
+  stagedAttempt?: { jobApplicationId: string; companyName: string | null; jobTitle: string | null }
+  /**
    * Live applications whose scheduled follow-up date has already passed. Ranked
    * above undecided saved jobs: a sent application going cold is a commitment
    * already made, and it expires.
@@ -43,15 +49,17 @@ export interface NextAction {
 
 /**
  * The one thing to do next, in a fixed order: build the profile, then a resume,
- * then find jobs, then chase the applications already sent, then log a past
- * interview's outcome, then decide on the ones still saved. Deterministic and
- * separate from the markup so the rule is testable — no AI, no scoring.
+ * then find jobs, then finish anything the agent already prepared, then chase
+ * the applications already sent, then log a past interview's outcome, then
+ * decide on the ones still saved. Deterministic and separate from the markup so
+ * the rule is testable — no AI, no scoring.
  */
 export function resolveNextAction({
   hasProfile,
   resumeCount,
   applicationCount,
   interestedCount,
+  stagedAttempt,
   followUpDueCount,
   topDecide,
   topAwaitingOutcome,
@@ -61,7 +69,7 @@ export function resolveNextAction({
     return {
       title: "Set up your career profile",
       description:
-        "Everything else — resumes, matching, discovery — is built from it.",
+        "Resumes, job matches and applications all start from these details.",
       href: "/career-profile",
       cta: "Open career profile",
     }
@@ -70,7 +78,7 @@ export function resolveNextAction({
   if (resumeCount === 0) {
     return {
       title: "Create your first resume",
-      description: "Start from your career profile, then tailor per job later.",
+      description: "Start from your career profile, then make a version for each job.",
       href: "/resumes",
       cta: "Create a resume",
     }
@@ -79,9 +87,22 @@ export function resolveNextAction({
   if (applicationCount === 0) {
     return {
       title: "Find jobs worth applying to",
-      description: "Discovery qualifies postings against your career profile.",
+      description: "We look for roles that fit your career details and goals.",
       href: "/jobs/discover",
       cta: "Discover jobs",
+    }
+  }
+
+  if (stagedAttempt) {
+    const role = [stagedAttempt.companyName, stagedAttempt.jobTitle]
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .join(" — ")
+    return {
+      title: role ? `Finish applying — ${role}` : "Finish your prepared application",
+      description:
+        "The agent prepared the resume and answers. Submit it on the employer’s site, then confirm what happened.",
+      href: jobDetailHref(stagedAttempt.jobApplicationId, "track"),
+      cta: "Finish application",
     }
   }
 
@@ -144,8 +165,8 @@ export function resolveNextAction({
   }
 
   return {
-    title: "Keep the pipeline full",
-    description: "Nothing is waiting on a decision — add more candidates.",
+    title: "Look for more jobs",
+    description: "Nothing is waiting on you. Find a few more roles worth a look.",
     href: "/jobs/discover",
     cta: "Discover more jobs",
   }
@@ -159,7 +180,8 @@ export function NextActionCard({ action }: { action: NextAction }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
       <div className="min-w-0 flex-1">
-        <h2 className="text-base font-semibold text-foreground">
+        <p className="text-xs font-medium text-muted-foreground">Your next step</p>
+        <h2 className="mt-0.5 text-base font-semibold text-foreground">
           {action.title}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">{action.description}</p>

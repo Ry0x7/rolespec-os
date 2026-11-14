@@ -193,9 +193,10 @@ export default async function JobsPage({
     <PageShell>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Job Applications</h1>
+          <h1 className="text-2xl font-bold">Saved jobs</h1>
           <p className="text-sm text-muted-foreground">
-            Track your job search progress
+            Every job you saved, with the next step for each one. The agent can prepare an
+            application, but you always review it and send it yourself.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -203,11 +204,11 @@ export default async function JobsPage({
               in-flow rather than leaving it nav-only. */}
           <Link href="/workspace" className={buttonVariants({ variant: "secondary" })}>
             <LayoutPanelTop className="h-4 w-4" aria-hidden="true" />
-            Board
+            Application board
           </Link>
           <Link href="/jobs/discover" className={buttonVariants({ variant: "secondary" })}>
             <Telescope className="h-4 w-4" aria-hidden="true" />
-            Discover
+            Find jobs
           </Link>
         </div>
       </div>

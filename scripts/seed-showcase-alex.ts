@@ -346,8 +346,20 @@ async function main() {
       },
       issues: [],
       suggestions: [
-        "Include more concrete metrics in earlier roles to match current Staff achievements.",
-        "Consider linking directly to live demo URLs for open-source projects.",
+        {
+          category: "Impact",
+          title: "Quantify earlier roles",
+          description:
+            "Add one metric to the ChronoScale bullets — request throughput or latency — so the impact reads at the same level as the current Staff role.",
+          priority: "medium",
+        },
+        {
+          category: "Projects",
+          title: "Link live demos",
+          description:
+            "Add a live URL for HyperQueue and PulseStream so a reviewer can inspect the work instead of taking the bullets on trust.",
+          priority: "low",
+        },
       ],
       mode: "QUALITY",
     },

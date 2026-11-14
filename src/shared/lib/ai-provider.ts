@@ -500,5 +500,11 @@ export async function getAIModel(override?: {
       const { getOpenCodeCliModel } = await import("./ai-providers/opencode-cli")
       return getOpenCodeCliModel(model)
     }
+    case "antigravity-cli": {
+      // Lazy for the same reason: child_process and the temp-schema plumbing
+      // must not be traced into every AI-touching serverless module.
+      const { getAntigravityCliModel } = await import("./ai-providers/antigravity-cli")
+      return getAntigravityCliModel(model)
+    }
   }
 }

@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
 import React, { useRef, useState } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { CheckIcon, ExternalIcon } from "./icons"
+import { ShotImage } from "./shot-image"
 
 type TabKey = "ats" | "diff" | "pipeline" | "screenshots"
 
@@ -12,7 +12,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "screenshots", label: "Screenshots" },
 ]
 
-export function Hyperframe({ isReducedMotion }: { isReducedMotion: boolean }) {
+export function Hyperframe({ isReducedMotion, theme }: { isReducedMotion: boolean; theme: "light" | "dark" }) {
   const [activeTab, setActiveTab] = useState<TabKey>("ats")
   const [diffApplied, setDiffApplied] = useState(true)
   const [selectedScreenshot, setSelectedScreenshot] = useState(0)
@@ -21,11 +21,15 @@ export function Hyperframe({ isReducedMotion }: { isReducedMotion: boolean }) {
   const reduce = useReducedMotion()
 
   const screenshots = [
-    { title: "Landing page", file: "RoleSpecOS/workspace.png", desc: "The app as it ships today, in light mode." },
-    { title: "Resume preview", file: "RoleSpecOS/resume-editor.png", desc: "Tailored bullet with matched keywords and PDF export." },
-    { title: "ATS keywords", file: "RoleSpecOS/ats-chips.png", desc: "Keyword chips and a 96 percent match score." },
-    { title: "Features", file: "RoleSpecOS/jobs-discover.png", desc: "Job Tracker, Chrome Clipper and the rest of the grid." },
+    { title: "Dashboard", light: "dashboard.png", dark: "dashboard-dark.png", desc: "Next action, attention and ranked roles in one view." },
+    { title: "Job applications", light: "jobs.png", dark: "jobs-dark.png", desc: "Every saved role, fit signal and next step on one board." },
+    { title: "Resume editor", light: "resume-editor.png", dark: "resume-editor-dark.png", desc: "Structured editing with a live ATS score and PDF export." },
+    { title: "Agent preparation", light: "job-prepare.png", dark: "job-prepare-dark.png", desc: "One click researches, tailors and prepares; you review before submitting." },
+    { title: "ATS analysis", light: "job-ats.png", dark: "job-ats-dark.png", desc: "Quality score, sub-scores and concrete suggestions in a drawer." },
+    { title: "Pipeline", light: "workspace.png", dark: "workspace-dark.png", desc: "A drag-and-drop pipeline with your weekly goal and outcomes." },
   ]
+  const selected = screenshots[selectedScreenshot]
+  const selectedFile = theme === "dark" ? selected.dark : selected.light
 
   function onTabKeyDown(e: React.KeyboardEvent, index: number) {
     let next: number | null = null
@@ -275,19 +279,21 @@ export function Hyperframe({ isReducedMotion }: { isReducedMotion: boolean }) {
                   </div>
 
                   <div className="shot">
-                    <img
-                      src={screenshots[selectedScreenshot].file}
-                      alt={screenshots[selectedScreenshot].title}
-                      width={1600} height={1120}
+                    <ShotImage
+                      light={selected.light}
+                      dark={selected.dark}
+                      alt={selected.title}
+                      width={1440}
+                      height={960}
                       loading="lazy"
                     />
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold">{screenshots[selectedScreenshot].title}</p>
-                      <p className="mt-0.5 text-xs" style={{ color: "var(--text-2)" }}>{screenshots[selectedScreenshot].desc}</p>
+                      <p className="text-sm font-semibold">{selected.title}</p>
+                      <p className="mt-0.5 text-xs" style={{ color: "var(--text-2)" }}>{selected.desc}</p>
                     </div>
-                    <a href={screenshots[selectedScreenshot].file} target="_blank" rel="noreferrer" className="link-more !text-sm">
+                    <a href={`RoleSpecOS/${selectedFile}`} target="_blank" rel="noreferrer" className="link-more !text-sm">
                       Full resolution <ExternalIcon className="h-3.5 w-3.5" />
                     </a>
                   </div>

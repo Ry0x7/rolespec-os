@@ -16,6 +16,7 @@ import {
   ScanText,
   Sparkles,
   Wand2,
+  Wrench,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/shared/ui/badge"
@@ -24,6 +25,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu"
 import { generateResume } from "@/features/export/actions/generate"
@@ -90,6 +93,17 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
   // An empty resume renders an empty page, so the plain download waits for
   // something to put on it.
   const hasContent = !!resume?.sections?.some((s) => s.items.length > 0)
+
+  // The Tools menu carries the analysis entry, so its label has to say which
+  // run the user would actually get. Before hydration the safe default is the
+  // general quality run; the drawer explains the rest.
+  const analysis = atsResults ?? resume?.latestAnalysis ?? null
+  const hasScore = (analysis?.overallScore ?? resume?.atsScore ?? null) != null
+  const analysisLabel = hasScore
+    ? "ATS analysis"
+    : resume?.jobDescription
+      ? "Run analysis"
+      : "Run Resume Quality"
 
   // Plain PDF of the saved content — no AI, so it works without an API key.
   async function handleDownload(singlePage = false) {
@@ -200,323 +214,291 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
   return (
     // Sticky so primary actions stay reachable while the page itself scrolls
     // below `xl`; at `xl` the panes scroll instead and this header is already
-    // pinned above them by the editor's own flex column, so the sticky rule
-    // is a no-op there rather than a second, conflicting stack. `top-14`
-    // parks it under the app shell's own sticky header (h-14) instead of
-    // behind it — at `xl` that header's column doesn't scroll past this one,
-    // so `top-0` is correct there. Opaque background: the section list must
-    // not show through while scrolling under it. `xl:px-6` matches the panes'
-    // own `xl:p-6`, so both switch on the same breakpoint as the split.
-    <div className="sticky top-14 z-[var(--z-sticky)] flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-4 py-3 xl:top-0 xl:px-6">
-      <div className="flex items-center gap-3">
-        <Link href="/resumes">
-          <Button variant="ghost" size="icon" aria-label="Back to resumes" title="Back to resumes">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="font-semibold">{resume?.title ?? "Resume"}</h1>
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
-            {/* What kind of resume this is, named the same way as its card on
-                /resumes. A pill, so it needs no separator after it. */}
-            {resume?.variant && (
-              <ResumeKindBadge
-                variant={resume.variant}
-                roleFamilyName={resume.roleFamilyName}
-              />
-            )}
-            {/* Where this resume came from, as on its /resumes card. Pre-lineage
-                rows carry neither field and show nothing here. */}
-            {lineage && (
-              <>
-                {lineage}
-                {(resume?.targetRole || saveState || linkedJob) && (
-                  <span aria-hidden="true">·</span>
-                )}
-              </>
-            )}
-            {resume?.targetRole && <span>{resume.targetRole}</span>}
-            {resume?.targetRole && saveState && <span aria-hidden="true">·</span>}
-            {/* Autosave is silent on success, so the state has to live somewhere
-                permanent — and unlike the Save button's label, this stays
-                visible on mobile. */}
-            {saveState && (
-              <span role="status" aria-live="polite">
-                {saveState}
-              </span>
-            )}
-            {/* Round trip for a job-tailored resume. Lives on the meta line so
-                it stays low-emphasis, and is width-capped so a long job title
-                cannot push the header's action cluster off a phone. */}
-            {linkedJob && (
-              <>
-                {(resume?.targetRole || saveState) && <span aria-hidden="true">·</span>}
-                <Link
-                  href={jobDetailHref(linkedJob.id, "prepare")}
-                  className="max-w-[12rem] truncate rounded-sm transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
-                >
-                  Back to job: {linkedJob.title}
-                </Link>
-              </>
-            )}
+    // pinned above them by the editor's own flex column. `top-14` parks it
+    // under the app shell's sticky header (h-14) instead of behind it.
+    <div className="sticky top-14 z-[var(--z-sticky)] border-b border-border bg-background xl:top-0">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2.5 sm:px-4 xl:px-6">
+        {/* Title block: can shrink to nothing, never pushes the actions off. */}
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+          <Link href="/resumes" className="shrink-0">
+            <Button variant="ghost" size="icon" aria-label="Back to resumes" title="Back to resumes">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-semibold leading-tight sm:text-base">
+              {resume?.title ?? "Resume"}
+            </h1>
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+              {/* What kind of resume this is, named the same way as its card on
+                  /resumes. */}
+              {resume?.variant && (
+                <ResumeKindBadge
+                  variant={resume.variant}
+                  roleFamilyName={resume.roleFamilyName}
+                />
+              )}
+              {/* Where this resume came from, as on its /resumes card. */}
+              {lineage && (
+                <>
+                  {lineage}
+                  {(resume?.targetRole || saveState || linkedJob) && (
+                    <span aria-hidden="true">·</span>
+                  )}
+                </>
+              )}
+              {resume?.targetRole && <span className="truncate">{resume.targetRole}</span>}
+              {resume?.targetRole && saveState && <span aria-hidden="true">·</span>}
+              {saveState && (
+                <span role="status" aria-live="polite">
+                  {saveState}
+                </span>
+              )}
+              {linkedJob && (
+                <>
+                  {(resume?.targetRole || saveState) && <span aria-hidden="true">·</span>}
+                  <Link
+                    href={jobDetailHref(linkedJob.id, "prepare")}
+                    className="max-w-[12rem] truncate rounded-sm transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
+                  >
+                    Back to job: {linkedJob.title}
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </div>
-        {/* Status, not an expensive action: low-emphasis and grouped with the
-            save state it explains, away from the money/file cluster. */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onSave}
-          disabled={saveStatus === "saving" || !isDirty}
-          aria-label={saveStatus === "saving" ? "Saving" : isDirty ? "Save" : "Saved"}
-          title={saveStatus === "saving" ? "Saving..." : isDirty ? "Save" : "Saved"}
-        >
-          {saveStatus === "saving" ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span className="hidden sm:inline">Saving...</span>
-            </>
-          ) : (
-            <>
-              <Save className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{isDirty ? "Save" : "Saved"}</span>
-            </>
-          )}
-        </Button>
-      </div>
-      {/* Deliberately NOT a scroll container. An earlier pass gave this row
-          `overflow-x-auto` to pre-empt six buttons overflowing a phone, but the
-          labels are already `hidden sm:inline`, so at 320px the row measures
-          278px against 278px of space — it never scrolled. What it did do was
-          clip the Export menu: `DropdownMenuContent` is absolutely positioned,
-          and `overflow-x: auto` computes `overflow-y` to `auto` as well, so the
-          menu was cropped to the 32px height of this row. The parent's
-          `flex-wrap` is what handles a genuinely cramped viewport — plus this
-          row's own `flex-wrap`: with the 141px "Run Resume Quality" nudge the
-          row measures 427px, wider than a 390px phone, so it wraps rather than
-          pushing the page sideways. Wrapping does not clip the menu, but it
-          drops Export to the left edge of the second row, where a right-aligned
-          menu runs off-screen left. That happens below `md` (at `sm` the
-          labels return and the row wraps again). So below `md` the Export menu
-          positions against this row (`relative` here, `static` on the menu
-          wrapper) and anchors to its left edge, which stays on-screen whether
-          or not the row wraps; from `md` it is right-aligned under the trigger. */}
-      <div className="relative flex flex-wrap items-center gap-2">
-        {/* Below `xl` only — at `xl` and up the preview is the inline pane
-            next to the editor and needs no toggle. */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpenInspector("preview")}
-          aria-label="Preview"
-          title="Preview"
-          className="xl:hidden"
-        >
-          <Eye className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Preview</span>
-        </Button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpenInspector("job")}
-          aria-label="Job target"
-          title="Job target"
+        {/* Actions: three durable controls (Save, Tools, Export) plus the one
+            primary action. `flex-wrap` handles a genuinely cramped phone; the
+            row itself must never become a scroll container, or it would clip
+            the two dropdown menus. */}
+        <div
+          data-editor-actions
+          className="relative flex flex-wrap items-center justify-end gap-1.5 sm:gap-2"
         >
-          <Briefcase className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Job target</span>
-        </Button>
+          <AnalysisStatus />
 
-        <Button variant="outline" size="sm" onClick={() => setShowHistory(true)} aria-label="Resume history and validation" title="Resume history and validation">
-          <History className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden sm:inline">History</span>
-        </Button>
-
-        {resume?.variant === "JOB_TAILORED" && resume?.sourceResume?.id && (
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={() => setShowCompare(true)}
-            aria-label="Compare with source resume and rollback"
-            title="Compare tailored changes with verified source resume"
+            onClick={onSave}
+            disabled={saveStatus === "saving" || !isDirty}
+            aria-label={saveStatus === "saving" ? "Saving" : isDirty ? "Save" : "Saved"}
+            title={saveStatus === "saving" ? "Saving..." : isDirty ? "Save" : "Saved"}
+            className="px-2"
           >
-            <GitCompare className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Compare</span>
+            {saveStatus === "saving" ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span className="hidden md:inline">Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">{isDirty ? "Save" : "Saved"}</span>
+              </>
+            )}
           </Button>
-        )}
 
-        {/* The analyze → fix loop, visible without opening the drawer: the
-            first-run nudge, or the score plus the one issue worth acting on. */}
-        <AnalysisStatus />
-
-        {/* Replaces the old standalone Analyze button and ATSBadge: one
-            control opens the inspector, which is where a disabled Analyze
-            gets to explain itself — so this is never disabled. The score
-            itself is rendered by `AnalysisStatus` above (mode-aware), so this
-            control carries only the icon and the staleness flag. */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpenInspector("ats")}
-          aria-label={
-            isAnalyzing
-              ? "Analyzing"
-              : atsResults
-                ? `ATS score ${atsResults.overallScore}${atsStale ? ", outdated" : ""}`
-                : "ATS analysis"
-          }
-          title={isAnalyzing ? "Analyzing..." : "ATS analysis"}
-        >
-          {isAnalyzing ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <ScanText className="h-3.5 w-3.5" />
-          )}
-          <span className="hidden sm:inline">ATS</span>
-          {atsResults && atsStale && !isAnalyzing && (
-            <span className="text-xs text-amber-600 dark:text-amber-500">Outdated</span>
-          )}
-        </Button>
-
-        {/* Opens the inspector rather than running the AI directly — the run
-            moves inside, mirroring Analyze. Never disabled: the inspector is
-            where the "needs an ATS analysis" gate gets to explain itself. */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpenInspector("enhance")}
-          aria-label={isEnhancing ? "Enhancing" : "Enhance"}
-          title={isEnhancing ? "Enhancing..." : "Enhance"}
-        >
-          {isEnhancing ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Wand2 className="h-3.5 w-3.5" />
-          )}
-          <span className="hidden sm:inline">Enhance</span>
-          {enhanceSuggestions && enhanceSuggestions.length > 0 && !isEnhancing && (
-            <span className="text-xs text-muted-foreground">
-              {enhanceSuggestions.length}
-            </span>
-          )}
-        </Button>
-
-        {/* File-output actions collapse into one menu: they were six equal-
-            weight peers before, which buried Generate — the one action that
-            actually costs an AI call — among plain downloads. */}
-        <DropdownMenu className="static md:relative">
-          {/* DropdownMenuTrigger renders its own <button>, so it takes
-              Button's variant classes directly rather than wrapping a
-              <Button> (asChild isn't a trigger prop — see the account menu
-              in shared/components/header.tsx for the same pattern). */}
-          <DropdownMenuTrigger
-            aria-label="Export"
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            <span className="hidden sm:inline">Export</span>
-            <ChevronDown className="h-3.5 w-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            label="Export"
-            align="end"
-            className="left-0 right-auto md:left-auto md:right-0"
-          >
-            <DropdownMenuItem onClick={() => setShowPdf(true)} disabled={!hasContent} aria-label="Preview generated PDF">
-              <Eye className="h-3.5 w-3.5" aria-hidden="true" />Preview generated PDF
-            </DropdownMenuItem>
-            {/* Always available: renders the current content, no AI key needed. */}
-            <DropdownMenuItem
-              onClick={() => handleDownload()}
-              disabled={isDownloading || !hasContent}
-              aria-label={isDownloading ? "Preparing PDF" : "Download PDF"}
-              title={
-                !hasContent
-                  ? "Add some content to download"
-                  : isDownloading
-                    ? "Preparing PDF..."
-                    : "Download PDF of your current resume — no AI needed"
-              }
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Tools"
+              title="Resume tools"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              {isDownloading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              {isDownloading ? "Preparing..." : "Download PDF"}
-            </DropdownMenuItem>
-
-            {/* ATS-oriented option: same template and content, progressively
-                tighter presentation until the real PDF fits one page. */}
-            <DropdownMenuItem
-              onClick={() => handleDownload(true)}
-              disabled={isDownloading || !hasContent}
-              aria-label="Download one-page ATS PDF"
-              title="Fit this resume on one ATS-friendly page — no AI needed"
+              <Wrench className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Tools</span>
+              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              label="Resume tools"
+              align="end"
+              className="left-0 right-auto w-60 max-w-[calc(100vw-2rem)] sm:left-auto sm:right-0"
             >
-              {isDownloading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <FileText className="h-3.5 w-3.5" />
-              )}
-              Download one-page PDF
-            </DropdownMenuItem>
+              <DropdownMenuLabel>Prepare</DropdownMenuLabel>
+              {/* Below `xl` only: at `xl` the preview is the inline pane and
+                  this would open the sheet that is not mounted there. */}
+              <DropdownMenuItem
+                onClick={() => setOpenInspector("preview")}
+                aria-label="Preview"
+                className="xl:hidden"
+              >
+                <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                Preview resume
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setOpenInspector("job")}
+                aria-label="Job target"
+              >
+                <Briefcase className="h-3.5 w-3.5" aria-hidden="true" />
+                Job target
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setOpenInspector("ats")}
+                aria-label={analysisLabel}
+              >
+                {isAnalyzing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ScanText className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                <span className="flex-1">{analysisLabel}</span>
+                {atsResults && atsStale && !isAnalyzing && (
+                  <span className="text-xs text-amber-600 dark:text-amber-500">Outdated</span>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setOpenInspector("enhance")}
+                aria-label="Enhance"
+              >
+                {isEnhancing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                <span className="flex-1">Enhance with AI</span>
+                {enhanceSuggestions && enhanceSuggestions.length > 0 && !isEnhancing && (
+                  <span className="text-xs text-muted-foreground">
+                    {enhanceSuggestions.length}
+                  </span>
+                )}
+              </DropdownMenuItem>
 
-            {lastExport && (() => {
-              const urls = lastExport.templateUrls[resume?.template ?? "MINIMAL"]
-              if (!urls) return null
-              return (
-                <DropdownMenuItem asChild>
-                  <a
-                    href={urls.pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Download AI-optimized PDF"
-                    title="Download AI-optimized PDF"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    <span className="flex flex-col items-start">
-                      Download AI-optimized PDF
-                      {/* Edits never revoke the files — the blob URLs stay
-                          valid — so an edited resume only labels them as
-                          behind the current content. */}
-                      {exportStale && (
-                        <span
-                          className="text-xs text-muted-foreground"
-                          title="Generated before your latest edits — Generate again for an up-to-date file"
-                        >
-                          outdated
-                        </span>
-                      )}
-                    </span>
-                  </a>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Review</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => setShowHistory(true)}
+                aria-label="Resume history and validation"
+              >
+                <History className="h-3.5 w-3.5" aria-hidden="true" />
+                History and checks
+              </DropdownMenuItem>
+              {resume?.variant === "JOB_TAILORED" && resume?.sourceResume?.id && (
+                <DropdownMenuItem
+                  onClick={() => setShowCompare(true)}
+                  aria-label="Compare with source resume and rollback"
+                >
+                  <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
+                  Compare with source
                 </DropdownMenuItem>
-              )
-            })()}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <Button
-          size="sm"
-          onClick={handleGenerate}
-          disabled={isGenerating}
-          aria-label={isGenerating ? "Generating" : "Generate AI-optimized export"}
-          title={
-            isGenerating
-              ? "Generating..."
-              : "AI-optimized export — rewrites your content, needs an AI key"
-          }
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span className="hidden sm:inline">Generating...</span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Generate</span>
-            </>
-          )}
-        </Button>
+          {/* File-output actions stay in one menu: Generate is the only action
+              that costs an AI call and must not look like another download. */}
+          <DropdownMenu className="static md:relative">
+            <DropdownMenuTrigger
+              aria-label="Export"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              <span className="hidden sm:inline">Export</span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              label="Export"
+              align="end"
+              className="left-0 right-auto md:left-auto md:right-0"
+            >
+              <DropdownMenuItem onClick={() => setShowPdf(true)} disabled={!hasContent} aria-label="Preview generated PDF">
+                <Eye className="h-3.5 w-3.5" aria-hidden="true" />Preview generated PDF
+              </DropdownMenuItem>
+              {/* Always available: renders the current content, no AI key needed. */}
+              <DropdownMenuItem
+                onClick={() => handleDownload()}
+                disabled={isDownloading || !hasContent}
+                aria-label={isDownloading ? "Preparing PDF" : "Download PDF"}
+                title={
+                  !hasContent
+                    ? "Add some content to download"
+                    : isDownloading
+                      ? "Preparing PDF..."
+                      : "Download PDF of your current resume — no AI needed"
+                }
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                {isDownloading ? "Preparing..." : "Download PDF"}
+              </DropdownMenuItem>
+
+              {/* ATS-oriented option: same template and content, progressively
+                  tighter presentation until the real PDF fits one page. */}
+              <DropdownMenuItem
+                onClick={() => handleDownload(true)}
+                disabled={isDownloading || !hasContent}
+                aria-label="Download one-page ATS PDF"
+                title="Fit this resume on one ATS-friendly page — no AI needed"
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+                Download one-page PDF
+              </DropdownMenuItem>
+
+              {lastExport && (() => {
+                const urls = lastExport.templateUrls[resume?.template ?? "MINIMAL"]
+                if (!urls) return null
+                return (
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={urls.pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Download AI-optimized PDF"
+                      title="Download AI-optimized PDF"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="flex flex-col items-start">
+                        Download AI-optimized PDF
+                        {/* Edits never revoke the files — the blob URLs stay
+                            valid — so an edited resume only labels them as
+                            behind the current content. */}
+                        {exportStale && (
+                          <span
+                            className="text-xs text-muted-foreground"
+                            title="Generated before your latest edits — Generate again for an up-to-date file"
+                          >
+                            outdated
+                          </span>
+                        )}
+                      </span>
+                    </a>
+                  </DropdownMenuItem>
+                )
+              })()}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            size="sm"
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            aria-label={isGenerating ? "Generating" : "Generate AI-optimized export"}
+            title={
+              isGenerating
+                ? "Generating..."
+                : "AI-optimized export — rewrites your content, needs an AI key"
+            }
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span className="hidden sm:inline">Generating...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Generate</span>
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {showHistory && resume?.id && <ResumeHistoryDrawer resumeId={resume.id} open={showHistory} onClose={() => setShowHistory(false)} />}
@@ -534,8 +516,9 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
 
 /**
  * Header-level analysis state, so the analyze → fix loop is legible without
- * opening the drawer: either a first-run nudge, or the score and the single
- * issue worth acting on next.
+ * opening the Tools menu: either a quiet "not analyzed" line, or the score and
+ * the single issue worth acting on next. The action that starts the run lives
+ * in Tools, which is where the label can also explain what the run will check.
  *
  * Reads the live store first and falls back to what the server hydrated, so a
  * reload of a previously analyzed resume still shows a score even if only the
@@ -545,15 +528,12 @@ function AnalysisStatus() {
   const resume = useResumeStore((s) => s.resume)
   const atsResults = useResumeStore((s) => s.atsResults)
   const isAnalyzing = useResumeStore((s) => s.isAnalyzing)
-  const jobDescription = useResumeStore((s) => s.jobDescription)
   const setOpenInspector = useResumeStore((s) => s.setOpenInspector)
 
   // The server loader hands the resume to the client component, which copies it
   // into the store in an effect — so the first paint after navigation has an
   // empty store. Rendering the never-analyzed branch there makes an analyzed
-  // job-match resume flash "Not analyzed yet" / "Run Resume Quality" before
-  // flipping to its real score. `resume === null` is the only state that means
-  // "not hydrated yet": `setResume` always sets it.
+  // job-match resume flash "Not analyzed yet" before flipping to its score.
   if (resume === null) return null
 
   if (isAnalyzing) {
@@ -561,7 +541,7 @@ function AnalysisStatus() {
       <span
         role="status"
         aria-live="polite"
-        className="text-xs text-muted-foreground"
+        className="whitespace-nowrap text-xs text-muted-foreground"
       >
         Analyzing…
       </span>
@@ -572,29 +552,13 @@ function AnalysisStatus() {
   const score = analysis?.overallScore ?? resume?.atsScore ?? null
 
   if (score == null) {
-    // A job description — retained from a past job-match run, or pasted into
-    // the job-target panel this session — means the next run answers "does
-    // this match the job", not "is this resume good", so the nudge is named
-    // for the run the user would actually get.
-    const hasJobDescription =
-      !!resume?.jobDescription || jobDescription.trim().length > 0
+    // The run itself is one click away in Tools; this is only a quiet cue.
+    // `xl` because below it the header has no spare width, and the Tools menu
+    // item already names the run.
     return (
-      <div className="flex shrink-0 items-center gap-2">
-        {/* `xl` for the same reason as the score chip's issue line: below it
-            the toolbar has no room, and the button label already says what
-            has not happened yet. */}
-        <span className="hidden whitespace-nowrap text-xs text-muted-foreground xl:inline">
-          Not analyzed yet
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpenInspector("ats")}
-          className="whitespace-nowrap"
-        >
-          {hasJobDescription ? "Run analysis" : "Run Resume Quality"}
-        </Button>
-      </div>
+      <span className="hidden whitespace-nowrap text-xs text-muted-foreground xl:inline">
+        Not analyzed yet
+      </span>
     )
   }
 
@@ -615,11 +579,9 @@ function AnalysisStatus() {
       <Badge variant={atsVariant(score)} size="sm">
         {kind} {score}
       </Badge>
-      {/* One line only: an issue message is a sentence, and the toolbar has
-          no room for two of them. The full text lives in the button's title
-          and, in full, in the drawer. `xl` is the first width where the
-          toolbar row measures narrower than the header even with this
-          added — at `md` it pushed Generate past the right edge. */}
+      {/* One line only: an issue message is a sentence, and the header has no
+          room for two of them. The full text lives in the button's title and,
+          in full, in the drawer. */}
       <span className="hidden max-w-[16rem] truncate text-xs text-muted-foreground xl:block">
         {issueText}
       </span>

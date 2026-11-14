@@ -45,6 +45,7 @@ describe("UserAiKeyForm", () => {
       "lmstudio",
       "claude-code",
       "codex-cli",
+      "antigravity-cli",
     ])
   })
 

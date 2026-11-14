@@ -94,6 +94,12 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 .shot img { display: block; width: 100%; height: auto; }
 
+/* Each showcase capture has a light and dark version. The theme toggle sets
+   data-theme on <html>, so exactly one image renders and both never stack. */
+.shot img.shot-dark { display: none; }
+[data-theme="dark"] .shot img.shot-light { display: none; }
+[data-theme="dark"] .shot img.shot-dark { display: block; }
+
 /* Apple pill primary action */
 .btn-primary {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;

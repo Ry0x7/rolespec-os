@@ -57,26 +57,45 @@ async function build() {
 
   const screenshotFiles = [
     "banner.png",
-    "banner.svg",
-    "jobs-discover.png",
+    "dashboard.png",
+    "dashboard-dark.png",
+    "jobs.png",
+    "jobs-dark.png",
     "resume-editor.png",
-    "ats-chips.png",
+    "resume-editor-dark.png",
+    "job-prepare.png",
+    "job-prepare-dark.png",
+    "job-ats.png",
+    "job-ats-dark.png",
     "workspace.png",
+    "workspace-dark.png",
   ]
 
-  for (const file of screenshotFiles) {
-    const srcFile = path.join(screenshotsDir, file)
-    if (fs.existsSync(srcFile)) {
-      fs.copyFileSync(srcFile, path.join(targetRoleSpecDir, file))
-    }
+  // Missing captures used to be skipped silently, which is how crops of the old
+  // in-app landing page ended up on the live site. A broken screenshot is a
+  // build failure now.
+  const missing = screenshotFiles.filter(
+    (file) => !fs.existsSync(path.join(screenshotsDir, file)),
+  )
+  if (missing.length > 0) {
+    throw new Error(`Missing showcase screenshot(s): ${missing.join(", ")}`)
   }
 
-  // Copy favicon
-  const publicFavicon = path.join(ROOT_DIR, "public", "banner.svg")
-  if (fs.existsSync(publicFavicon)) {
-    fs.copyFileSync(publicFavicon, path.join(OUT_DIR, "favicon.svg"))
-    fs.copyFileSync(publicFavicon, path.join(targetRoleSpecDir, "icon.svg"))
+  for (const file of screenshotFiles) {
+    fs.copyFileSync(
+      path.join(screenshotsDir, file),
+      path.join(targetRoleSpecDir, file),
+    )
   }
+
+  // Copy favicon. This is the square app mark, not the wide README banner:
+  // a 1280x420 banner rendered in a browser tab is unreadable.
+  const publicFavicon = path.join(ROOT_DIR, "public", "icon.svg")
+  if (!fs.existsSync(publicFavicon)) {
+    throw new Error("Missing app icon: public/icon.svg")
+  }
+  fs.copyFileSync(publicFavicon, path.join(OUT_DIR, "favicon.svg"))
+  fs.copyFileSync(publicFavicon, path.join(targetRoleSpecDir, "icon.svg"))
 
   // 4. Generate CNAME, .nojekyll, robots.txt, sitemap.xml
   fs.writeFileSync(path.join(OUT_DIR, "CNAME"), "rolespec.ry0x7.dev\n")
@@ -107,6 +126,7 @@ async function build() {
   <title>RoleSpec OS — Private job-search workspace</title>
   <meta name="description" content="Local-first job-search workspace: resume studio, ATS matching, outreach and application tracking on your own database.">
   <meta name="theme-color" content="#ffffff">
+  <meta name="application-name" content="RoleSpec OS">
 
   <!-- Open Graph / Social Media -->
   <meta property="og:type" content="website">
@@ -122,6 +142,7 @@ async function build() {
   <meta name="twitter:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner.png">
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
   <link rel="stylesheet" href="styles.css">
 
   <!-- Pre-paint: apply stored/system theme + motion preference before first paint -->

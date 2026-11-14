@@ -142,12 +142,57 @@ export default async function CareerProfilePage({
       </div>
 
       <ProfileQuickActions keyboardOnly />
-      <TaskTabs label="Career profile tasks" items={[
-        { id: "contact", label: "Contact" }, { id: "preferences", label: "Preferences" },
-        { id: "target-roles", label: "Target roles" }, { id: "intake", label: "Import & review" },
-        { id: "evidence", label: "Evidence" }, { id: "capabilities", label: "Skills" },
+      <TaskTabs label="Career profile tasks" defaultId="intake" items={[
+        { id: "intake", label: "Add & review" },
+        { id: "contact", label: "Contact" },
+        { id: "target-roles", label: "Jobs I want" },
+        { id: "preferences", label: "Work preferences" },
+        { id: "evidence", label: "Work history" },
+        { id: "capabilities", label: "Skills" },
         { id: "profile-backup", label: "Backup" },
       ]}>
+
+      {/*
+        Start with import: one resume, chat or public profile fills the same
+        review queue and can update every section below. The individual forms
+        stay available for people who prefer to type each fact themselves.
+      */}
+      <div id="intake" data-tour="career-intake" className="scroll-mt-28">
+        <TaskTabs label="Profile import method" defaultId="unified-intake" items={[
+          { id: "unified-intake", label: "Add everything in one place" },
+          { id: "resume-import", label: "Upload a resume" },
+          { id: "linkedin-import", label: "LinkedIn file" },
+          { id: "web-import", label: "GitHub or website" },
+        ]}>
+          <div id="unified-intake">
+            <IntakePanel
+              initialRuns={intakeRuns}
+              resumes={importableResumes.map((resume) => ({
+                id: resume.id,
+                title: resume.title,
+              }))}
+              githubUrl={profile.githubUrl}
+              websiteUrl={profile.websiteUrl}
+              missingFields={intakeMissingFields}
+            />
+          </div>
+
+          <div id="resume-import" className="scroll-mt-28">
+            <ImportResumeCard resumes={importableResumes} />
+          </div>
+
+          <div id="linkedin-import" className="scroll-mt-28">
+            <ImportLinkedinCard />
+          </div>
+
+          <div id="web-import" className="scroll-mt-28">
+            <ImportWebSourcesCard
+              githubUrl={profile.githubUrl}
+              websiteUrl={profile.websiteUrl}
+            />
+          </div>
+        </TaskTabs>
+      </div>
 
       {/*
         Both forms below are keyed on the profile's own `updatedAt` so a
@@ -167,25 +212,6 @@ export default async function CareerProfilePage({
             linkedinUrl: profile.linkedinUrl,
             githubUrl: profile.githubUrl,
             websiteUrl: profile.websiteUrl,
-          }}
-        />
-      </div>
-
-      <div id="preferences" className="scroll-mt-28">
-        <PreferencesForm
-          key={profile.updatedAt.toISOString()}
-          values={{
-            experienceLevel: profile.experienceLevel,
-            locations: profile.locations,
-            openToRelocation: profile.openToRelocation,
-            workModes: profile.workModes,
-            workAuthorization: profile.workAuthorization,
-            requiresSponsorship: profile.requiresSponsorship,
-            salaryMin: profile.salaryMin,
-            salaryMax: profile.salaryMax,
-            salaryPeriod: profile.salaryPeriod,
-            salaryCurrency: profile.salaryCurrency,
-            careerGoals: profile.careerGoals,
           }}
         />
       </div>
@@ -210,46 +236,23 @@ export default async function CareerProfilePage({
         />
       </div>
 
-      {/*
-        One review surface for every intake source. It sits above the older
-        per-source cards, which remain as manual alternatives; applied facts
-        still land in the Evidence/Capabilities cards below.
-      */}
-      <div id="intake" className="scroll-mt-28">
-      <TaskTabs label="Profile import method" items={[{ id: "unified-intake", label: "Unified intake" }, { id: "resume-import", label: "Manual resume import" }, { id: "linkedin-import", label: "LinkedIn PDF" }, { id: "web-import", label: "Public sources" }]}>
-      <div id="unified-intake">
-        <IntakePanel
-          initialRuns={intakeRuns}
-          resumes={importableResumes.map((resume) => ({
-            id: resume.id,
-            title: resume.title,
-          }))}
-          githubUrl={profile.githubUrl}
-          websiteUrl={profile.websiteUrl}
-          missingFields={intakeMissingFields}
+      <div id="preferences" className="scroll-mt-28">
+        <PreferencesForm
+          key={profile.updatedAt.toISOString()}
+          values={{
+            experienceLevel: profile.experienceLevel,
+            locations: profile.locations,
+            openToRelocation: profile.openToRelocation,
+            workModes: profile.workModes,
+            workAuthorization: profile.workAuthorization,
+            requiresSponsorship: profile.requiresSponsorship,
+            salaryMin: profile.salaryMin,
+            salaryMax: profile.salaryMax,
+            salaryPeriod: profile.salaryPeriod,
+            salaryCurrency: profile.salaryCurrency,
+            careerGoals: profile.careerGoals,
+          }}
         />
-      </div>
-
-      {/*
-        Directly above the Evidence card: an import's whole output lands there
-        as rows to confirm, so the imports sit next to the thing they fill.
-      */}
-      <div id="resume-import" className="scroll-mt-28">
-        <ImportResumeCard resumes={importableResumes} />
-      </div>
-
-      <div id="linkedin-import" className="scroll-mt-28">
-        <ImportLinkedinCard />
-      </div>
-
-      <div id="web-import" className="scroll-mt-28">
-        <ImportWebSourcesCard
-          githubUrl={profile.githubUrl}
-          websiteUrl={profile.websiteUrl}
-        />
-      </div>
-
-      </TaskTabs>
       </div>
 
       <div id="evidence" className="scroll-mt-28">

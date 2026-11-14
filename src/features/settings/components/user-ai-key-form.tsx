@@ -226,6 +226,22 @@ export function UserAiKeyForm({
         </div>
       )}
 
+      {provider === "antigravity-cli" && (
+        <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
+          <p className="font-medium text-foreground">Google Antigravity (CLI)</p>
+          <p>
+            Uses the Antigravity CLI installed on this computer and the Google
+            account it is already signed in to. No API key is stored.
+          </p>
+          <p>
+            Install it once from antigravity.google, run <code className="font-mono">agy</code>{" "}
+            to sign in, then reload this page. Model names come from{" "}
+            <code className="font-mono">agy models</code>; leave the model empty to
+            use <span className="font-mono">{meta.defaultModel}</span>.
+          </p>
+        </div>
+      )}
+
       {provider === "ollama" && (
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
           <p className="font-medium text-foreground">Local Ollama</p>

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  assertPublicUrl,
   containsTechnology,
   extractPortfolioPage,
   fetchPublicUrl,
@@ -89,6 +90,15 @@ describe("parseGitHubUsername", () => {
 })
 
 describe("fetchPublicUrl guards", () => {
+  it("refuses to hand a private target to a third-party fetcher", async () => {
+    await expect(assertPublicUrl("http://127.0.0.1:3000")).rejects.toMatchObject({
+      code: "BLOCKED_HOST",
+    })
+    await expect(assertPublicUrl("http://localhost")).rejects.toMatchObject({
+      code: "BLOCKED_HOST",
+    })
+  })
+
   it.each([
     "http://localhost:3000",
     "http://127.0.0.1",

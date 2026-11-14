@@ -32,6 +32,73 @@ export const DEFAULT_CUSTOMIZATION: ResumeCustomization = {
   textAlign: "left",
 }
 
+/**
+ * A named starting point for the design panel. Presets are **derived**, never
+ * stored: the active one is whichever preset's values match the current
+ * customization exactly. Old localStorage entries therefore keep parsing, and
+ * tweaking any single control simply drops back to "no preset selected".
+ */
+export type ResumeStylePresetId = "classic" | "modern" | "compact" | "executive"
+
+export interface ResumeStylePreset {
+  id: ResumeStylePresetId
+  label: string
+  description: string
+  values: ResumeCustomization
+}
+
+export const STYLE_PRESETS: ResumeStylePreset[] = [
+  {
+    id: "classic",
+    label: "Classic",
+    description: "Template font, calm spacing",
+    values: { ...DEFAULT_CUSTOMIZATION },
+  },
+  {
+    id: "modern",
+    label: "Modern",
+    description: "Sans type with a blue accent",
+    values: { ...DEFAULT_CUSTOMIZATION, fontFamily: "sans", accent: "#1d4ed8" },
+  },
+  {
+    id: "compact",
+    label: "Compact",
+    description: "Smaller type, tighter margins",
+    values: {
+      ...DEFAULT_CUSTOMIZATION,
+      density: "compact",
+      fontFamily: "sans",
+      fontScale: 0.9,
+      margins: "compact",
+      lineHeight: "snug",
+    },
+  },
+  {
+    id: "executive",
+    label: "Executive",
+    description: "Serif type, generous spacing",
+    values: {
+      ...DEFAULT_CUSTOMIZATION,
+      fontFamily: "serif",
+      margins: "relaxed",
+      lineHeight: "relaxed",
+      accent: "#111827",
+    },
+  },
+]
+
+/** The preset whose values match every field, or `null` after a custom tweak. */
+export function activeStylePreset(
+  customization: ResumeCustomization
+): ResumeStylePresetId | null {
+  const match = STYLE_PRESETS.find((preset) =>
+    (Object.keys(preset.values) as (keyof ResumeCustomization)[]).every(
+      (key) => preset.values[key] === customization[key]
+    )
+  )
+  return match?.id ?? null
+}
+
 /** `""` is the "template default" option and is always listed first. */
 export const ACCENT_PRESETS: { value: string; label: string }[] = [
   { value: "", label: "Template default" },

@@ -261,6 +261,34 @@ describe("tailorResumeForApplication", () => {
     )
   })
 
+  it("surfaces a logged-out local CLI as a configuration problem", async () => {
+    mocks.generate.mockRejectedValue(new Error("Not logged in · Please run /login"))
+
+    const outcome = await tailorResumeForApplication({
+      userId: "user-1",
+      jobApplicationId: "app-1",
+    })
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      reason: "PROVIDER_CONFIGURATION",
+      retryable: false,
+    })
+    if (!outcome.ok) {
+      expect(outcome.message).toContain("AI provider is not ready")
+      expect(outcome.message).toContain("Not logged in")
+    }
+    expect(mocks.updateRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "FAILED",
+          lastError: "Not logged in · Please run /login",
+        }),
+      })
+    )
+    expect(mocks.createResume).not.toHaveBeenCalled()
+  })
+
   it("refuses a foreign or missing application before reading a resume", async () => {
     mocks.findApplication.mockResolvedValue(null)
 

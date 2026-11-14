@@ -25,11 +25,12 @@ export const JOB_DETAIL_SECTIONS: JobDetailSectionNavItem[] = [
 
 /**
  * A slim pill row for the four Job Detail sections, mirroring the career
- * profile section nav: sticky under the app header (`h-14`) on desktop, a plain
- * horizontal scroller on narrow screens where sticking it would eat too much of
- * the viewport. `scrollIntoView` (rather than a bare hash jump) honors each
- * target's `scroll-mt-28`, so the sticky header and this bar never cover the
- * section they just jumped to.
+ * profile section nav: sticky under the app header (`h-14`) on desktop, wrapped
+ * onto extra rows on narrow screens instead of scrolling sideways, and in
+ * normal flow there so it does not eat too much of the viewport.
+ * `scrollIntoView` (rather than a bare hash jump) honors each target's
+ * `scroll-mt-28`, so the sticky header and this bar never cover the section
+ * they just jumped to.
  *
  * The active pill is driven by `useScrollSpy` (an IntersectionObserver) rather
  * than the hash, so plain scrolling keeps the user oriented too.
@@ -66,7 +67,7 @@ export function JobDetailSectionNav({
   return (
     <nav
       aria-label="Job sections"
-      className="static top-14 z-20 -mx-4 flex gap-1.5 overflow-x-auto border-b border-border bg-background/80 px-4 py-2 backdrop-blur-sm lg:sticky lg:mx-0 lg:rounded-lg lg:border lg:px-2"
+      className="static top-14 z-20 -mx-4 flex flex-wrap gap-1.5 border-b border-border bg-background/80 px-4 py-2 backdrop-blur-sm lg:sticky lg:mx-0 lg:rounded-lg lg:border lg:px-2"
     >
       {items.map((item) => {
         const active = item.key === activeKey
@@ -77,7 +78,7 @@ export function JobDetailSectionNav({
             onClick={(event) => handleClick(event, item.key)}
             aria-current={active ? "true" : undefined}
             className={cn(
-              "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
               active
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"

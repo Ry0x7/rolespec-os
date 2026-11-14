@@ -1,16 +1,18 @@
 export type PanelId = "pipeline" | "quickAdd" | "goal"
 
-export const DEFAULT_PANEL_ORDER: PanelId[] = ["goal", "quickAdd", "pipeline"]
+// The board is the reason this page exists. Put it first so the first screen is
+// the work, not two full-width setup panels stacked above it.
+export const DEFAULT_PANEL_ORDER: PanelId[] = ["pipeline", "goal", "quickAdd"]
 
 /** Panel width on the two-column workspace grid (lg and up). */
 export type PanelSize = "half" | "full"
 
 export const DEFAULT_PANEL_SIZES: Record<PanelId, PanelSize> = {
-  // Pipeline hosts a 7-column kanban and quick add is a wide form. Goal is
-  // full by default too: with only three panels a half-width goal would sit
-  // alone in its grid row. Users can still narrow it with the size toggle.
+  // Pipeline owns the full row: it now fits all seven columns at desktop widths.
+  // Goal is full width too, so the daily target reads as one page-wide strip
+  // instead of a narrow column that forces extra scrolling.
   pipeline: "full",
-  quickAdd: "full",
+  quickAdd: "half",
   goal: "full",
 }
 

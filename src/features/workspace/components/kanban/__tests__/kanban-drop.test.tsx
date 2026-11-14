@@ -74,9 +74,27 @@ describe("kanban drop", () => {
     updateJobApplicationStatus.mockResolvedValue({
       success: true,
     })
+    // These assertions describe the seven-column desktop board. jsdom has no
+    // matchMedia, so without this stub the board would render its phone branch.
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(min-width: 1280px)",
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }))
+    )
     stubLayout()
   })
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
 
   it("dropping a card on another column saves the new status", async () => {
     const { container } = render(<KanbanBoard jobs={[job]} today={TODAY} />)

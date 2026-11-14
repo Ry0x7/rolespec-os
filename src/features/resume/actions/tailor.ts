@@ -3,7 +3,6 @@
 import { auth } from "@/features/auth/config"
 import { findCareerProfileId } from "@/features/career-profile/services/career-profile.service"
 import { prisma } from "@/shared/lib/prisma"
-import { AiDailyLimitError, AiKeyRequiredError } from "@/shared/lib/ai-provider"
 import {
   findIntroducedKeywords,
   groundKeywords,
@@ -34,6 +33,8 @@ import {
   hashSourceSnapshot,
 } from "../tailoring/snapshot"
 import {
+  classifyProviderFailure,
+  providerFailureMessage,
   recordManualTailoringArtifacts,
 } from "../tailoring/tailoring.service"
 import type { ResumeSectionSnapshot } from "../tailoring/types"
@@ -386,13 +387,11 @@ export async function createJobTailoredResume(formData: FormData) {
       })
     } catch (err) {
       log.error("AI tailoring generation failed", { err })
+      // Configuration failures (missing key, logged-out local CLI) are
+      // actionable and safe to show. A transient provider error stays generic
+      // so its detail never reaches the UI.
       return {
-        // The key and daily-limit messages are actionable and safe to show;
-        // anything else could carry provider detail, so it stays in the log.
-        error:
-          err instanceof AiKeyRequiredError || err instanceof AiDailyLimitError
-            ? err.message
-            : "AI tailoring failed. Please try again.",
+        error: providerFailureMessage(err, classifyProviderFailure(err)),
       }
     }
 

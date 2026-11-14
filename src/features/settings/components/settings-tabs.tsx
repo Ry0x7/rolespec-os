@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useRef } from "react"
 import { cn } from "@/shared/lib/utils"
 import { getActiveTabHref, settingsTabGroups } from "../constants/tabs"
 
@@ -10,22 +9,14 @@ import { getActiveTabHref, settingsTabGroups } from "../constants/tabs"
  * Left-hand tab rail for /settings. Links rather than an ARIA tablist: each tab
  * is a real route, so the browser back button and a pasted URL both work.
  *
- * Desktop gets a sticky column; below lg the same tabs collapse into one
- * horizontally scrollable pill row above the content.
+ * Desktop gets a sticky column; below lg the same tabs collapse into a
+ * two-column grid of pills above the content. Nothing scrolls sideways, so no
+ * tab can sit hidden off the right edge of a phone.
  */
 export function SettingsTabs() {
   const pathname = usePathname()
   const activeHref = getActiveTabHref(pathname)
-  const activeRef = useRef<HTMLAnchorElement>(null)
   const groups = settingsTabGroups
-
-  // Seven tabs do not fit a phone, so the row scrolls. Scroll the active pill
-  // into view on every route change; otherwise arriving on /settings/ai leaves
-  // its own tab offscreen and the row reads as if it has only three items.
-  useEffect(() => {
-    // jsdom (unit tests) has no scrollIntoView; browsers always do.
-    activeRef.current?.scrollIntoView?.({ block: "nearest", inline: "center", behavior: "auto" })
-  }, [pathname])
 
   return (
     <>
@@ -73,20 +64,19 @@ export function SettingsTabs() {
 
       <nav
         aria-label="Settings"
-        className="-mx-4 overflow-x-auto px-4 pb-1 lg:hidden"
+        className="-mx-4 px-4 pb-1 lg:hidden"
       >
-        <ul className="flex w-max items-center gap-2">
+        <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
           {groups.flatMap((group) =>
             group.items.map((item) => {
               const active = activeHref === item.href
               return (
                 <li key={item.href}>
                   <Link
-                    ref={active ? activeRef : undefined}
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors duration-150",
+                      "flex min-h-10 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors duration-150",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       active
                         ? "border-transparent bg-muted font-medium text-foreground"

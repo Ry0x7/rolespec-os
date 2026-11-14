@@ -6,13 +6,16 @@
  * - `firecrawlSearch`: `/v1/search` for a role query → list of hits (url/title/description).
  * - `firecrawlScrape`: `/v1/scrape` for one posting URL → markdown/html of the page.
  *
- * Both return null when `FIRECRAWL_API_KEY` is missing so callers fall back to
- * the direct-fetch pipeline. Results are cached in-memory for 15 minutes and
- * failures are never cached.
+ * Both return null when no key is configured so callers fall back to the
+ * direct-fetch pipeline. The key and optional self-hosted address come from the
+ * Settings-backed integration row first, then the environment. Results are
+ * cached in-memory for 15 minutes and failures are never cached.
  */
 
-function firecrawlBase(): string {
-  const raw = process.env.FIRECRAWL_BASE_URL?.trim().replace(/\/$/, "") || "https://api.firecrawl.dev";
+import { getFirecrawlRuntimeConfig } from "@/features/settings/services/integration-settings.service";
+
+function firecrawlBase(configuredBaseUrl: string | null): string {
+  const raw = configuredBaseUrl?.trim().replace(/\/$/, "") || "https://api.firecrawl.dev";
   // Accept either the host root (…firecrawl.dev) or a versioned root (…/v1)
   // so the client agrees with `POST /api/jobs/scrape` and `.env.example`.
   return raw.replace(/\/v1\/?$/, "") + "/v1";
@@ -28,14 +31,9 @@ interface CacheEntry<T> {
 const searchCache = new Map<string, CacheEntry<FirecrawlHit[]>>();
 const scrapeCache = new Map<string, CacheEntry<string>>();
 
-function apiKey(): string | null {
-  const key = process.env.FIRECRAWL_API_KEY?.trim();
-  return key ? key : null;
-}
-
-/** True when the Firecrawl path can run at all. */
-export function isFirecrawlConfigured(): boolean {
-  return apiKey() !== null;
+/** True when the Firecrawl path can run at all (Settings row or environment). */
+export async function isFirecrawlConfigured(): Promise<boolean> {
+  return (await getFirecrawlRuntimeConfig()).apiKey !== null;
 }
 
 function getCached<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
@@ -109,7 +107,8 @@ export async function firecrawlSearch(
   limit: number,
   signal: AbortSignal
 ): Promise<FirecrawlHit[] | null> {
-  const key = apiKey();
+  const config = await getFirecrawlRuntimeConfig();
+  const key = config.apiKey;
   if (!key) return null;
   const term = query.trim();
   if (!term) return [];
@@ -121,7 +120,7 @@ export async function firecrawlSearch(
   const out: FirecrawlHit[] = [];
   try {
     for (let page = 1; page <= 2; page += 1) {
-      const response = await fetch(`${firecrawlBase()}/search`, {
+      const response = await fetch(`${firecrawlBase(config.baseUrl)}/search`, {
         method: "POST",
         signal,
         cache: "no-store",
@@ -149,24 +148,28 @@ export async function firecrawlSearch(
 }
 
 /**
- * Scrape one posting URL to markdown (preferred) or HTML. Returns null when
- * unconfigured or when the scrape produced nothing usable. Failures return
- * null so the caller falls back to the direct-fetch pipeline.
+ * Scrape one public URL. Markdown is the default because it is compact and
+ * readable; portfolio pages ask for HTML so their project headings and links
+ * can still be extracted. Returns null when unconfigured or when the scrape
+ * produced nothing usable, so callers can fall back to the direct-fetch path.
  */
 export async function firecrawlScrape(
   url: string,
-  signal: AbortSignal
+  signal?: AbortSignal,
+  format: "markdown" | "html" = "markdown"
 ): Promise<string | null> {
-  const key = apiKey();
+  const config = await getFirecrawlRuntimeConfig();
+  const key = config.apiKey;
   if (!key) return null;
 
-  const cached = getCached(scrapeCache, url);
+  const cacheKey = `${format}:${url}`;
+  const cached = getCached(scrapeCache, cacheKey);
   if (cached) return cached;
 
   try {
-    const response = await fetch(`${firecrawlBase()}/scrape`, {
+    const response = await fetch(`${firecrawlBase(config.baseUrl)}/scrape`, {
       method: "POST",
-      signal,
+      ...(signal ? { signal } : {}),
       cache: "no-store",
       headers: {
         "content-type": "application/json",
@@ -178,11 +181,11 @@ export async function firecrawlScrape(
     const body = (await response.json().catch(() => null)) as {
       data?: { markdown?: unknown; html?: unknown };
     } | null;
-    const markdown = asString(body?.data?.markdown);
-    const html = asString(body?.data?.html);
-    const text = markdown ?? html ?? null;
+    const preferred = asString(body?.data?.[format]);
+    const fallback = asString(body?.data?.markdown) ?? asString(body?.data?.html);
+    const text = preferred ?? fallback ?? null;
     if (!text) return null;
-    setCached(scrapeCache, url, text);
+    setCached(scrapeCache, cacheKey, text);
     return text;
   } catch {
     return null;

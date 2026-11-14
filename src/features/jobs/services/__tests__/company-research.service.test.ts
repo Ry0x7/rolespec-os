@@ -1,12 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { mockFetchPublicUrl, mockGenerateObject } = vi.hoisted(() => ({
+const {
+  mockFetchPublicUrl,
+  mockAssertPublicUrl,
+  mockFirecrawlScrape,
+  mockIsFirecrawlConfigured,
+  mockGenerateObject,
+} = vi.hoisted(() => ({
   mockFetchPublicUrl: vi.fn(),
+  mockAssertPublicUrl: vi.fn(),
+  mockFirecrawlScrape: vi.fn(),
+  mockIsFirecrawlConfigured: vi.fn(),
   mockGenerateObject: vi.fn(),
 }))
 
 vi.mock("@/features/career-profile/services/web-presence.service", () => ({
   fetchPublicUrl: mockFetchPublicUrl,
+  assertPublicUrl: mockAssertPublicUrl,
+}))
+
+vi.mock("@/features/discovery/services/firecrawl.client", () => ({
+  firecrawlScrape: mockFirecrawlScrape,
+  isFirecrawlConfigured: mockIsFirecrawlConfigured,
 }))
 
 vi.mock("@/shared/lib/ai-generate", () => ({
@@ -19,6 +34,7 @@ import {
   extractDeterministicCompanyResearch,
   htmlToReadableText,
   isVerifiedCompanyResearch,
+  markdownToReadableText,
   type CompanyResearchResult,
 } from "../company-research.service"
 
@@ -75,6 +91,7 @@ const ABOUT_PAGE = `<html><title>About Acme</title><body>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockIsFirecrawlConfigured.mockReturnValue(false)
 })
 
 describe("htmlToReadableText", () => {
@@ -86,6 +103,19 @@ describe("htmlToReadableText", () => {
     expect(text).toContain("Hello there")
     expect(text).not.toContain("steal")
     expect(text).not.toContain("<h2>")
+  })
+})
+
+describe("markdownToReadableText", () => {
+  it("turns Firecrawl markdown into plain text", () => {
+    const text = markdownToReadableText(
+      "# About Acme\n\n[Our site](https://acme.test) builds **reliable** widgets."
+    )
+
+    expect(text).toContain("About Acme")
+    expect(text).toContain("Our site builds reliable widgets.")
+    expect(text).not.toContain("https://acme.test")
+    expect(text).not.toContain("**")
   })
 })
 
@@ -188,6 +218,63 @@ describe("analyzeCompanyResearchAI — source validation", () => {
     const about = result.citations.find((c) => c.url === "https://acme.test/about")
     expect(about?.verified).toBe(true)
     expect(about?.quote).toBeUndefined()
+  })
+
+  it("uses Firecrawl when a company page blocks the direct fetch", async () => {
+    mockGenerateObject.mockResolvedValue({ object: aiResult() })
+    mockPages({ [POSTING]: POSTING_PAGE, "https://acme.test/about": new Error("blocked") })
+    mockIsFirecrawlConfigured.mockReturnValue(true)
+    mockFirecrawlScrape.mockResolvedValue(
+      "# About Acme\n\nAcme is headquartered in San Francisco, CA.\n\nOur mission: build reliable widgets.\n\nAcme Widget powers thousands of teams."
+    )
+
+    const result = await analyzeCompanyResearchAI({
+      userId: "u1",
+      companyName: "Acme",
+      jobTitle: "Senior Engineer",
+      url: POSTING,
+      description: "TypeScript.",
+    })
+
+    expect(mockAssertPublicUrl).toHaveBeenCalledWith("https://acme.test/about")
+    expect(mockFirecrawlScrape).toHaveBeenCalledWith(
+      "https://acme.test/about",
+      undefined,
+      "markdown"
+    )
+    expect(result.confidence).toBe("HIGH")
+    expect(result.headquarters).toBe("San Francisco, CA")
+    expect(result.citations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: "https://acme.test/about",
+          verified: true,
+          sourceType: "COMPANY",
+        }),
+      ])
+    )
+  })
+
+  it("does not call Firecrawl for a private target", async () => {
+    mockGenerateObject.mockResolvedValue({ object: aiResult() })
+    mockPages({
+      [POSTING]: POSTING_PAGE,
+      "https://acme.test/about": new Error("blocked"),
+    })
+    mockIsFirecrawlConfigured.mockReturnValue(true)
+    mockAssertPublicUrl.mockRejectedValue(new Error("private address"))
+
+    const result = await analyzeCompanyResearchAI({
+      userId: "u1",
+      companyName: "Acme",
+      jobTitle: "Senior Engineer",
+      url: POSTING,
+      description: "TypeScript.",
+    })
+
+    expect(mockFirecrawlScrape).not.toHaveBeenCalled()
+    expect(result.citations).toHaveLength(1)
+    expect(result.citations[0]).toMatchObject({ url: POSTING, sourceType: "POSTING" })
   })
 
   it("drops a citation whose fetch fails and falls back to MEDIUM", async () => {

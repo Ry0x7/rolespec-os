@@ -398,6 +398,13 @@ export const JobApplicationCard = memo(function JobApplicationCard({
           {/* Lifecycle entry points: one click to tailor, match, or cover letter. */}
           <span className="relative z-10 flex w-full flex-wrap items-center gap-1.5 pt-1">
             <Link
+              href={`/jobs/${application.id}#preparation`}
+              aria-label={`Apply to ${job.companyName} with the agent`}
+              className="rounded-full border border-brand-600/40 bg-brand-600/10 px-2.5 py-1 text-[11px] font-medium text-brand-400 transition-colors hover:bg-brand-600/20"
+            >
+              Apply with agent
+            </Link>
+            <Link
               href={`/jobs/${application.id}#prepare`}
               aria-label={`Tailor resume for ${job.companyName}`}
               className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-brand-600 hover:text-brand-500"

@@ -51,6 +51,11 @@ const lastExport = {
   },
 }
 
+/** The secondary actions all live behind the one Tools menu now. */
+function openTools() {
+  fireEvent.click(screen.getByLabelText("Tools"))
+}
+
 describe("EditorHeader - save state line", () => {
   beforeEach(() => {
     useResumeStore.getState().setResume(makeResume())
@@ -319,7 +324,7 @@ describe("EditorHeader - export staleness", () => {
   })
 })
 
-describe("EditorHeader - ATS toolbar button", () => {
+describe("EditorHeader - ATS tools entry", () => {
   const analysis = {
     overallScore: 72,
     scores: { formatting: 80, keywords: 60, impact: 70, completeness: 75, readability: 90 },
@@ -328,14 +333,15 @@ describe("EditorHeader - ATS toolbar button", () => {
     missingKeywords: [],
   }
 
-  it("shows just 'ATS' and opens the inspector before any analysis exists", () => {
+  it("offers the quality run in Tools before any analysis exists", () => {
     useResumeStore.getState().setResume(makeResume())
 
     render(<EditorHeader onSave={vi.fn()} />)
-    const button = screen.getByRole("button", { name: "ATS analysis" })
-    expect(button.hasAttribute("disabled")).toBe(false)
+    openTools()
+    const item = screen.getByRole("menuitem", { name: "Run Resume Quality" })
+    expect(item.hasAttribute("disabled")).toBe(false)
 
-    fireEvent.click(button)
+    fireEvent.click(item)
     expect(useResumeStore.getState().openInspector).toBe("ats")
   })
 
@@ -344,7 +350,9 @@ describe("EditorHeader - ATS toolbar button", () => {
 
     render(<EditorHeader onSave={vi.fn()} />)
 
-    expect(screen.getByRole("button", { name: "ATS score 72" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: /score 72, open analysis/ })).toBeTruthy()
+    openTools()
+    expect(screen.getByRole("menuitem", { name: "ATS analysis" })).toBeTruthy()
   })
 })
 
@@ -372,7 +380,8 @@ describe("EditorHeader - header analysis status", () => {
     render(<EditorHeader onSave={vi.fn()} />)
     expect(screen.getByText("Not analyzed yet")).toBeTruthy()
 
-    fireEvent.click(screen.getByRole("button", { name: "Run Resume Quality" }))
+    openTools()
+    fireEvent.click(screen.getByRole("menuitem", { name: "Run Resume Quality" }))
     expect(useResumeStore.getState().openInspector).toBe("ats")
   })
 
@@ -381,8 +390,9 @@ describe("EditorHeader - header analysis status", () => {
 
     render(<EditorHeader onSave={vi.fn()} />)
 
-    expect(screen.getByRole("button", { name: "Run analysis" })).toBeTruthy()
-    expect(screen.queryByRole("button", { name: "Run Resume Quality" })).toBeNull()
+    openTools()
+    expect(screen.getByRole("menuitem", { name: "Run analysis" })).toBeTruthy()
+    expect(screen.queryByRole("menuitem", { name: "Run Resume Quality" })).toBeNull()
   })
 
   it("shows a quality-mode chip with the highest-severity issue, and opens the inspector", () => {
@@ -483,7 +493,8 @@ describe("EditorHeader - Enhance toolbar button", () => {
     useResumeStore.getState().setResume(makeResume())
 
     render(<EditorHeader onSave={vi.fn()} />)
-    const button = screen.getByRole("button", { name: "Enhance" })
+    openTools()
+    const button = screen.getByLabelText("Enhance")
     expect(button.hasAttribute("disabled")).toBe(false)
 
     fireEvent.click(button)
@@ -507,8 +518,9 @@ describe("EditorHeader - Enhance toolbar button", () => {
     ])
 
     render(<EditorHeader onSave={vi.fn()} />)
+    openTools()
 
-    expect(screen.getByRole("button", { name: "Enhance" }).textContent).toContain("1")
+    expect(screen.getByLabelText("Enhance").textContent).toContain("1")
   })
 })
 
@@ -541,6 +553,7 @@ describe("EditorHeader - preview toggle", () => {
   it("opens the preview inspector", () => {
     render(<EditorHeader onSave={vi.fn()} />)
 
+    openTools()
     fireEvent.click(screen.getByLabelText("Preview"))
 
     expect(useResumeStore.getState().openInspector).toBe("preview")
@@ -549,13 +562,17 @@ describe("EditorHeader - preview toggle", () => {
   it("opens each inspector from its own toolbar control", () => {
     render(<EditorHeader onSave={vi.fn()} />)
 
+    openTools()
     fireEvent.click(screen.getByLabelText("Job target"))
     expect(useResumeStore.getState().openInspector).toBe("job")
 
     // One field, so opening another closes the first by construction.
-    fireEvent.click(screen.getByLabelText("ATS analysis"))
+    openTools()
+    // Never analyzed, so the menu names the quality run rather than a score.
+    fireEvent.click(screen.getByLabelText("Run Resume Quality"))
     expect(useResumeStore.getState().openInspector).toBe("ats")
 
+    openTools()
     fireEvent.click(screen.getByLabelText("Enhance"))
     expect(useResumeStore.getState().openInspector).toBe("enhance")
   })
@@ -768,9 +785,12 @@ describe("EditorHeader - toolbar fits a phone", () => {
   it("lets the toolbar row wrap", () => {
     render(<EditorHeader onSave={vi.fn()} />)
 
-    screen.getByRole("button", { name: "Run Resume Quality" })
-    const row = screen.getByLabelText("Job target").parentElement
+    const row = document.querySelector("[data-editor-actions]")
     expect(row?.className).toMatch(/\bflex-wrap\b/)
+    expect(row?.contains(screen.getByLabelText("Tools"))).toBe(true)
     expect(row?.contains(screen.getByLabelText("Export"))).toBe(true)
+    // The never-analyzed CTA is in the menu, not the row, so the row stays
+    // inside a 320px viewport.
+    expect(screen.queryByRole("button", { name: "Run Resume Quality" })).toBeNull()
   })
 })

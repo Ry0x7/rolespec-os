@@ -176,10 +176,34 @@ function validationMessage(report: TailoringValidationReport): string {
     : "The generated resume failed deterministic validation."
 }
 
-function providerKind(error: unknown): "configuration" | "transient" {
-  return error instanceof AiKeyRequiredError || error instanceof AiDailyLimitError
-    ? "configuration"
-    : "transient"
+// Local CLI providers (claude-code, codex-cli, opencode-cli) authenticate
+// through a login session, not an env key, so `AiKeyRequiredError` never fires
+// for them. A logged-out or missing CLI is still a configuration problem: it
+// cannot succeed on retry, and "try again" would hide the actual fix.
+const PROVIDER_CONFIGURATION_PATTERN =
+  /not logged in|please run \/login|login required|authentication|unauthorized|api key|no credentials|command not found|enoent|spawn .*enoent/i
+
+export function classifyProviderFailure(
+  error: unknown
+): "configuration" | "transient" {
+  if (error instanceof AiKeyRequiredError || error instanceof AiDailyLimitError) {
+    return "configuration"
+  }
+  const message = error instanceof Error ? error.message : ""
+  return PROVIDER_CONFIGURATION_PATTERN.test(message) ? "configuration" : "transient"
+}
+
+export function providerFailureMessage(
+  error: unknown,
+  kind: "configuration" | "transient"
+): string {
+  if (error instanceof AiKeyRequiredError || error instanceof AiDailyLimitError) {
+    return error.message
+  }
+  if (kind === "configuration") {
+    return `The AI provider is not ready: ${safeError(error)}. Sign in to the selected local CLI in Settings → AI, or choose a configured provider, then retry.`
+  }
+  return "AI tailoring failed. Please try again."
 }
 
 function safeError(error: unknown): string {
@@ -444,11 +468,8 @@ export async function tailorResumeForApplication(
         .map((rejection) => `${rejection.targetId}: ${rejection.reason}`)
     }
   } catch (error) {
-    const kind = providerKind(error)
-    const message =
-      error instanceof AiKeyRequiredError || error instanceof AiDailyLimitError
-        ? error.message
-        : "AI tailoring failed. Please try again."
+    const kind = classifyProviderFailure(error)
+    const message = providerFailureMessage(error, kind)
     await prisma.resumeTailoringRun
       .update({
         where: { id: run.id },

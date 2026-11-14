@@ -2,6 +2,7 @@
 
 import { Toaster } from "sonner"
 import { useThemeMode } from "@/shared/hooks/use-theme-mode"
+import { NotificationSound } from "./notification-sound"
 
 /**
  * Client boundary around Sonner so toasts follow the colour mode. Sonner accepts
@@ -12,16 +13,19 @@ export function AppToaster() {
   const { mode } = useThemeMode()
 
   return (
-    <Toaster
-      theme={mode}
-      position="bottom-right"
-      toastOptions={{
-        style: {
-          background: "var(--color-card)",
-          border: "1px solid var(--color-border)",
-          color: "var(--color-card-foreground)",
-        },
-      }}
-    />
+    <>
+      <Toaster
+        theme={mode}
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: "var(--color-card)",
+            border: "1px solid var(--color-border)",
+            color: "var(--color-card-foreground)",
+          },
+        }}
+      />
+      <NotificationSound />
+    </>
   )
 }

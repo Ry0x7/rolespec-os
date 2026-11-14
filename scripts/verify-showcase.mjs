@@ -26,7 +26,20 @@ function readTree(dir, exts) {
 }
 
 function checkDeployable() {
-  const required = ["CNAME", "index.html", "bundle.js", "styles.css", ".nojekyll", "robots.txt", "sitemap.xml", "favicon.svg", path.join("RoleSpecOS", "workspace.png"), path.join("RoleSpecOS", "resume-editor.png"), path.join("RoleSpecOS", "jobs-discover.png")]
+  const required = [
+    "CNAME",
+    "index.html",
+    "bundle.js",
+    "styles.css",
+    ".nojekyll",
+    "robots.txt",
+    "sitemap.xml",
+    "favicon.svg",
+    ...[...["dashboard", "jobs", "resume-editor", "job-prepare", "job-ats", "workspace"].flatMap((name) => [
+      path.join("RoleSpecOS", `${name}.png`),
+      path.join("RoleSpecOS", `${name}-dark.png`),
+    ])],
+  ]
   for (const rel of required) {
     if (!fs.existsSync(path.join(OUT, rel))) fail(`missing deploy artifact: ${rel}`)
   }
@@ -34,6 +47,17 @@ function checkDeployable() {
   if (!fs.existsSync(path.join(OUT, "_next"))) fail("missing _next dir")
   const html = fs.readFileSync(path.join(OUT, "index.html"), "utf8")
   if (!html.includes("bundle.js") || !html.includes("styles.css")) fail("index.html missing bundle/styles refs")
+  if (!html.includes('rel="icon"') || !html.includes("favicon.svg")) fail("index.html does not reference favicon.svg")
+
+  // The favicon must be the square app mark, not the wide README banner.
+  const favicon = fs.readFileSync(path.join(OUT, "favicon.svg"), "utf8")
+  const bannerPath = path.join(ROOT, "public", "banner.svg")
+  if (fs.existsSync(bannerPath) && favicon === fs.readFileSync(bannerPath, "utf8")) {
+    fail("favicon.svg is the README banner; expected public/icon.svg")
+  }
+  if (!favicon.includes("<svg") || !favicon.includes("viewBox")) fail("favicon.svg is not an SVG with a viewBox")
+  const iconSource = fs.readFileSync(path.join(ROOT, "public", "icon.svg"), "utf8")
+  if (favicon !== iconSource) fail("favicon.svg was not copied from public/icon.svg")
 }
 
 function checkClasses() {
@@ -77,7 +101,16 @@ function checkApple() {
   }
   if (fs.existsSync(path.join(SRC, "components", "tilt-card.tsx"))) fail("tilt-card.tsx still present")
   const home = fs.readFileSync(path.join(SRC, "index.tsx"), "utf8")
-  if (!home.includes("RoleSpecOS/workspace.png")) fail("hero does not lead with the real workspace screenshot")
+  if (!home.includes('light="dashboard.png"')) fail("hero does not lead with the real dashboard screenshot")
+  const featureSource = fs.readFileSync(path.join(SRC, "components", "feature-sections.tsx"), "utf8")
+  for (const stale of ["jobs-discover.png", "ats-chips.png"]) {
+    if (featureSource.includes(stale)) fail(`feature section still references stale screenshot: ${stale}`)
+  }
+  for (const shot of ["dashboard", "jobs", "resume-editor", "job-prepare", "job-ats", "workspace"]) {
+    if (!featureSource.includes(`${shot}.png`) && shot !== "dashboard") {
+      fail(`feature sections are missing the ${shot} screenshot`)
+    }
+  }
 }
 
 function checkDark() {

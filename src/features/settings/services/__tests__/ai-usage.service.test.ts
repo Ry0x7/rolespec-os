@@ -30,7 +30,12 @@ function queueGroupBy(modelRows: unknown[], featureRows: unknown[], failureRows:
 function modelRow(
   provider: string,
   model: string,
-  sums: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number },
+  sums: {
+    inputTokens?: number
+    outputTokens?: number
+    cachedInputTokens?: number
+    reasoningTokens?: number
+  },
   calls = 1,
 ) {
   return {
@@ -42,6 +47,7 @@ function modelRow(
       outputTokens: sums.outputTokens ?? 0,
       totalTokens: (sums.inputTokens ?? 0) + (sums.outputTokens ?? 0),
       cachedInputTokens: sums.cachedInputTokens ?? 0,
+      reasoningTokens: sums.reasoningTokens ?? 0,
     },
   }
 }
@@ -53,7 +59,13 @@ beforeEach(() => {
 
   mockPrisma.aiUsageEvent.aggregate.mockResolvedValue({
     _count: { _all: 4 },
-    _sum: { inputTokens: 2_000_000, outputTokens: 1_000_000, totalTokens: 3_000_000 },
+    _sum: {
+      inputTokens: 2_000_000,
+      outputTokens: 1_000_000,
+      totalTokens: 3_000_000,
+      cachedInputTokens: 500_000,
+      reasoningTokens: 200_000,
+    },
   })
   mockPrisma.aiUsageEvent.count.mockResolvedValue(3)
   mockPrisma.$queryRaw.mockResolvedValue([])
@@ -81,9 +93,13 @@ describe("getUserAiUsage", () => {
       calls: 4,
       okCalls: 3,
       failedCalls: 1,
+      successRate: 0.75,
       inputTokens: 2_000_000,
       outputTokens: 1_000_000,
+      cachedInputTokens: 500_000,
+      reasoningTokens: 200_000,
       totalTokens: 3_000_000,
+      cacheHitRate: 0.25,
     })
   })
 
@@ -130,6 +146,51 @@ describe("getUserAiUsage", () => {
     const usage = await getUserAiUsage("u1")
 
     expect(usage.totals.estimatedCostUsd).toBeNull()
+  })
+
+  it("keeps cache reads and reasoning visible on each model row", async () => {
+    queueGroupBy(
+      [
+        modelRow("openai", "gpt-4o", {
+          inputTokens: 1_000_000,
+          outputTokens: 400_000,
+          cachedInputTokens: 600_000,
+          reasoningTokens: 100_000,
+        }),
+      ],
+      [],
+      [],
+    )
+
+    const usage = await getUserAiUsage("u1")
+
+    expect(usage.byModel[0]).toMatchObject({
+      inputTokens: 1_000_000,
+      outputTokens: 400_000,
+      cachedInputTokens: 600_000,
+      reasoningTokens: 100_000,
+      totalTokens: 1_400_000,
+      cacheHitRate: 0.6,
+    })
+  })
+
+  it("reports unknown cache and success rates instead of dividing by zero", async () => {
+    mockPrisma.aiUsageEvent.aggregate.mockResolvedValue({
+      _count: { _all: 0 },
+      _sum: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        cachedInputTokens: 0,
+        reasoningTokens: 0,
+      },
+    })
+    mockPrisma.aiUsageEvent.count.mockResolvedValue(0)
+
+    const usage = await getUserAiUsage("u1")
+
+    expect(usage.totals.successRate).toBeNull()
+    expect(usage.totals.cacheHitRate).toBeNull()
   })
 
   it("joins failure counts onto the feature rows", async () => {

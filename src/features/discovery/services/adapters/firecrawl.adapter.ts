@@ -10,8 +10,9 @@ import { firecrawlSearch, mapWithConcurrency } from "../firecrawl.client";
  * the client, capped at 2 pages). Hits are mapped straight to `RawPosting`
  * and normalized/deduped downstream like every other source.
  *
- * Graceful when `FIRECRAWL_API_KEY` is missing: `search` returns [] so the
- * run continues on the free adapters. Failures also return [], never throw.
+ * Graceful when no Firecrawl key is saved in Settings and none is in the
+ * environment: `search` returns [] so the run continues on the free adapters.
+ * Failures also return [], never throw.
  */
 
 /** Stored on saved jobs as `sourceProvider`. */

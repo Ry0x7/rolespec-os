@@ -219,6 +219,46 @@ describe("resolveNextAction", () => {
     })
   })
 
+  describe("with a staged application package", () => {
+    const stagedAttempt = {
+      jobApplicationId: "application-1",
+      companyName: "SourceU",
+      jobTitle: "Web Developer",
+    }
+
+    it("asks the owner to finish it before deciding on more saved jobs", () => {
+      const action = resolveNextAction({
+        ...base,
+        interestedCount: 5,
+        stagedAttempt,
+      })
+
+      expect(action.title).toBe("Finish applying — SourceU — Web Developer")
+      expect(action.href).toBe("/jobs/application-1#track")
+      expect(action.cta).toBe("Finish application")
+    })
+
+    it("outranks a due follow-up and an interview outcome", () => {
+      const action = resolveNextAction({
+        ...base,
+        followUpDueCount: 3,
+        topAwaitingOutcome: { id: "app-7", companyName: "Treantly", daysSince: 3 },
+        stagedAttempt,
+      })
+
+      expect(action.href).toBe("/jobs/application-1#track")
+    })
+
+    it("falls back to a generic title when the stored names are missing", () => {
+      const action = resolveNextAction({
+        ...base,
+        stagedAttempt: { ...stagedAttempt, companyName: null, jobTitle: null },
+      })
+
+      expect(action.title).toBe("Finish your prepared application")
+    })
+  })
+
   it("falls back to more discovery when nothing is pending", () => {
     const action = resolveNextAction(base)
 

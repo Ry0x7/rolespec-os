@@ -5,6 +5,7 @@ import {
   fetchPublicUrl,
   WebSourceError,
 } from "@/features/career-profile/services/web-presence.service"
+import { getFirecrawlRuntimeConfig } from "@/features/settings/services/integration-settings.service"
 import { RATE_LIMIT_BUCKETS, consumeRateLimit } from "@/shared/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -20,9 +21,10 @@ const RATE_LIMIT = { max: 20, windowMs: 10 * 60 * 1000 }
 
 /**
  * `POST /api/jobs/scrape` — server-side job-discovery fetch.
- * Uses Firecrawl when `FIRECRAWL_API_KEY` is set (proper scraping for
- * JS-heavy boards: Greenhouse/Lever/Workday/Ashby), otherwise falls back to a
- * plain fetch with a browser UA so discovery still works without AI or keys.
+ * Uses Firecrawl when a key is saved in Settings (or supplied by the
+ * environment) — proper scraping for JS-heavy boards such as
+ * Greenhouse/Lever/Workday/Ashby — otherwise falls back to a plain fetch with
+ * a browser UA so discovery still works without AI or keys.
  * Single-owner guarded; rate-limited per user; 20s timeout; no AI required.
  */
 export async function POST(req: Request) {
@@ -41,8 +43,13 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 })
 
-  const apiKey = process.env.FIRECRAWL_API_KEY?.trim() || ""
-  const baseUrl = (process.env.FIRECRAWL_BASE_URL?.trim().replace(/\/$/, "") || "https://api.firecrawl.dev").replace(/\/$/, "")
+  const firecrawl = await getFirecrawlRuntimeConfig()
+  const apiKey = firecrawl.apiKey ?? ""
+  const baseUrl = (
+    firecrawl.baseUrl?.trim().replace(/\/$/, "") || "https://api.firecrawl.dev"
+  )
+    .replace(/\/v1\/?$/, "")
+    .replace(/\/$/, "")
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), SCRAPE_TIMEOUT_MS)

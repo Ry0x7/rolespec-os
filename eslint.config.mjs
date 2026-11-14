@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
     ".unlazy/**",
     "out/**",
     "build/**",
+    // The GitHub Pages showcase is a generated esbuild bundle, not source.
+    // Linting its minified output produced thousands of meaningless warnings.
+    "dist-showcase/**",
     "next-env.d.ts",
     // Generated desktop runtime: staged standalone bundle, Rust build tree and
     // vendored PostgreSQL. Linting build output is slow and meaningless.

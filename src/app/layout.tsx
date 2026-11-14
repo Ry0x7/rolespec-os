@@ -117,10 +117,18 @@ export default function RootLayout({
         {/* Applies the stored accent and colour mode before first paint so
             neither the accent nor the background flashes on load. */}
         <script dangerouslySetInnerHTML={{ __html: ACCENT_INIT_SCRIPT }} />
+        {/* Applies the stored sidebar rail width before first paint. It lives
+            here, not in the (app) layout, because a <script> rendered inside a
+            React component is ignored on client-side navigation. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var v=localStorage.getItem("rolespec-sidebar-collapsed");document.documentElement.setAttribute("data-sidebar",v==="1"?"collapsed":"expanded");}catch(e){}})();`,
+          }}
+        />
         {/* Framer server-renders the reveal items at opacity 0 and only clears
             it on hydration, so without JS everything below the hero is blank. */}
         <noscript>
-          <style>{`.scroll-reveal-item,.hero-reveal-item{opacity:1 !important;transform:none !important}`}</style>
+          <style>{`.scroll-reveal-item{opacity:1 !important;transform:none !important}`}</style>
         </noscript>
         <script
           type="application/ld+json"
