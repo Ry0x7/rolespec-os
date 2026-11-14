@@ -1,6 +1,6 @@
 # RoleSpec OS
 
-![RoleSpec OS — a private, local-first job-search workspace](screenshots/banner-2.1.png)
+![RoleSpec OS — a private, local-first job-search workspace](screenshots/banner-2.1.webp)
 
 A private, local-first job-search workspace: resume studio, ATS matching, job discovery,
 application tracking and agent-prepared applications. Published by **Chryypt Inc**.
