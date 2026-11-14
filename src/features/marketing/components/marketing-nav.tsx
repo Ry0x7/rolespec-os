@@ -85,7 +85,7 @@ export function MarketingNav() {
           <Link
             href={link.href}
             onClick={() => setOpen(false)}
-            className="flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-brand-300"
+            className="flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             {link.label}
           </Link>
@@ -119,7 +119,7 @@ export function MarketingNav() {
   )
 
   return (
-    <header className="glass sticky top-0 z-50 w-full shadow-[0_1px_0_0_var(--glow-weak)]">
+    <header className="glass sticky top-0 z-50 w-full bg-background/72 backdrop-blur-xl">
       <nav
         aria-label="Main"
         className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-2 px-4 sm:px-6"
@@ -137,8 +137,8 @@ export function MarketingNav() {
               <Link
                 href={link.href}
                 className={cn(
-                  "inline-flex min-h-11 items-center transition-colors hover:text-brand-300",
-                  pathname === link.href && "text-brand-400"
+                  "inline-flex min-h-11 items-center transition-colors hover:text-foreground",
+                  pathname === link.href && "text-foreground"
                 )}
               >
                 {link.label}
@@ -163,7 +163,7 @@ export function MarketingNav() {
                 ? "Reduced motion active (click to enable full motion)"
                 : "Full motion active (click to enable reduced motion)"
             }
-            className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground h-9 px-2.5 rounded-lg border border-border/40 hover:border-border"
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground h-9 px-2.5 rounded-full hover:bg-muted"
           >
             {isReducedMotion ? (
               <>
@@ -180,7 +180,7 @@ export function MarketingNav() {
 
           <Link
             href="/dashboard"
-            className={cn(buttonVariants({ size: "sm" }), "min-h-11 px-3 sm:px-4")}
+            className={cn(buttonVariants({ size: "sm" }), "min-h-11 rounded-full px-4")}
           >
             Open workspace
           </Link>
@@ -195,7 +195,7 @@ export function MarketingNav() {
             // Warm the chunk before the tap lands so the panel animates.
             onPointerEnter={() => setPanelRequested(true)}
             onTouchStart={() => setPanelRequested(true)}
-            className="h-11 w-11 md:hidden"
+            className="h-11 w-11 rounded-full md:hidden"
           >
             {open ? (
               <X className="h-5 w-5" />

@@ -4,7 +4,9 @@ import { Loader2 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 
 const buttonVariants = cva(
-  "relative inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none max-sm:min-h-11 max-sm:min-w-11",
+  // Apple press physics: feedback on pointer-down-ish `:active`, exact
+  // property transitions (never `all`), quick ease-out, scale 0.97.
+  "relative inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-[background-color,color,border-color,transform,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none max-sm:min-h-11 max-sm:min-w-11",
   {
     variants: {
       variant: {
@@ -12,7 +14,7 @@ const buttonVariants = cva(
         // read as a live button next to a disabled secondary. Disabled it drops
         // the glow and the brand fill, so "can't press this" is unambiguous.
         default:
-          "bg-brand-700 text-white hover:bg-brand-600 active:bg-brand-800 shadow-glow-sm disabled:bg-muted disabled:text-muted-foreground",
+          "bg-brand-700 text-white hover:bg-brand-600 active:bg-brand-800 shadow-sm disabled:bg-muted disabled:text-muted-foreground",
         secondary:
           "bg-muted text-muted-foreground border border-border hover:bg-input active:bg-border",
         ghost:

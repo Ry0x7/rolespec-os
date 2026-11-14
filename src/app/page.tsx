@@ -134,7 +134,7 @@ function SectionHeading({
     <ScrollRevealItem className="max-w-2xl space-y-3">
       <h2
         id={headingId}
-        className="text-balance text-3xl font-bold tracking-tight sm:text-4xl"
+        className="text-balance text-3xl font-semibold tracking-[-0.02em] sm:text-4xl"
       >
         {title}
       </h2>
@@ -148,7 +148,7 @@ export default async function LandingPage() {
   if (session?.user?.id) redirect("/dashboard")
 
   return (
-    <div className="force-dark dark flex min-h-screen flex-col bg-background text-foreground selection:bg-brand-500/30 selection:text-brand-200">
+    <div className="flex min-h-screen flex-col bg-background text-foreground selection:bg-brand-500/20">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-background focus:p-3 focus:text-foreground focus:ring-2 focus:ring-ring"
@@ -158,84 +158,69 @@ export default async function LandingPage() {
       <MarketingNav />
 
       <main id="main-content" tabIndex={-1} className="flex-1">
-        {/* Hero Section with Higgsfield Generative Aura Animation */}
+        {/* Hero — centered headline, action, product. Nothing else. */}
         <section
           aria-labelledby="hero-heading"
           className="relative overflow-hidden border-b border-border"
         >
-          {/* Custom Javascript Fluid Particle Canvas */}
           <HiggsfieldAura />
 
-          <HeroReveal className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:py-28">
-            <div className="space-y-6">
-              <HeroRevealItem>
-                <AnimatedBadge />
-              </HeroRevealItem>
+          <HeroReveal className="relative mx-auto w-full max-w-3xl px-4 pb-16 pt-16 text-center sm:px-6 sm:pt-24">
+            <HeroRevealItem className="flex justify-center">
+              <AnimatedBadge />
+            </HeroRevealItem>
 
-              <HeroRevealItem>
-                <h1
-                  id="hero-heading"
-                  className="max-w-2xl text-balance text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl"
-                >
-                  Build a stronger resume.
-                  <br />
-                  <span className="bg-gradient-to-r from-brand-300 via-indigo-300 to-purple-300 bg-clip-text text-transparent">
-                    Keep your job search moving.
-                  </span>
-                </h1>
-                <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-                  Tailor your resume to any role with local or cloud AI, score against ATS filters, write customized outreach, and track every application on one private board.
-                </p>
-              </HeroRevealItem>
+            <HeroRevealItem>
+              <h1
+                id="hero-heading"
+                className="mx-auto mt-6 max-w-2xl text-balance text-5xl font-semibold leading-[1.05] tracking-[-0.02em] sm:text-6xl"
+              >
+                Your job search,
+                <br />
+                in one private place.
+              </h1>
+              <p className="mx-auto mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
+                Tailor your resume to any role with local or cloud AI, score against ATS filters, write customized outreach, and track every application on one private board.
+              </p>
+            </HeroRevealItem>
 
-              <HeroRevealItem className="flex flex-col gap-3 sm:flex-row pt-2">
-                <Link
-                  href="/dashboard"
-                  className={cn(
-                    buttonVariants({ size: "lg" }),
-                    "min-h-12 text-sm font-semibold shadow-glow hover:shadow-glow-lg transition-all"
-                  )}
-                >
-                  Open workspace
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
-                <Link
-                  href="#how-it-works"
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "lg" }),
-                    "min-h-12 text-sm backdrop-blur-sm hover:border-brand-500/50 transition-colors"
-                  )}
-                >
-                  See how it works
-                </Link>
-              </HeroRevealItem>
+            <HeroRevealItem className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Link
+                href="/dashboard"
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "min-h-12 rounded-full px-7 text-sm font-medium"
+                )}
+              >
+                Open workspace
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
+                href="#how-it-works"
+                className="inline-flex min-h-12 items-center gap-1 text-sm text-brand-400 hover:underline hover:underline-offset-4"
+              >
+                See how it works
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </HeroRevealItem>
 
-              <HeroRevealItem>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-brand-400" />
-                    AGPL-3.0 Open Source
-                  </span>
-                  <span>•</span>
-                  <span>Runs 100% Offline with Ollama</span>
-                  <span>•</span>
-                  <span>Zero Telemetry</span>
-                </div>
-              </HeroRevealItem>
-            </div>
+            <HeroRevealItem>
+              <p className="mt-6 text-sm text-muted-foreground">
+                Free and open source · Runs offline · Zero telemetry
+              </p>
+            </HeroRevealItem>
 
-            {/* Interactive framer-motion Product Preview */}
-            <HeroRevealItem className="min-w-0">
+            <HeroRevealItem className="mt-12">
               <InteractivePreview />
             </HeroRevealItem>
           </HeroReveal>
         </section>
 
-        {/* Modules Section with Interactive Spotlight Cards */}
+        {/* Modules — plain cards, no spotlight, no glow */}
         <section
           id="features"
           aria-labelledby="features-heading"
-          className="relative mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-24"
+          className="relative mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-20"
         >
           <ScrollReveal>
             <SectionHeading
@@ -244,11 +229,11 @@ export default async function LandingPage() {
               blurb="Your resumes, saved jobs, ATS scans and outreach stay connected, so you can pick up where you left off."
             />
 
-            <ul className="mt-12 grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <ul className="mt-12 grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
               {MODULES.map((module) => (
                 <ScrollRevealItem as="li" key={module.name}>
                   <SpotlightCard className="h-full">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 text-brand-400 transition-transform group-hover:scale-110">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-foreground">
                       <module.icon className="h-5 w-5" aria-hidden="true" />
                     </div>
                     <h3 className="mt-4 font-semibold text-foreground">{module.name}</h3>
@@ -262,13 +247,13 @@ export default async function LandingPage() {
           </ScrollReveal>
         </section>
 
-        {/* How it works with Animated Connector Steps */}
+        {/* How it works */}
         <section
           id="how-it-works"
           aria-labelledby="how-it-works-heading"
           className="relative scroll-mt-20 border-y border-border bg-card/40"
         >
-          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
             <ScrollReveal>
               <SectionHeading
                 headingId="how-it-works-heading"
@@ -276,33 +261,23 @@ export default async function LandingPage() {
                 blurb="A clear, repeatable workflow for each application, with your edits saved locally."
               />
 
-              <div className="relative mt-12">
-                <span
-                  aria-hidden="true"
-                  className="step-rail absolute left-[calc(33.333%-1rem)] top-11 hidden h-px w-6 md:block"
-                />
-                <span
-                  aria-hidden="true"
-                  className="step-rail absolute left-[calc(66.667%-0.5rem)] top-11 hidden h-px w-6 md:block"
-                />
-                <ol className="relative grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">
-                  {STEPS.map((item) => (
-                    <ScrollRevealItem as="li" key={item.step}>
-                      <SpotlightCard className="h-full">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-700/20 font-mono text-sm font-bold text-brand-300 shadow-glow-sm ring-1 ring-brand-700/50">
-                          {item.step}
-                        </span>
-                        <h3 className="mt-4 text-base font-semibold sm:text-lg">
-                          {item.title}
-                        </h3>
-                        <p className="mt-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                          {item.description}
-                        </p>
-                      </SpotlightCard>
-                    </ScrollRevealItem>
-                  ))}
-                </ol>
-              </div>
+              <ol className="relative mt-12 grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">
+                {STEPS.map((item) => (
+                  <ScrollRevealItem as="li" key={item.step}>
+                    <SpotlightCard className="h-full">
+                      <span className="font-mono text-sm font-semibold text-brand-400">
+                        {item.step}
+                      </span>
+                      <h3 className="mt-3 text-base font-semibold sm:text-lg">
+                        {item.title}
+                      </h3>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                        {item.description}
+                      </p>
+                    </SpotlightCard>
+                  </ScrollRevealItem>
+                ))}
+              </ol>
             </ScrollReveal>
           </div>
         </section>
@@ -311,7 +286,7 @@ export default async function LandingPage() {
         <section
           id="ai-stack"
           aria-labelledby="ai-stack-heading"
-          className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-24"
+          className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-20"
         >
           <ScrollReveal>
             <SectionHeading
@@ -328,9 +303,9 @@ export default async function LandingPage() {
         <section
           id="pricing"
           aria-labelledby="pricing-heading"
-          className="border-t border-border bg-card/20"
+          className="border-t border-border bg-card/40"
         >
-          <div className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-20">
             <ScrollReveal>
               <SectionHeading
                 headingId="pricing-heading"
@@ -342,7 +317,7 @@ export default async function LandingPage() {
                 {STACK.map((item) => (
                   <ScrollRevealItem as="li" key={item.title}>
                     <SpotlightCard className="flex h-full items-start gap-4">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-700/20 text-brand-400 shadow-glow-sm ring-1 ring-brand-700/50">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
                         <item.icon className="h-5 w-5" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
@@ -362,35 +337,29 @@ export default async function LandingPage() {
         {/* Final CTA */}
         <section
           aria-labelledby="cta-heading"
-          className="relative mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24"
+          className="relative mx-auto w-full max-w-3xl px-4 py-16 text-center sm:px-6 sm:py-24"
         >
           <ScrollReveal>
             <ScrollRevealItem>
-              <div className="relative overflow-hidden rounded-2xl border border-brand-500/30 bg-gradient-to-b from-card to-card/60 p-8 text-center sm:p-14 shadow-glow">
-                <div className="pointer-events-none absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-brand-500/20 blur-3xl" />
-
-                <div className="relative z-10 mx-auto flex max-w-2xl flex-col items-center gap-5">
-                  <h2
-                    id="cta-heading"
-                    className="text-balance text-3xl font-extrabold tracking-tight sm:text-5xl"
-                  >
-                    Make your next application count
-                  </h2>
-                  <p className="text-pretty text-sm text-muted-foreground sm:text-base">
-                    Start with your resume. Tailor it to a role with local or cloud AI. Keep every opportunity moving forward.
-                  </p>
-                  <Link
-                    href="/dashboard"
-                    className={cn(
-                      buttonVariants({ size: "lg" }),
-                      "min-h-12 w-full text-sm font-semibold shadow-glow hover:shadow-glow-lg transition-all sm:w-auto"
-                    )}
-                  >
-                    Open workspace
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </div>
-              </div>
+              <h2
+                id="cta-heading"
+                className="text-balance text-3xl font-semibold tracking-[-0.02em] sm:text-5xl"
+              >
+                Make your next application count
+              </h2>
+              <p className="mx-auto mt-4 max-w-md text-pretty text-sm text-muted-foreground sm:text-base">
+                Start with your resume. Tailor it to a role with local or cloud AI. Keep every opportunity moving forward.
+              </p>
+              <Link
+                href="/dashboard"
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "mt-8 min-h-12 w-full rounded-full px-7 text-sm font-medium sm:w-auto"
+                )}
+              >
+                Open workspace
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
             </ScrollRevealItem>
           </ScrollReveal>
         </section>

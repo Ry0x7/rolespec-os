@@ -3,14 +3,14 @@
  *
  * The whole mechanism is one class on <html> (`theme-<id>`) which plain-CSS
  * blocks in globals.css use to override `--color-brand-*` / `--color-accent` /
- * `--color-ring`. The default (violet) needs no class, so it has none.
+ * `--color-ring`. The default (blue) needs no class, so it has none.
  *
  * Persisted per device in localStorage — no DB column, no server round trip.
  */
 
 export const ACCENT_THEMES = [
-  { id: "violet", label: "Violet", swatch: "#9333EA" },
   { id: "blue", label: "Blue", swatch: "#155DFC" },
+  { id: "violet", label: "Violet", swatch: "#9333EA" },
   { id: "emerald", label: "Emerald", swatch: "#009966" },
   { id: "amber", label: "Amber", swatch: "#E17100" },
   { id: "rose", label: "Rose", swatch: "#EC003F" },
@@ -19,7 +19,9 @@ export const ACCENT_THEMES = [
 
 export type AccentTheme = (typeof ACCENT_THEMES)[number]["id"]
 
-export const DEFAULT_ACCENT_THEME: AccentTheme = "violet"
+/** Blue is the house accent: it ships in the @theme defaults, so it carries
+ *  no `theme-*` class. Violet and the rest stay real, switchable choices. */
+export const DEFAULT_ACCENT_THEME: AccentTheme = "blue"
 
 export const ACCENT_STORAGE_KEY = "rolespec-accent"
 

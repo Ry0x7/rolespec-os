@@ -1,34 +1,24 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+/* Apple-style marketing system: white + #F5F5F7 surfaces, near-black type,
+   grey secondary text, blue as the only action color. Typography does the
+   work; the real product screenshots are the visuals. No grid patterns,
+   no color washes, no halo effects, no gradients. */
 :root {
-  --background: #07070a;
-  --surface-1: #0e0e14;
-  --surface-2: #14141e;
-  --surface-3: #1a1a28;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-bright: rgba(168, 85, 247, 0.35);
-  --text: #f4f4f7;
-  --text-muted: #9494a6;
-  --text-faint: #626274;
-  --brand-400: #c084fc;
-  --brand-500: #a855f7;
-  --brand-600: #9333ea;
-  --indigo-400: #818cf8;
-  --cyan-400: #22d3ee;
-  --emerald-400: #34d399;
-  --rose-400: #fb7185;
-  --glow-brand: rgba(168, 85, 247, 0.18);
-  --glow-cyan: rgba(34, 211, 238, 0.15);
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-display: 'Space Grotesk', var(--font-sans);
-  --font-mono: 'JetBrains Mono', monospace;
-}
-
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  --background: #ffffff;
+  --surface: #f5f5f7;
+  --text: #1d1d1f;
+  --text-2: #6e6e73;
+  --text-3: #86868b;
+  --border: #d2d2d7;
+  --border-soft: #e8e8ed;
+  --link: #0066cc;
+  --link-hover: #0071e3;
+  --success: #248a3d;
+  --nav-bg: rgba(255, 255, 255, 0.82);
+  --font-sans: 'Inter', -apple-system, 'SF Pro Display', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 html {
@@ -37,116 +27,128 @@ html {
   color: var(--text);
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.12) 0%, transparent 60%),
-              radial-gradient(circle at 10% 30%, rgba(34, 211, 238, 0.04) 0%, transparent 40%),
-              radial-gradient(circle at 90% 70%, rgba(168, 85, 247, 0.06) 0%, transparent 50%),
-              var(--background);
+  background-color: var(--background);
 }
 
-/* Glassmorphism */
-.glass {
-  background: rgba(14, 14, 20, 0.72);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
+/* Dark theme (Apple dark): pure black ground, #1D1D1F surfaces,
+   #F5F5F7 text, brighter link blue for contrast on black. */
+html[data-theme="dark"] {
+  --background: #000000;
+  --surface: #1d1d1f;
+  --text: #f5f5f7;
+  --text-2: #a1a1a6;
+  --text-3: #86868b;
+  --border: #424245;
+  --border-soft: #2a2a2e;
+  --link: #2997ff;
+  --link-hover: #4da3ff;
+  --success: #30d158;
+  --nav-bg: rgba(0, 0, 0, 0.82);
 }
 
-.glass-card {
-  background: linear-gradient(180deg, rgba(20, 20, 30, 0.8) 0%, rgba(14, 14, 20, 0.7) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.glow-box {
-  position: relative;
-}
-.glow-box::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), transparent 40%, rgba(34, 211, 238, 0.3));
-  border-radius: inherit;
-  z-index: -1;
-  opacity: 0.5;
-  transition: opacity 0.3s ease;
-}
-.glow-box:hover::after {
-  opacity: 1;
-}
-
-/* Typography utilities */
-.font-display { font-family: var(--font-display); }
 .font-mono { font-family: var(--font-mono); }
 
-/* Glow text */
-.text-gradient {
-  background: linear-gradient(135deg, #ffffff 10%, #d8b4fe 50%, #818cf8 90%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+::selection { background: rgba(0, 102, 204, 0.18); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #c7c7cc; border-radius: 4px; }
+
+button, a { cursor: pointer; text-decoration: none; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
-.text-gradient-cyan {
-  background: linear-gradient(135deg, #c084fc 0%, #22d3ee 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.skip-link {
+  position: absolute; left: 1rem; top: -4rem; z-index: 100;
+  background: var(--text); color: #fff;
+  border-radius: 8px; padding: 0.5rem 1rem;
+  font-size: 0.875rem; font-weight: 600;
+  transition: top 0.2s ease;
 }
+.skip-link:focus { top: 1rem; }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
+/* Surfaces */
+.card {
   background: var(--background);
-}
-::-webkit-scrollbar-thumb {
-  background: #232332;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #34344a;
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
-/* Reduced Motion Mode Rules */
+/* Product screenshot frame: the page's real imagery, presented like product
+   photography — full-bleed image, soft drop shadow, nothing else. */
+.shot {
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+.shot img { display: block; width: 100%; height: auto; }
+
+/* Apple pill primary action */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  background: var(--link); color: #fff;
+  border-radius: 980px; padding: 0.8125rem 1.75rem;
+  font-size: 1rem; font-weight: 500;
+  transition: background 0.2s ease, transform 0.15s ease;
+  border: none;
+}
+.btn-primary:hover { background: var(--link-hover); }
+.btn-primary:active { transform: scale(0.98); }
+
+/* Text link with chevron, Apple's "Learn more >" pattern */
+.link-more {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  color: var(--link); font-size: 1rem;
+}
+.link-more:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Tab strips: scrollable pills, never clipped */
+.tab-strip {
+  display: flex; gap: 0.25rem; overflow-x: auto;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.tab-strip::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+  position: relative; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  border-radius: 980px; padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem; font-weight: 500;
+  color: var(--text-2); background: transparent;
+  border: none; white-space: nowrap;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn[aria-selected="true"], .tab-btn.is-active { color: var(--text); background: var(--surface); }
+
+/* Code blocks, light */
+.code-block {
+  overflow-x: auto; border-radius: 12px;
+  background: var(--surface); padding: 1rem 1.25rem;
+  font-family: var(--font-mono); font-size: 0.8125rem;
+  line-height: 1.7; color: var(--text); text-align: left;
+}
+
+/* Reduced motion: state changes become instant, scroll stays usable. */
 @media (prefers-reduced-motion: reduce) {
-  :root:not(.motion-full) *,
-  :root:not(.motion-full) *::before,
-  :root:not(.motion-full) *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
+  html { scroll-behavior: auto; }
+  :root:not(.motion-full) *, :root:not(.motion-full) *::before, :root:not(.motion-full) *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
   }
 }
-
-:root.reduce-motion *,
-:root.reduce-motion *::before,
-:root.reduce-motion *::after {
-  animation-duration: 0.001ms !important;
-  animation-iteration-count: 1 !important;
+:root.reduce-motion *, :root.reduce-motion *::before, :root.reduce-motion *::after {
+  animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
-  scroll-behavior: auto !important;
-}
-
-:root.reduce-motion .higgsfield-canvas,
-:root.reduce-motion .ambient-drift {
-  display: none !important;
-}
-
-/* Button & interactive components */
-button, a {
-  cursor: pointer;
-  text-decoration: none;
-}
-button:focus-visible, a:focus-visible {
-  outline: 2px solid var(--brand-500);
-  outline-offset: 2px;
 }

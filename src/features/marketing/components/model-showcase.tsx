@@ -84,16 +84,16 @@ export function ModelShowcase() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.4, delay: 0.4 }}
-        className="flex flex-col justify-between rounded-xl border border-green-500/30 bg-green-500/5 p-5"
+        className="flex flex-col justify-between rounded-xl border border-success/30 bg-success/5 p-5"
       >
-        <div className="flex items-center gap-2 text-green-400">
+        <div className="flex items-center gap-2 text-success">
           <Shield className="h-5 w-5" />
           <span className="font-semibold text-sm text-foreground">Zero Cloud Lock-in</span>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
           RoleSpec never sells subscriptions or proxies AI calls. You own the model bill, or run 100% free with local offline models.
         </p>
-        <div className="flex items-center gap-1.5 text-[11px] font-mono text-green-400/90 pt-1">
+        <div className="flex items-center gap-1.5 text-[11px] font-mono text-success/90 pt-1">
           <Lock className="h-3 w-3" />
           <span>AES-256 encrypted at rest</span>
         </div>

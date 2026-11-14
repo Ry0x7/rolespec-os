@@ -18,18 +18,13 @@ export function MarketingFooter() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="relative border-t border-border">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-700/40 to-transparent"
-      />
-
+    <footer className="relative border-t border-border bg-card/40">
       <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <div className="max-w-sm space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <LogoMark className="h-7 w-7" />
-              <span className="font-bold tracking-tight">{siteConfig.name}</span>
+              <span className="font-semibold tracking-tight">{siteConfig.name}</span>
             </div>
             <p className="text-pretty text-sm text-muted-foreground">
               {siteConfig.tagline} {siteConfig.description}
@@ -42,7 +37,7 @@ export function MarketingFooter() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="flex min-h-11 items-center transition-colors hover:text-brand-300"
+                    className="flex min-h-11 items-center transition-colors hover:text-foreground"
                   >
                     {link.label}
                   </Link>

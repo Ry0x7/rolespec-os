@@ -1,21 +1,17 @@
-import React, { useState, useEffect } from "react"
+/* eslint-disable @next/next/no-img-element -- showcase is a standalone esbuild bundle, not a Next page */
+import React, { useState, useEffect, useRef } from "react"
 import { createRoot } from "react-dom/client"
-import { MotionConfig } from "framer-motion"
-import {
-  Download,
-  ShieldCheck,
-  ArrowRight,
-  Cpu,
-  CheckCircle,
-} from "lucide-react"
+import { MotionConfig, motion, useScroll, useTransform } from "framer-motion"
+import { DownloadIcon, ChevronRightIcon } from "./components/icons"
 
-import { HiggsfieldAura } from "./components/higgsfield-aura"
 import { ShowcaseNav } from "./components/showcase-nav"
 import { Hyperframe } from "./components/hyperframe"
-import { FeatureGrid } from "./components/feature-grid"
+import { FeatureSections } from "./components/feature-sections"
 import { ModelMatrix } from "./components/model-matrix"
 import { QuickstartTabs } from "./components/quickstart-tabs"
 import { ShowcaseFooter } from "./components/showcase-footer"
+
+const RELEASES_URL = "https://github.com/Ry0x7/rolespec-os/releases/latest"
 
 function ShowcaseApp() {
   const [isReducedMotion, setIsReducedMotion] = useState<boolean>(() => {
@@ -37,6 +33,24 @@ function ShowcaseApp() {
     }
   }, [isReducedMotion])
 
+  // Theme: stored choice wins, otherwise follow the OS. The pre-paint script
+  // in index.html applies the same logic before first paint (no flash).
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light"
+    const stored = localStorage.getItem("rolespec-theme")
+    if (stored === "dark" || stored === "light") return stored
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme)
+    localStorage.setItem("rolespec-theme", theme)
+    const meta = document.querySelector('meta[name="theme-color"]')
+    meta?.setAttribute("content", theme === "dark" ? "#000000" : "#ffffff")
+  }, [theme])
+
+  const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"))
+
   const toggleMotion = () => {
     setIsReducedMotion((prev) => {
       const next = !prev
@@ -45,93 +59,91 @@ function ShowcaseApp() {
     })
   }
 
-  const downloadUrl =
-    "https://github.com/Ry0x7/rolespec-os/releases/download/v1.0.5/RoleSpec_1.0.5_x64-setup.exe"
+  // Hero screenshot settles with scale + rise as the reader scrolls —
+  // Apple's quiet product-reveal motion, nothing else.
+  const heroRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] })
+  const shotScale = useTransform(scrollYProgress, [0, 1], [1, isReducedMotion ? 1 : 0.96])
+  const shotY = useTransform(scrollYProgress, [0, 1], [0, isReducedMotion ? 0 : 24])
 
   return (
     <MotionConfig reducedMotion={isReducedMotion ? "always" : "never"}>
-      <div className="relative min-h-screen bg-[#07070a] text-[#f4f4f7] selection:bg-purple-500/30 selection:text-white">
-        {/* Generative Higgsfield Particle Aura */}
-        <HiggsfieldAura isReducedMotion={isReducedMotion} />
+      <div className="relative min-h-screen" style={{ background: "var(--background)", color: "var(--text)" }}>
+        <a href="#main-content" className="skip-link">Skip to content</a>
+        <ShowcaseNav isReducedMotion={isReducedMotion} onToggleMotion={toggleMotion} theme={theme} onToggleTheme={toggleTheme} />
 
-        {/* Global Nav with Reduce Motion Toggle */}
-        <ShowcaseNav isReducedMotion={isReducedMotion} onToggleMotion={toggleMotion} />
+        <main id="main-content">
+          {/* HERO — headline, action, product. Nothing else. */}
+          <section aria-labelledby="hero-heading" className="mx-auto max-w-5xl px-4 pb-12 pt-16 text-center sm:px-6 sm:pt-24">
+            <motion.h1
+              id="hero-heading"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="text-balance text-5xl font-semibold leading-[1.05] tracking-[-0.02em] sm:text-6xl lg:text-7xl"
+            >
+              Your job search,<br />in one private place.
+            </motion.h1>
 
-        {/* HERO SECTION */}
-        <section className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 pb-12 sm:pb-20 text-center">
-          <div className="mx-auto max-w-4xl space-y-6">
-            {/* Release Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/40 bg-purple-950/40 px-3.5 py-1.5 backdrop-blur-md shadow-[0_0_20px_rgba(168,85,247,0.25)]">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-mono text-xs font-semibold text-purple-200">
-                Release v1.0.5 is Live
-              </span>
-              <span className="text-zinc-500">•</span>
-              <span className="font-mono text-[11px] text-zinc-300">Windows x64 &amp; Docker</span>
-            </div>
+            <motion.p
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed sm:text-xl"
+              style={{ color: "var(--text-2)" }}
+            >
+              Tailor your resume to any role, score against ATS filters, write your
+              outreach, and track every application — on your own machine.
+            </motion.p>
 
-            {/* Main Headline */}
-            <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.08]">
-              The Sovereign Career <br className="hidden sm:inline" />
-              <span className="text-gradient">Operating System.</span>
-            </h1>
-
-            {/* Subheading */}
-            <p className="mx-auto max-w-2xl font-sans text-base sm:text-lg lg:text-xl text-zinc-300 leading-relaxed">
-              Deterministic ATS matching, atomic resume diff rollbacks, and offline-first opportunity
-              radar. Powered by local LLMs or BYOK cloud models in a 100% private sandbox.
-            </p>
-
-            {/* Action CTA Buttons */}
-            <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-              <a
-                href={downloadUrl}
-                className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3.5 font-sans text-sm font-bold text-white shadow-[0_0_30px_rgba(168,85,247,0.4)] hover:from-purple-500 hover:to-indigo-500 transition-all hover:scale-[1.02]"
-              >
-                <Download className="h-4.5 w-4.5" />
-                <span>Download for Windows (v1.0.5)</span>
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row"
+            >
+              <a href={RELEASES_URL} target="_blank" rel="noreferrer" className="btn-primary">
+                <DownloadIcon className="h-5 w-5" />
+                Download for Windows
               </a>
-
-              <a
-                href="#hyperframes"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 font-sans text-sm font-semibold text-zinc-200 backdrop-blur-sm hover:border-white/20 hover:bg-white/10 hover:text-white transition-all"
-              >
-                <span>Explore Hyperframe</span>
-                <ArrowRight className="h-4 w-4 text-purple-400" />
+              <a href="#hyperframes" className="link-more">
+                See how it works
+                <ChevronRightIcon className="h-4 w-4" />
               </a>
+            </motion.div>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="mt-6 text-sm"
+              style={{ color: "var(--text-3)" }}
+            >
+              Free and open source · Runs offline · Zero telemetry
+            </motion.p>
+
+            {/* The product, at product size */}
+            <div ref={heroRef} className="mt-12">
+              <motion.div style={{ scale: shotScale, y: shotY }} className="shot mx-auto max-w-4xl">
+                <img
+                  src="RoleSpecOS/workspace.png"
+                  alt="The RoleSpec OS landing page with the workspace preview and ATS keyword chips"
+                  width={1440}
+                  height={960}
+                />
+              </motion.div>
+              <p className="mt-4 text-sm" style={{ color: "var(--text-3)" }}>
+                The workspace preview, as it ships today — in light mode.
+              </p>
             </div>
+          </section>
 
-            {/* Telemetry & Trust Badges */}
-            <div className="pt-8 flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs font-mono text-zinc-400">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                <span>100% Localhost DB</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Cpu className="h-4 w-4 text-purple-400" />
-                <span>Ollama / Claude Code / Codex</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-cyan-400" />
-                <span>AGPL-3.0 Sovereign Open Source</span>
-              </div>
-            </div>
-          </div>
-        </section>
+          <Hyperframe isReducedMotion={isReducedMotion} />
+          <FeatureSections />
+          <ModelMatrix />
+          <QuickstartTabs />
+        </main>
 
-        {/* INTERACTIVE HYPERFRAME WORKFLOWS & REAL SCREENSHOTS */}
-        <Hyperframe isReducedMotion={isReducedMotion} />
-
-        {/* 8 CORE WORKFLOWS SPOTLIGHT */}
-        <FeatureGrid />
-
-        {/* AI PROVIDER MATRIX */}
-        <ModelMatrix />
-
-        {/* QUICKSTART & DOWNLOADS */}
-        <QuickstartTabs />
-
-        {/* FOOTER */}
         <ShowcaseFooter />
       </div>
     </MotionConfig>

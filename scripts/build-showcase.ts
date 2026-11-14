@@ -7,7 +7,7 @@ const ROOT_DIR = path.resolve(__dirname, "..")
 const OUT_DIR = path.resolve(ROOT_DIR, "dist-showcase")
 
 async function build() {
-  console.log("🚀 Building RoleSpec OS Showcase (v1.0.5)...")
+  console.log("🚀 Building RoleSpec OS Showcase...")
 
   if (fs.existsSync(OUT_DIR)) {
     fs.rmSync(OUT_DIR, { recursive: true, force: true })
@@ -60,6 +60,7 @@ async function build() {
     "banner.svg",
     "jobs-discover.png",
     "resume-editor.png",
+    "ats-chips.png",
     "workspace.png",
   ]
 
@@ -103,45 +104,52 @@ async function build() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RoleSpec OS v1.0.5 — Sovereign Career Operating System</title>
-  <meta name="description" content="Sovereign, air-gapped career operating system for senior engineers. Deterministic ATS matching, atomic resume diff rollbacks, and offline-first opportunity radar.">
-  <meta name="theme-color" content="#07070a">
+  <title>RoleSpec OS — Private job-search workspace</title>
+  <meta name="description" content="Local-first job-search workspace: resume studio, ATS matching, outreach and application tracking on your own database.">
+  <meta name="theme-color" content="#ffffff">
 
   <!-- Open Graph / Social Media -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://rolespec.ry0x7.dev/">
-  <meta property="og:title" content="RoleSpec OS v1.0.5 — Sovereign Career Operating System">
-  <meta property="og:description" content="Deterministic ATS matching, atomic resume diff rollbacks, and offline-first opportunity radar. Zero cloud telemetry.">
+  <meta property="og:title" content="RoleSpec OS — Private job-search workspace">
+  <meta property="og:description" content="Resume studio, ATS matching, outreach and application tracking on your own database. Zero telemetry.">
   <meta property="og:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner.png">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="RoleSpec OS v1.0.5 — Sovereign Career Operating System">
-  <meta name="twitter:description" content="Deterministic ATS matching, atomic resume diff rollbacks, and offline-first opportunity radar.">
+  <meta name="twitter:title" content="RoleSpec OS — Private job-search workspace">
+  <meta name="twitter:description" content="Resume studio, ATS matching, outreach and application tracking on your own database. Zero telemetry.">
   <meta name="twitter:image" content="https://rolespec.ry0x7.dev/RoleSpecOS/banner.png">
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="styles.css">
 
-  <!-- Inline Reduced Motion Check Script before first paint -->
+  <!-- Pre-paint: apply stored/system theme + motion preference before first paint -->
   <script>
     (function() {
       try {
-        var stored = localStorage.getItem('rolespec-motion');
+        var root = document.documentElement;
+        var theme = localStorage.getItem('rolespec-theme');
+        if (theme !== 'dark' && theme !== 'light') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        root.setAttribute('data-theme', theme);
+        var motion = localStorage.getItem('rolespec-motion');
         var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (stored === 'reduced' || (!stored && prefersReduced)) {
-          document.documentElement.classList.add('reduce-motion');
-          document.documentElement.classList.remove('motion-full');
+        if (motion === 'reduced' || (!motion && prefersReduced)) {
+          root.classList.add('reduce-motion');
+          root.classList.remove('motion-full');
         } else {
-          document.documentElement.classList.add('motion-full');
-          document.documentElement.classList.remove('reduce-motion');
+          root.classList.add('motion-full');
+          root.classList.remove('reduce-motion');
         }
       } catch (e) {}
     })();
   </script>
 </head>
-<body class="bg-[#07070a] text-[#f4f4f7] min-h-screen">
-  <div id="root"></div>
+<body style="margin:0;background:#ffffff;color:#1d1d1f;min-height:100vh;font-family:system-ui,sans-serif">
+  <div id="root"><p style="padding:3rem 1.5rem;text-align:center;color:#6e6e73">Loading RoleSpec OS…</p></div>
+  <noscript><p style="padding:3rem 1.5rem;text-align:center;color:#6e6e73">This page needs JavaScript. The app itself runs at <a href="https://github.com/Ry0x7/rolespec-os" style="color:#0066cc">github.com/Ry0x7/rolespec-os</a>.</p></noscript>
   <script src="bundle.js"></script>
 </body>
 </html>`

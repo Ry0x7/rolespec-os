@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState, type KeyboardEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Briefcase,
@@ -18,16 +18,34 @@ import { cn } from "@/shared/lib/utils"
 
 type TabKey = "resume" | "ats" | "outreach" | "local-ai"
 
+const PREVIEW_TABS = [
+  { key: "resume", label: "Resume Studio", icon: FileText },
+  { key: "ats", label: "ATS Scanner", icon: Gauge },
+  { key: "outreach", label: "Outreach", icon: Mail },
+  { key: "local-ai", label: "Local Models", icon: Cpu },
+] as const
+
 export function InteractivePreview() {
   const [activeTab, setActiveTab] = useState<TabKey>("resume")
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  function onTabKeyDown(event: KeyboardEvent, index: number) {
+    let next: number | null = null
+    if (event.key === "ArrowRight") next = (index + 1) % PREVIEW_TABS.length
+    else if (event.key === "ArrowLeft") next = (index - 1 + PREVIEW_TABS.length) % PREVIEW_TABS.length
+    else if (event.key === "Home") next = 0
+    else if (event.key === "End") next = PREVIEW_TABS.length - 1
+    if (next !== null) {
+      event.preventDefault()
+      setActiveTab(PREVIEW_TABS[next].key)
+      tabRefs.current[next]?.focus()
+    }
+  }
 
   return (
-    <div className="relative mx-auto w-full max-w-xl">
-      {/* Decorative ambient backdrop glow behind the preview */}
-      <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-brand-600/30 via-indigo-600/20 to-purple-600/30 blur-xl opacity-75 transition-all duration-500" />
-
-      {/* Main glass card container */}
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-card/90 shadow-2xl backdrop-blur-xl">
+    <div className="relative mx-auto w-full max-w-2xl text-left">
+      {/* Main card container */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
         {/* Top title bar & tab navigation */}
         <div className="border-b border-border bg-muted/40 p-3 sm:px-4">
           <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
@@ -46,22 +64,22 @@ export function InteractivePreview() {
           </div>
 
           {/* Interactive Navigation Tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto pt-1 no-scrollbar">
-            {(
-              [
-                { key: "resume", label: "Resume Studio", icon: FileText },
-                { key: "ats", label: "ATS Scanner", icon: Gauge },
-                { key: "outreach", label: "Outreach", icon: Mail },
-                { key: "local-ai", label: "Local Models", icon: Cpu },
-              ] as const
-            ).map((tab) => {
+          <div role="tablist" aria-label="Product preview" className="flex items-center gap-1 overflow-x-auto pt-1 no-scrollbar">
+            {PREVIEW_TABS.map((tab, index) => {
               const Icon = tab.icon
               const isSelected = activeTab === tab.key
               return (
                 <button
                   key={tab.key}
+                  ref={(el) => { tabRefs.current[index] = el }}
                   type="button"
+                  role="tab"
+                  id={`preview-tab-${tab.key}`}
+                  aria-selected={isSelected}
+                  aria-controls={`preview-panel-${tab.key}`}
+                  tabIndex={isSelected ? 0 : -1}
                   onClick={() => setActiveTab(tab.key)}
+                  onKeyDown={(e) => onTabKeyDown(e, index)}
                   className={cn(
                     "relative flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
                     isSelected
@@ -72,7 +90,7 @@ export function InteractivePreview() {
                   {isSelected && (
                     <motion.div
                       layoutId="active-tab-indicator"
-                      className="absolute inset-0 rounded-lg bg-brand-500/20 border border-brand-500/40 shadow-glow-sm"
+                      className="absolute inset-0 rounded-lg bg-muted border border-border"
                       transition={{ type: "spring", stiffness: 500, damping: 35 }}
                     />
                   )}
@@ -85,11 +103,14 @@ export function InteractivePreview() {
         </div>
 
         {/* Tab content area */}
-        <div className="p-4 sm:p-6 min-h-[310px]">
+        <div className="p-4 sm:p-6 min-h-[340px]">
           <AnimatePresence mode="wait">
             {activeTab === "resume" && (
               <motion.div
                 key="resume"
+                role="tabpanel"
+                id="preview-panel-resume"
+                aria-labelledby="preview-tab-resume"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -147,6 +168,9 @@ export function InteractivePreview() {
             {activeTab === "ats" && (
               <motion.div
                 key="ats"
+                role="tabpanel"
+                id="preview-panel-ats"
+                aria-labelledby="preview-tab-ats"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -197,6 +221,9 @@ export function InteractivePreview() {
             {activeTab === "outreach" && (
               <motion.div
                 key="outreach"
+                role="tabpanel"
+                id="preview-panel-outreach"
+                aria-labelledby="preview-tab-outreach"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -232,6 +259,9 @@ export function InteractivePreview() {
             {activeTab === "local-ai" && (
               <motion.div
                 key="local-ai"
+                role="tabpanel"
+                id="preview-panel-local-ai"
+                aria-labelledby="preview-tab-local-ai"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -243,7 +273,7 @@ export function InteractivePreview() {
                     <Cpu className="h-4 w-4 text-brand-400" />
                     <p className="text-sm font-semibold">Local AI Inference Runner</p>
                   </div>
-                  <span className="rounded bg-green-500/10 px-2 py-0.5 text-[10px] font-semibold text-green-400 border border-green-500/20">
+                  <span className="rounded border border-success/20 bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
                     Zero API Cost
                   </span>
                 </div>
@@ -252,8 +282,8 @@ export function InteractivePreview() {
                   <div className="rounded-lg border border-brand-500/30 bg-brand-500/5 p-2.5 space-y-1">
                     <p className="text-xs font-semibold text-foreground">Ollama</p>
                     <p className="text-[11px] text-muted-foreground">Running on localhost:11434</p>
-                    <div className="flex items-center gap-1 text-[10px] text-green-400 pt-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                    <div className="flex items-center gap-1 text-[10px] text-success pt-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" />
                       Qwen 2.5 / Llama 3
                     </div>
                   </div>
