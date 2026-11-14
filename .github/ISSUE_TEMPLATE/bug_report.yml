@@ -1,0 +1,95 @@
+name: Bug report
+description: Something in RoleSpec is broken or behaves unexpectedly.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do not paste secrets, `.env` contents, database dumps, or
+        another person's data — redact anything sensitive from logs and screenshots.
+        Security problems go through [SECURITY.md](https://github.com/Ry0x7/rolespec-os/blob/main/SECURITY.md)
+        instead of this form.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Where does the problem show up?
+      options:
+        - Web app (resumes, ATS scoring, jobs, applications, settings)
+        - AI features (tailoring, cover letters, matching, provider setup)
+        - Desktop shell (Windows installer / local database)
+        - Browser extension
+        - Docker / self-hosted deployment
+        - Build, tests or tooling
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The actual behaviour, including any error message shown to you.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest sequence that still shows the problem.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Desktop release (e.g. 1.0.1), Docker image, or the commit you run from source.
+      placeholder: "1.0.1 / main@16a4b01"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, Node version, database (managed local cluster, Docker, Neon, other).
+      placeholder: |
+        Windows 11 x64, Chrome 141
+        Node 22.20.0
+        Desktop app, managed local PostgreSQL
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (redacted)
+      description: Desktop logs live in %LOCALAPPDATA%\RoleSpecData\logs (desktop.log, postgres.log).
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I removed secrets and personal data from logs, screenshots and this report.
+          required: true
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is not a security vulnerability (those go through SECURITY.md).
+          required: true

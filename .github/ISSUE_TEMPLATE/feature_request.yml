@@ -1,0 +1,72 @@
+name: Feature request
+description: Suggest a workflow improvement or a new capability.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        RoleSpec is a workflow product, not a feature catalogue. The strongest requests describe a
+        step in the job-search journey that is slow, confusing, or missing — and what the user
+        should be able to do when it is fixed.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Resume building and ATS scoring
+        - Job discovery and tracking
+        - Applications and outreach
+        - AI provider setup and usage
+        - Desktop app
+        - Browser extension
+        - Data export, privacy or account management
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and where does the current workflow get in the way?
+      placeholder: "When I apply to a job I have to ... because ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should happen instead? Sketches or wording are welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Current workarounds, other tools, or a smaller change that would also help.
+
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you like to implement this?
+      options:
+        - "Yes, with guidance"
+        - "Yes, on my own"
+        - "No, just suggesting it"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked docs/ROADMAP.md and existing issues for this direction.
+          required: true
+        - label: This does not require sending user data to a third-party service by default.
+          required: true

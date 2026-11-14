@@ -1,0 +1,55 @@
+import {
+  Activity,
+  Database,
+  KeyRound,
+  Palette,
+  SlidersHorizontal,
+  Sparkles,
+  User,
+} from "lucide-react"
+
+export interface SettingsTab {
+  label: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+}
+
+export interface SettingsTabGroup {
+  label: string
+  items: SettingsTab[]
+}
+
+export const settingsTabGroups: SettingsTabGroup[] = [
+  {
+    label: "Settings",
+    items: [
+      { label: "Profile", href: "/settings/profile", icon: User },
+      { label: "Job preferences", href: "/settings/preferences", icon: SlidersHorizontal },
+      { label: "Appearance", href: "/settings/appearance", icon: Palette },
+      { label: "Browser extension", href: "/settings/api", icon: KeyRound },
+      { label: "AI model", href: "/settings/ai", icon: Sparkles },
+      { label: "AI by task", href: "/settings/ai-stages", icon: SlidersHorizontal },
+      { label: "AI usage", href: "/settings/usage", icon: Activity },
+      { label: "Privacy & data", href: "/settings/data", icon: Database },
+    ],
+  },
+]
+
+const ALL_TAB_HREFS: string[] = settingsTabGroups.flatMap((group) =>
+  group.items.map((item) => item.href)
+)
+
+/**
+ * Longest matching prefix wins — the same rule as the app sidebar — so a
+ * nested settings route lights up its own tab.
+ */
+export function getActiveTabHref(pathname: string): string | null {
+  let active: string | null = null
+  for (const href of ALL_TAB_HREFS) {
+    const matches = pathname === href || pathname.startsWith(`${href}/`)
+    if (matches && (active === null || href.length > active.length)) {
+      active = href
+    }
+  }
+  return active
+}

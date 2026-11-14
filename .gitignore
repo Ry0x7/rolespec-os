@@ -1,0 +1,69 @@
+# Dependencies (root and standalone packages)
+node_modules/
+.pnp/
+.pnp.js
+
+# Next.js, TypeScript and test output
+/.next/
+/.next-desktop/
+/out/
+/build/
+/coverage/
+*.tsbuildinfo
+next-env.d.ts
+/src/generated/prisma/
+/extension/dist/
+/dist-showcase/
+
+# Local secrets; keep distributable examples tracked
+.env*
+!.env.example
+!.env.docker.example
+*.pem
+
+# Local app data and verification artifacts
+/.exports/
+/resumes/
+/*.pdf
+/*.docx
+/scripts/screenshots/
+/scripts/ux-audit/
+/scripts/pdf-preview/
+/scripts/verify-extension/
+/.tmp-*/
+
+# Bundled desktop runtime and generated Rust/Tauri output
+/desktop/src-tauri/resources/app/
+/desktop/src-tauri/resources/node/
+/desktop/src-tauri/resources/prisma/
+/desktop/src-tauri/resources/postgres/
+/desktop/src-tauri/resources/manifest.json
+/desktop/vendor/
+/desktop/src-tauri/target/
+/desktop/src-tauri/gen/
+
+# Local editor, hosting and AI-tool state
+/.vscode/
+/.idea/
+/.vercel/
+/.claude/
+/CLAUDE.local.md
+/.codex/
+/.agents/
+/.serena/
+/.freebuff/
+/.playwright-mcp/
+/.superpowers/
+/.impeccable/
+/docs/superpowers/
+
+# OS and package-manager logs
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Unlazy gate ledgers and dispatch state
+/.unlazy/

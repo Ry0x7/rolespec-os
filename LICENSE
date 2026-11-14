@@ -1,0 +1,170 @@
+ROLESPEC OS PERSONAL USE LICENSE
+Version 1.0
+Effective: November 14, 2026
+
+Copyright (c) 2026 Chryypt Inc. All rights reserved.
+
+This is a source-available license for personal use only. It is not an
+open-source license. It does not grant commercial, redistribution, or patent
+rights.
+
+1. DEFINITIONS
+
+"Software" means the RoleSpec OS source code, object code, documentation,
+designs, screenshots, assets, and any updates or patches supplied by Chryypt
+Inc, together with any Derivative Work.
+
+"Derivative Work" means any work based on, adapted from, or incorporating any
+part of the Software, including modifications, translations, and combinations
+with other software.
+
+"Personal Use" means use by one individual, solely for that individual's own
+personal, non-commercial job search, career planning, resume editing, and
+application tracking.
+
+"Commercial Use" means any use of the Software that is not Personal Use,
+including use for or on behalf of an employer, client, customer, business,
+organization, or other third party; use in connection with a product or
+service offered to others; use in recruiting, staffing, consulting, agency, or
+career-services work; or use intended to produce revenue, fees, or other
+commercial advantage.
+
+"Monetize" means to sell, license, rent, lease, sublicense, charge for, or
+otherwise receive money or anything of value in connection with the Software,
+including access, hosting, installation, support, customization, training, or
+distribution.
+
+"Patent Claim" means any patent application, patent, or claim, and any
+assertion, threat, demand, or litigation alleging patent infringement.
+
+2. GRANT OF LICENSE
+
+Subject to this License, Chryypt Inc grants you a limited, revocable,
+non-exclusive, non-transferable, non-sublicensable license to:
+
+(a) view, download, and make a reasonable number of backup copies of the
+    Software;
+(b) run the Software on devices you own or control; and
+(c) modify the Software solely for your own Personal Use.
+
+No other rights are granted, whether by implication, estoppel, or otherwise.
+All rights not expressly granted are reserved by Chryypt Inc.
+
+3. PERSONAL USE ONLY
+
+You may use the Software solely for Personal Use. Personal Use does not include
+use by or for any employer, client, customer, business, organization, or other
+third party, even if you are not paid for that use.
+
+You may not share, distribute, publish, sublicense, rent, lease, sell, host for
+others, or otherwise make the Software or any Derivative Work available to any
+third party. You may not use the Software to provide services to others.
+
+4. NO COMMERCIAL USE OR MONETIZATION
+
+Commercial Use is strictly prohibited. You may not Monetize the Software or any
+Derivative Work.
+
+Without limiting the previous paragraph, you may not:
+
+(a) use the Software in a paid product, paid service, or revenue-generating
+    activity;
+(b) use the Software in the internal operations of a business, nonprofit,
+    government body, or other organization;
+(c) charge for access, hosting, installation, support, customization,
+    training, or distribution of the Software;
+(d) use the Software to advertise, promote, or drive traffic to a monetized
+    product or service;
+(e) accept donations, sponsorships, or other compensation connected to the
+    Software; or
+(f) provide the Software as a hosted service to any other person.
+
+No commercial license is granted by this document.
+
+5. NO PATENT RIGHTS; NO PATENTING
+
+No patent license is granted under this License, expressly or by implication.
+
+You covenant that you will not, directly or indirectly:
+
+(a) file, prosecute, maintain, or claim priority to any patent application
+    that claims the Software, any part of the Software, or any Derivative Work;
+(b) assert, threaten, or bring any Patent Claim against Chryypt Inc, any
+    contributor, or any user of the Software alleging that the Software or a
+    Derivative Work infringes a patent; or
+(c) assist, finance, or direct any other person to do anything described in
+    (a) or (b).
+
+This section applies to the maximum extent permitted by applicable law. Nothing
+in this License transfers, assigns, or grants any patent right, and you may not
+use the Software to establish, support, or pursue a Patent Claim.
+
+6. NO REDISTRIBUTION OR SUBLICENSING
+
+You may not redistribute, publish, sublicense, or transfer the Software or any
+Derivative Work, in source or object form, except for backup copies kept solely
+for your own Personal Use.
+
+You may not remove, obscure, or alter any copyright, license, attribution, or
+other proprietary notice in the Software.
+
+7. CONTRIBUTIONS
+
+By submitting a contribution to the Software, you grant Chryypt Inc a
+perpetual, irrevocable, worldwide, royalty-free, transferable license to use,
+reproduce, modify, distribute, and relicense that contribution under this
+License or any other terms chosen by Chryypt Inc. You represent that you have
+the right to grant that license and that your contribution does not infringe
+any third party's rights.
+
+8. THIRD-PARTY COMPONENTS
+
+The Software includes third-party components governed by their own licenses.
+Those licenses continue to apply to those components. This License does not
+limit any rights granted to you by a third-party license, but those rights
+apply only to the relevant component and not to the Software as a whole.
+
+9. OWNERSHIP
+
+Chryypt Inc retains all right, title, and interest in and to the Software,
+including all intellectual property rights. This License does not transfer
+ownership of the Software or grant any right to use the RoleSpec OS name,
+logo, or other trademarks.
+
+10. TERMINATION
+
+This License terminates automatically if you breach any of its terms. On
+termination, you must stop using the Software and delete all copies and
+Derivative Works in your possession or control. Sections 4, 5, 6, 7, 9, 11,
+12, and this section survive termination.
+
+11. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, TITLE, AND NON-INFRINGEMENT. YOU USE THE SOFTWARE AT YOUR OWN RISK.
+CHRYYPT INC DOES NOT WARRANT THAT THE SOFTWARE WILL BE UNINTERRUPTED, ERROR-FREE,
+OR SUITABLE FOR ANY PARTICULAR OUTCOME.
+
+12. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, CHRYYPT INC AND ITS CONTRIBUTORS ARE NOT
+LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE
+DAMAGES, OR FOR ANY LOSS OF DATA, PROFITS, BUSINESS, OR OPPORTUNITY, ARISING
+FROM OR RELATED TO THE SOFTWARE OR THIS LICENSE, EVEN IF ADVISED OF THE
+POSSIBILITY OF THOSE DAMAGES. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE TOTAL
+LIABILITY OF CHRYYPT INC AND ITS CONTRIBUTORS FOR ALL CLAIMS UNDER THIS LICENSE
+WILL NOT EXCEED THE AMOUNT YOU PAID FOR THE SOFTWARE, WHICH IS ZERO.
+
+13. GENERAL
+
+If any provision of this License is found unenforceable, the remaining
+provisions will continue in effect. This License is the entire agreement
+between you and Chryypt Inc concerning the Software and supersedes any prior
+understanding on that subject. A failure to enforce a provision is not a
+waiver. You may not assign this License without Chryypt Inc's written consent.
+This License is governed by the laws of the Republic of the Philippines, and
+disputes are subject to the competent courts of the Philippines.
+
+By using, copying, modifying, or distributing the Software, you accept this
+License. If you do not accept it, do not use the Software.

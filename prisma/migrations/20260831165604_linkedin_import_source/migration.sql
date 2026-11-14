@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "CareerEvidenceSource" ADD VALUE 'LINKEDIN_IMPORT_CANDIDATE';
