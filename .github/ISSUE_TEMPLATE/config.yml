@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/Ry0x7/rolespec-os/security/advisories/new
+    about: Private disclosure for auth, data isolation, secret handling or the update channel.
+  - name: Contributing guide
+    url: https://github.com/Ry0x7/rolespec-os/blob/main/CONTRIBUTING.md
+    about: Local setup, the checks CI runs, and what a reviewable pull request looks like.
+  - name: Desktop troubleshooting
+    url: https://github.com/Ry0x7/rolespec-os#method-3-desktop-shell-developer-preview
+    about: Install, data locations, startup failures and the update/downgrade behaviour.

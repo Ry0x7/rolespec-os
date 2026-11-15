@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Core permissions for the RoleSpec OS window. The app loads the local RoleSpec OS server; no filesystem or shell commands are exposed to the page.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

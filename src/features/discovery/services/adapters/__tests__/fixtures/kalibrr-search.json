@@ -1,0 +1,89 @@
+{
+  "count": 385,
+  "jobs": [
+    {
+      "id": 171137,
+      "name": "Web Developer | Junior to Mid",
+      "slug": "web-developer-junior-to-mid",
+      "company": {
+        "code": "squadzip-digital-space-explorer-inc",
+        "name": "Squadzip (Digital Space Explorer, Inc.)"
+      },
+      "company_name": "Squadzip (Digital Space Explorer, Inc.)",
+      "activation_date": "2026-07-28T23:54:39.795076+00:00",
+      "description": "<p>We are looking for individuals who can evangelize the idea that productive work can be done from anywhere! Right now businesses are spending billions on larg</p>",
+      "google_location": {
+        "address_components": {
+          "address_line_1": "5th Floor Microlab Building",
+          "city": "Makati",
+          "country": "Philippines",
+          "region": "National Capital Region (Metro Manila)"
+        }
+      },
+      "is_work_from_home": true,
+      "is_hybrid": false,
+      "base_salary": null,
+      "maximum_salary": null,
+      "salary_currency": null,
+      "salary_interval": null,
+      "salary_shown": true,
+      "tenure": "Full time"
+    },
+    {
+      "id": 268532,
+      "name": "iOS Developer",
+      "slug": "ios-developer-2",
+      "company": {
+        "code": "multisys-technologies-corporation",
+        "name": "Multisys Technologies Corporation"
+      },
+      "company_name": "Multisys Technologies Corporation",
+      "activation_date": "2026-09-01T08:18:24.829519+00:00",
+      "description": "<p><strong>Job Summary:</strong></p>\n\n<p>The iOS Developer plays a key role in the design, development, and implementation of cutting-edge iOS applications. Thi</p>",
+      "google_location": {
+        "address_components": {
+          "address_line_1": "Mt. of Olives St, Moonwalk",
+          "city": "Parañaque",
+          "country": "Philippines",
+          "region": "Metro Manila"
+        }
+      },
+      "is_work_from_home": false,
+      "is_hybrid": true,
+      "base_salary": null,
+      "maximum_salary": 50000,
+      "salary_currency": "PHP",
+      "salary_interval": "month",
+      "salary_shown": false,
+      "tenure": "Full time"
+    },
+    {
+      "id": 272255,
+      "name": "ReactNative Developer",
+      "slug": "reactnative-developer",
+      "company": {
+        "code": "questronix-corporation",
+        "name": "Questronix Corporation"
+      },
+      "company_name": "Questronix Corporation",
+      "activation_date": "2026-09-09T07:42:34.172550+00:00",
+      "description": "<p><strong>Job Description:</strong></p>\n\n<ul>\n\t<li>Develop and maintain mobile applications using React Native based on approved business and technical require</p>",
+      "google_location": {
+        "address_components": {
+          "address_line_1": null,
+          "city": "Makati",
+          "country": "Philippines",
+          "region": "Metro Manila"
+        }
+      },
+      "is_work_from_home": false,
+      "is_hybrid": false,
+      "base_salary": null,
+      "maximum_salary": null,
+      "salary_currency": null,
+      "salary_interval": null,
+      "salary_shown": true,
+      "tenure": "Full time"
+    }
+  ]
+}

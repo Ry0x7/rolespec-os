@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "RoleSpec OS Job Clipper",
+  "version": "0.2.0",
+  "description": "Clip jobs and fill application forms from your RoleSpec OS profile, with a review queue for sensitive questions.",
+  "minimum_chrome_version": "114",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "identity",
+    "scripting",
+    "storage",
+    "sidePanel",
+    "tabs"
+  ],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "action": {
+    "default_title": "Clip this job to RoleSpec OS"
+  },
+  "commands": {
+    "clip-job": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Clip this job to RoleSpec OS"
+    },
+    "quick-save": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Alt+S"
+      },
+      "description": "Save the current clip to RoleSpec OS"
+    }
+  },
+  "background": {
+    "service_worker": "assets/background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}

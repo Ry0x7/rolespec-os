@@ -1,0 +1,11 @@
+# Default owners for everything in the repository. Reviews are requested
+# automatically for changes that touch these paths.
+* @Ry0x7
+
+# Security-sensitive surfaces: encryption, auth, export downloads, desktop
+# update verification and the release pipeline.
+/src/shared/lib/secret-box.ts @Ry0x7
+/src/app/api/exports/ @Ry0x7
+/desktop/src-tauri/src/update.rs @Ry0x7
+/.github/workflows/ @Ry0x7
+/SECURITY.md @Ry0x7
