@@ -67,3 +67,9 @@ pnpm-debug.log*
 
 # Unlazy gate ledgers and dispatch state
 /.unlazy/
+
+# Chryypt-OS & Graphify local index state
+graphify-out/
+.graphify_*
+.chryypt/
+.t3/
