@@ -1,3 +1,4 @@
+import { version } from "../../../package.json"
 import React from "react"
 import { LogoMarkIcon, CheckIcon } from "./icons"
 
@@ -17,7 +18,7 @@ export function ShowcaseFooter() {
             <p className="flex items-center gap-2">
               <LogoMarkIcon className="h-6 w-6" />
               <span className="text-sm font-semibold">RoleSpec OS</span>
-              <span className="text-xs" style={{ color: "var(--text-3)" }}>v2.0.0</span>
+              <span className="text-xs" style={{ color: "var(--text-3)" }}>v{version}</span>
             </p>
             <p className="max-w-sm text-center text-xs leading-relaxed sm:text-left" style={{ color: "var(--text-2)" }}>
               A local-first career workspace. Published by Chryypt Inc.
