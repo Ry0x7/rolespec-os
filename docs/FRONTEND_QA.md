@@ -31,7 +31,7 @@ and no outreach message was sent.
 
 ## Automated checks
 
-- Frontend: the v2.1.0 pass ran 349 files and 5,240 tests; the 266 tests covering
+- Frontend: the historical pass labeled v2.1.0 (before baseline consolidation) ran 349 files and 5,240 tests; the 266 tests covering
   dashboard, settings, review, navigation and the command palette also passed as
   a focused run. TypeScript, the showcase build, its output verifier and four
   dashboard visual-regression comparisons passed.
@@ -46,7 +46,7 @@ generator, destructive action, browser or employer integration was exercised.
 
 ## Unverified or limited
 
-- A clean v2.1.0 Windows install, in-place upgrade and native WebView session.
+- A clean v2.0.0 Windows install, in-place upgrade and native WebView session.
   See [the desktop guide](DESKTOP.md) for installation and release mechanics.
 - Live employer ATS filling, file attachment and final application completion.
   Headless Chrome identity authorization was blocked; manual-token reads worked.

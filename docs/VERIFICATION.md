@@ -1,7 +1,7 @@
 # Backend and desktop verification history
 
 For current frontend coverage and release limitations, see [FRONTEND_QA.md](FRONTEND_QA.md).
-The measurements below predate the v2.1.0 frontend release; installer evidence
+The measurements below predate the consolidated v2.0.0 frontend baseline; installer evidence
 explicitly names the version that was tested. For the current frontend pass,
 including the 349-file/5,240-test run, see [FRONTEND_QA.md](FRONTEND_QA.md).
 
@@ -262,7 +262,9 @@ This is the audit summary of verified workflow capabilities and intentional prod
 
 1. **No first-party workflow or review UI.** This pass deliberately did not
    build UI; the API is ready and documented in
-   [FRONTEND_HANDOFF.md](FRONTEND_HANDOFF.md).
+   [API_CONTRACTS.md](API_CONTRACTS.md). This is a historical observation;
+   `/workspace?view=runs` and `/review` are present in the v2.0.0 baseline. See
+   [FRONTEND_QA.md](FRONTEND_QA.md) for subsequent frontend verification.
 2. **Live employer ATS fill and resume attachment are not verified.** The live
    Lever result covers discovery and planning only. Dynamic fields, file upload,
    validation errors and the manual file-selection fallback need a real page.

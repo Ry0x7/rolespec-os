@@ -1144,6 +1144,10 @@ null }`; `null` means no ranking has been run yet. `RankingSnapshot`:
 where `result` is the exact last `POST` response payload. Errors: `401`,
 `429 RATE_LIMITED`.
 
+The saved `result` is the base ranking result. Read `poolSize` and `reranked`
+from the snapshot wrapper; POST-only warnings and `snapshotId` are not stored
+inside that result.
+
 #### `POST /api/ranking`
 
 Request (strict object; unknown keys are rejected):

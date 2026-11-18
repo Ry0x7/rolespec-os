@@ -41,7 +41,7 @@ feedback and portfolio showcasing do not require a hosted service.
 - Encrypted ATS answer memory, server-side review queue and a documented
   extension API.
 - Docker/Node self-hosting and a Windows x64 NSIS installer produced by the
-  tag workflow. v2.1.0 is the current release; a clean install of the current
+  tag workflow. v2.0.0 is the current release; a clean install of the current
   build is still outstanding and the installer is not Authenticode-signed.
 
 ## Verified runtime evidence
@@ -117,7 +117,7 @@ frontend pass is in [FRONTEND_QA.md](FRONTEND_QA.md).
   establish a verified publisher.
 - Authenticode signing is not configured. The updater's own signatures are
   separate from Windows publisher identity.
-- A clean-machine install/upgrade of the current v2.1.0 build is still
+- A clean-machine install/upgrade of the current v2.0.0 build is still
   outstanding. Runtime, data paths and troubleshooting are in
   [DESKTOP.md](DESKTOP.md).
 - CLI and local-model AI options still require separate installation and

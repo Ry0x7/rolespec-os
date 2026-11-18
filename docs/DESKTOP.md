@@ -10,10 +10,10 @@ but Windows has **no verified publisher** and SmartScreen may warn. A release wi
 `latest.json` cannot auto-update, so download newer installers manually. Updater signatures
 (`.sig`) are separate from Windows Authenticode and do not establish a verified Windows
 publisher. Installation, first launch, onboarding and uninstall were exercised on Windows 11
-x64 for earlier builds; a clean v2.1.0 install or in-place upgrade has not been verified, and a
+x64 for earlier builds; a clean v2.0.0 install or in-place upgrade has not been verified, and a
 separate clean-VM walkthrough has not been run.
 
-v2.1.0 adds the today-first dashboard, a configurable daily application goal, explainable
+v2.0.0 adds the today-first dashboard, a configurable daily application goal, explainable
 ranking with colour-coded factor badges, a phone-first pipeline board and the RoleSpec OS
 Personal Use License. The installer remains unsigned and is built by the tag workflow. Check the
 release assets for `latest.json` before relying on automatic updates.
