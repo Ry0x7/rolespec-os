@@ -11,6 +11,8 @@ import {
   type ResumeCardData,
   type ResumeVariant,
 } from "./resume-sections"
+import { DevBreakUiToggle, useDevBreakUiMode } from "./dev-break-ui-toggle"
+import { buildBreakUiBrowserResumes } from "../dev/break-ui-fixtures"
 
 export const RESUME_PAGE_SIZE = 12
 
@@ -23,8 +25,13 @@ type ResumeFilter = "all" | ResumeVariant
  * their variant heading, and role-family cards under their family name when
  * more than one family exists.
  */
-export function ResumeBrowser({ resumes }: { resumes: ResumeCardData[] }) {
+export function ResumeBrowser({ resumes: initialResumes }: { resumes: ResumeCardData[] }) {
   const [filter, setFilter] = useState<ResumeFilter>("all")
+  const [breakMode, setBreakMode, breakEnabled] = useDevBreakUiMode()
+  const resumes =
+    process.env.NODE_ENV !== "production" && breakEnabled && breakMode !== "demo"
+      ? buildBreakUiBrowserResumes(initialResumes, breakMode)
+      : initialResumes
 
   // Group order first (Master, Role family by family, Job-tailored), so a page
   // of All reads as consecutive groups.
@@ -168,6 +175,13 @@ export function ResumeBrowser({ resumes }: { resumes: ResumeCardData[] }) {
             </p>
           ))}
         </div>
+      )}
+      {process.env.NODE_ENV !== "production" && (
+        <DevBreakUiToggle
+          mode={breakMode}
+          onChange={setBreakMode}
+          enabled={breakEnabled}
+        />
       )}
     </div>
   )

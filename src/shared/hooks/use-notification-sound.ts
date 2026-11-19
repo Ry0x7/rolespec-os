@@ -14,11 +14,16 @@ import {
 
 const listeners = new Set<() => void>()
 
+const SERVER_SNAPSHOT: NotificationSoundSettings = {
+  sound: DEFAULT_NOTIFICATION_SOUND,
+  customDataUrl: null,
+}
+
 // useSyncExternalStore compares snapshots by identity, so the object must be
 // cached and replaced only when the stored preference actually changes.
 let snapshot: NotificationSoundSettings =
   typeof window === "undefined"
-    ? { sound: DEFAULT_NOTIFICATION_SOUND, customDataUrl: null }
+    ? SERVER_SNAPSHOT
     : getStoredNotificationSound()
 
 function refreshSnapshot(): void {
@@ -42,7 +47,7 @@ function getSnapshot(): NotificationSoundSettings {
 }
 
 function getServerSnapshot(): NotificationSoundSettings {
-  return { sound: DEFAULT_NOTIFICATION_SOUND, customDataUrl: null }
+  return SERVER_SNAPSHOT
 }
 
 export function useNotificationSound() {

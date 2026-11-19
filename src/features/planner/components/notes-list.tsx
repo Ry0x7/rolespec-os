@@ -61,7 +61,11 @@ export function NotesList({ notes }: NotesListProps) {
     const result = await createNote(formData)
     setLoading(false)
     if (result?.error) {
-      setError(result.error)
+      const details = "details" in result ? result.details : undefined
+      const firstFieldError = details
+        ? Object.values(details.fieldErrors).flat().filter(Boolean)[0]
+        : undefined
+      setError(firstFieldError ?? result.error)
     } else {
       formRef.current?.reset()
       toast.success("Note added")
@@ -81,7 +85,11 @@ export function NotesList({ notes }: NotesListProps) {
     const result = await updateNote(id, fd)
     setPendingId(null)
     if (result?.error) {
-      toast.error(result.error)
+      const details = "details" in result ? result.details : undefined
+      const firstFieldError = details
+        ? Object.values(details.fieldErrors).flat().filter(Boolean)[0]
+        : undefined
+      toast.error(firstFieldError ?? result.error)
     } else {
       setEditingId(null)
       toast.success("Note updated")
@@ -106,7 +114,14 @@ export function NotesList({ notes }: NotesListProps) {
       {/* Add form */}
       <Card>
         <CardContent>
-          <form ref={formRef} action={handleAdd} className="space-y-3">
+          <form
+            ref={formRef}
+            onSubmit={(event) => {
+              event.preventDefault()
+              void handleAdd(new FormData(event.currentTarget))
+            }}
+            className="space-y-3"
+          >
             <div className="space-y-2">
               <Label htmlFor="note-content">New note</Label>
               <Textarea
@@ -114,6 +129,7 @@ export function NotesList({ notes }: NotesListProps) {
                 name="content"
                 rows={3}
                 placeholder="Jot down anything — interview prep, contacts, reminders..."
+                maxLength={10000}
                 required
                 className="resize-none"
               />
@@ -163,6 +179,7 @@ export function NotesList({ notes }: NotesListProps) {
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
                     rows={3}
+                    maxLength={10000}
                     aria-label="Edit note content"
                     className="resize-none"
                   />

@@ -66,6 +66,7 @@ export const JobFormFields = forwardRef<HTMLInputElement, JobFormFieldsProps>(
             name="companyName"
             placeholder="Acme Corp"
             defaultValue={application?.companyName ?? ""}
+            maxLength={200}
             required
           />
         </div>
@@ -76,6 +77,7 @@ export const JobFormFields = forwardRef<HTMLInputElement, JobFormFieldsProps>(
             name="jobTitle"
             placeholder="e.g. Sales Manager"
             defaultValue={application?.jobTitle ?? ""}
+            maxLength={200}
             required
           />
         </div>
@@ -159,7 +161,8 @@ export const JobFormFields = forwardRef<HTMLInputElement, JobFormFieldsProps>(
               id={id("salary")}
               name="salary"
               type="number"
-              min="0"
+              min={1}
+              max={2147483647}
               placeholder="85000"
               defaultValue={application?.salary?.toString() ?? ""}
               className="min-w-24 flex-1"

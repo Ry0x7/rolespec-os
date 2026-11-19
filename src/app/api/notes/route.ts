@@ -5,7 +5,7 @@ import { prisma } from "@/shared/lib/prisma"
 
 export const dynamic = "force-dynamic"
 
-const createSchema = z.object({ content: z.string().min(1).max(10000) })
+const createSchema = z.object({ content: z.string().trim().min(1).max(10000) })
 
 export async function GET(req: Request) {
   const userId = await resolveApiUserId(req)

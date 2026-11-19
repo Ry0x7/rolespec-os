@@ -73,7 +73,10 @@ export function ArchivedResumeList({ resumes }: ArchivedResumeListProps) {
                 className="flex items-center justify-between gap-3 px-4 py-2.5"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-muted-foreground">
+                  <p
+                    className="truncate text-sm text-muted-foreground"
+                    title={resume.title}
+                  >
                     {resume.title}
                   </p>
                   <p className="text-xs text-muted-foreground">

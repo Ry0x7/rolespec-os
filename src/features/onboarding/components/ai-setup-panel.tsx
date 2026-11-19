@@ -176,7 +176,9 @@ export function AiSetupPanel({
 
       {selectedGroup.providers.length > 1 ? (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Select local engine:</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {group === "api" ? "Select API provider:" : "Select local engine:"}
+          </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {selectedGroup.providers.map((option) => (
               <button
@@ -301,7 +303,9 @@ export function AiSetupPanel({
         {isApiKey ? (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="onboarding-api-key">{guide.label} API key</Label>
+              <Label htmlFor="onboarding-api-key">
+                {guide.label.replace(/\s+API$/i, "")} API key
+              </Label>
               {keyAlreadySaved ? (
                 <Badge variant="success" size="sm">
                   saved …{last4}

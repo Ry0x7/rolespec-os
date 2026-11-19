@@ -7,12 +7,17 @@ import {
 } from "@/features/career-profile/services/web-presence.service"
 import { getFirecrawlRuntimeConfig } from "@/features/settings/services/integration-settings.service"
 import { RATE_LIMIT_BUCKETS, consumeRateLimit } from "@/shared/lib/rate-limit"
+import { isHttpUrl } from "@/shared/lib/url"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
 
 const bodySchema = z.object({
-  url: z.string().url().max(2000),
+  url: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((v) => isHttpUrl(v), "Must be a valid http(s) URL"),
   formats: z.array(z.enum(["markdown", "html", "text"])).max(3).optional(),
 })
 

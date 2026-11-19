@@ -1,8 +1,16 @@
 import { z } from "zod"
 
 export const onboardingSchema = z.object({
-  currentRole: z.string().min(2).max(100),
-  targetRole: z.string().min(2).max(100),
+  currentRole: z
+    .string()
+    .trim()
+    .min(2, "Current role must be at least 2 characters")
+    .max(100, "Current role must be 100 characters or fewer"),
+  targetRole: z
+    .string()
+    .trim()
+    .min(2, "Target role must be at least 2 characters")
+    .max(100, "Target role must be 100 characters or fewer"),
   experienceLevel: z.enum(["JUNIOR", "MID", "SENIOR", "LEAD", "EXECUTIVE"]),
 })
 

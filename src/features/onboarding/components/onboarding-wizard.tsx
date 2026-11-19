@@ -217,8 +217,42 @@ export function OnboardingWizard({
   const [aiResult, setAiResult] = useState<AiConnectionTestResult | null>(null)
   const [skippedAi, setSkippedAi] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [step3Error, setStep3Error] = useState<string | null>(null)
+
+  function parseGoalTarget(raw: string): number | undefined {
+    const trimmed = raw.trim()
+    if (!trimmed) return undefined
+    const parsed = Number(trimmed)
+    return Number.isFinite(parsed) ? parsed : Number.NaN
+  }
+
+  function validateStep3(): string | null {
+    const cur = currentRole.trim()
+    if (cur.length > 0 && cur.length < 2) {
+      return "Current role must be at least 2 characters"
+    }
+    if (cur.length > 100) {
+      return "Current role must be 100 characters or fewer"
+    }
+    const tgt = targetRole.trim()
+    if (tgt.length > 0 && tgt.length < 2) {
+      return "Target role must be at least 2 characters"
+    }
+    if (tgt.length > 100) {
+      return "Target role must be 100 characters or fewer"
+    }
+    const parsedGoal = parseGoalTarget(goalTarget)
+    if (
+      parsedGoal !== undefined &&
+      (!Number.isInteger(parsedGoal) || parsedGoal < 1 || parsedGoal > 200)
+    ) {
+      return "Application goal must be a whole number between 1 and 200"
+    }
+    return null
+  }
 
   function goTo(next: number) {
+    setStep3Error(null)
     setEdits((prev) => ({ ...prev, step: next }))
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -289,12 +323,19 @@ export function OnboardingWizard({
   }
 
   function handleSaveDraft() {
+    if (step === 3) {
+      const validationError = validateStep3()
+      if (validationError) {
+        setStep3Error(validationError)
+        return
+      }
+    }
     startTransition(async () => {
       const result = await saveOnboardingDraft({
         currentRole,
         targetRole,
         experienceLevel: experienceLevel === "" ? undefined : experienceLevel,
-        applicationGoalTarget: Number(goalTarget) || undefined,
+        applicationGoalTarget: parseGoalTarget(goalTarget),
         applicationGoalPeriod: goalPeriod,
       })
       if (result.error) {
@@ -313,7 +354,7 @@ export function OnboardingWizard({
         currentRole: currentRole || undefined,
         targetRole: targetRole || undefined,
         experienceLevel: experienceLevel === "" ? undefined : experienceLevel,
-        applicationGoalTarget: Number(goalTarget) || 5,
+        applicationGoalTarget: parseGoalTarget(goalTarget) ?? 5,
         applicationGoalPeriod: goalPeriod,
       })
       if (result.error) {
@@ -335,7 +376,7 @@ export function OnboardingWizard({
         currentRole,
         targetRole,
         experienceLevel: experienceLevel === "" ? undefined : experienceLevel,
-        applicationGoalTarget: Number(goalTarget) || undefined,
+        applicationGoalTarget: parseGoalTarget(goalTarget),
         applicationGoalPeriod: goalPeriod,
       })
       if (result.error) {
@@ -476,8 +517,14 @@ export function OnboardingWizard({
       {step === 3 && (
         <form
           className="space-y-5"
+          noValidate
           onSubmit={(event) => {
             event.preventDefault()
+            const validationError = validateStep3()
+            if (validationError) {
+              setStep3Error(validationError)
+              return
+            }
             goTo(4)
           }}
         >
@@ -495,7 +542,11 @@ export function OnboardingWizard({
               name="currentRole"
               placeholder="e.g. Registered Nurse"
               value={currentRole}
-              onChange={(e) => setCurrentRole(e.target.value)}
+              maxLength={100}
+              onChange={(e) => {
+                setStep3Error(null)
+                setCurrentRole(e.target.value)
+              }}
               autoComplete="organization-title"
             />
           </div>
@@ -507,7 +558,11 @@ export function OnboardingWizard({
               name="targetRole"
               placeholder="e.g. Nurse Manager"
               value={targetRole}
-              onChange={(e) => setTargetRole(e.target.value)}
+              maxLength={100}
+              onChange={(e) => {
+                setStep3Error(null)
+                setTargetRole(e.target.value)
+              }}
               autoComplete="off"
             />
           </div>
@@ -539,7 +594,10 @@ export function OnboardingWizard({
                 min={1}
                 max={200}
                 value={goalTarget}
-                onChange={(e) => setGoalTarget(e.target.value)}
+                onChange={(e) => {
+                  setStep3Error(null)
+                  setGoalTarget(e.target.value)
+                }}
                 className="w-full sm:w-24"
               />
               <Select
@@ -554,6 +612,12 @@ export function OnboardingWizard({
               </Select>
             </div>
           </div>
+
+          {step3Error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {step3Error}
+            </p>
+          ) : null}
 
           {resumeCount > 0 ? (
             <p className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/5 p-3 text-sm">

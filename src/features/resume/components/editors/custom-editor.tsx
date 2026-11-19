@@ -87,24 +87,28 @@ function CustomCard({
       dragControls={controls}
       className="space-y-3 rounded-md border border-border p-4 bg-card"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             type="button"
             onPointerDown={(e) => controls.start(e)}
-            className="cursor-grab active:cursor-grabbing touch-none p-1 rounded hover:bg-muted"
+            className="shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 rounded hover:bg-muted"
             aria-label="Drag to reorder"
             title="Drag to reorder"
           >
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </button>
-          <span className="text-xs font-medium text-muted-foreground uppercase">
+          <span
+            className="min-w-0 truncate text-xs font-medium text-muted-foreground uppercase"
+            title={content.title || "New Entry"}
+          >
             {content.title || "New Entry"}
           </span>
         </div>
         <Button
           variant="ghost"
           size="icon"
+          className="shrink-0"
           aria-label={`Remove ${content.title || "entry"}`}
           onClick={onRemove}
         >

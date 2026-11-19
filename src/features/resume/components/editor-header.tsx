@@ -34,7 +34,7 @@ import { exportResumePdf } from "@/features/export/actions/export-pdf"
 import { jobDetailHref } from "@/features/jobs/lib/job-detail-href"
 import { cn } from "@/shared/lib/utils"
 import { analysisMode, atsVariant, scoreLabel, topIssue } from "../lib/ats-score"
-import { useResumeStore } from "../hooks/use-resume-store"
+import { useResumeStore, type InspectorId } from "../hooks/use-resume-store"
 import { ResumeKindBadge } from "./resume-kind-badge"
 import { ResumeComparisonDrawer } from "./resume-comparison-drawer"
 import { ResumeHistoryDrawer } from "./resume-history-drawer"
@@ -71,15 +71,34 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
   const groupAdditional = useResumeStore((s) => s.groupAdditional)
   const groupAdditionalTitle = useResumeStore((s) => s.groupAdditionalTitle)
   const customization = useResumeStore((s) => s.customization)
+  const openInspector = useResumeStore((s) => s.openInspector)
   const setGenerateStatus = useResumeStore((s) => s.setGenerateStatus)
   const setLastExport = useResumeStore((s) => s.setLastExport)
   const applyGeneratedSections = useResumeStore((s) => s.applyGeneratedSections)
   const setOpenInspector = useResumeStore((s) => s.setOpenInspector)
   const [isPending, startTransition] = useTransition()
   const [isDownloading, setIsDownloading] = useState(false)
-  const [showCompare, setShowCompare] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
-  const [showPdf, setShowPdf] = useState(false)
+  const [activeLocalDrawer, setActiveLocalDrawer] = useState<
+    "history" | "compare" | "pdf" | null
+  >(null)
+
+  // Only one modal drawer may be open at a time: a store-owned inspector
+  // (opened via Tools, header score button, "Change" job target, or post-run
+  // effect) supersedes any local header drawer.
+  const openLocal = openInspector === null ? activeLocalDrawer : null
+  const showCompare = openLocal === "compare"
+  const showHistory = openLocal === "history"
+  const showPdf = openLocal === "pdf"
+
+  function openStoreInspector(kind: InspectorId) {
+    setActiveLocalDrawer(null)
+    setOpenInspector(kind)
+  }
+
+  function openLocalDrawer(drawer: "history" | "compare" | "pdf") {
+    setOpenInspector(null)
+    setActiveLocalDrawer(drawer)
+  }
 
   const isGenerating = generateStatus === "generating" || isPending
   const isSaving = saveStatus === "saving"
@@ -197,12 +216,16 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
   // A derived resume links to its source; a master names its origin.
   // An archived source is named but not linked.
   const lineage = resume?.sourceResume?.status === "ARCHIVED" ? (
-    <span className="max-w-[12rem] truncate sm:max-w-xs">
+    <span
+      className="max-w-[12rem] truncate sm:max-w-xs"
+      title={`From ${resume.sourceResume.title}`}
+    >
       From {resume.sourceResume.title}
     </span>
   ) : resume?.sourceResume ? (
     <Link
       href={`/resumes/${resume.sourceResume.id}`}
+      title={`From ${resume.sourceResume.title}`}
       className="max-w-[12rem] truncate rounded-sm transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
     >
       From {resume.sourceResume.title}
@@ -218,15 +241,19 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
     // under the app shell's sticky header (h-14) instead of behind it.
     <div className="sticky top-14 z-[var(--z-sticky)] border-b border-border bg-background xl:top-0">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2.5 sm:px-4 xl:px-6">
-        {/* Title block: can shrink to nothing, never pushes the actions off. */}
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+        {/* Title block: wraps above the actions when a phone viewport with an
+            analysis score badge cannot fit both on one row. */}
+        <div className="flex min-w-[10rem] flex-1 items-center gap-1.5 sm:gap-2">
           <Link href="/resumes" className="shrink-0">
             <Button variant="ghost" size="icon" aria-label="Back to resumes" title="Back to resumes">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-sm font-semibold leading-tight sm:text-base">
+            <h1
+              className="truncate text-sm font-semibold leading-tight sm:text-base"
+              title={resume?.title ?? "Resume"}
+            >
               {resume?.title ?? "Resume"}
             </h1>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
@@ -247,7 +274,11 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
                   )}
                 </>
               )}
-              {resume?.targetRole && <span className="truncate">{resume.targetRole}</span>}
+              {resume?.targetRole && (
+                <span className="truncate" title={resume.targetRole}>
+                  {resume.targetRole}
+                </span>
+              )}
               {resume?.targetRole && saveState && <span aria-hidden="true">·</span>}
               {saveState && (
                 <span role="status" aria-live="polite">
@@ -259,6 +290,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
                   {(resume?.targetRole || saveState) && <span aria-hidden="true">·</span>}
                   <Link
                     href={jobDetailHref(linkedJob.id, "prepare")}
+                    title={`Back to job: ${linkedJob.title}`}
                     className="max-w-[12rem] truncate rounded-sm transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
                   >
                     Back to job: {linkedJob.title}
@@ -320,7 +352,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
               {/* Below `xl` only: at `xl` the preview is the inline pane and
                   this would open the sheet that is not mounted there. */}
               <DropdownMenuItem
-                onClick={() => setOpenInspector("preview")}
+                onClick={() => openStoreInspector("preview")}
                 aria-label="Preview"
                 className="xl:hidden"
               >
@@ -328,14 +360,14 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
                 Preview resume
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => setOpenInspector("job")}
+                onClick={() => openStoreInspector("job")}
                 aria-label="Job target"
               >
                 <Briefcase className="h-3.5 w-3.5" aria-hidden="true" />
                 Job target
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => setOpenInspector("ats")}
+                onClick={() => openStoreInspector("ats")}
                 aria-label={analysisLabel}
               >
                 {isAnalyzing ? (
@@ -349,7 +381,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
                 )}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => setOpenInspector("enhance")}
+                onClick={() => openStoreInspector("enhance")}
                 aria-label="Enhance"
               >
                 {isEnhancing ? (
@@ -368,7 +400,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Review</DropdownMenuLabel>
               <DropdownMenuItem
-                onClick={() => setShowHistory(true)}
+                onClick={() => openLocalDrawer("history")}
                 aria-label="Resume history and validation"
               >
                 <History className="h-3.5 w-3.5" aria-hidden="true" />
@@ -376,7 +408,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
               </DropdownMenuItem>
               {resume?.variant === "JOB_TAILORED" && resume?.sourceResume?.id && (
                 <DropdownMenuItem
-                  onClick={() => setShowCompare(true)}
+                  onClick={() => openLocalDrawer("compare")}
                   aria-label="Compare with source resume and rollback"
                 >
                   <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
@@ -401,7 +433,7 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
               align="end"
               className="left-0 right-auto md:left-auto md:right-0"
             >
-              <DropdownMenuItem onClick={() => setShowPdf(true)} disabled={!hasContent} aria-label="Preview generated PDF">
+              <DropdownMenuItem onClick={() => openLocalDrawer("pdf")} disabled={!hasContent} aria-label="Preview generated PDF">
                 <Eye className="h-3.5 w-3.5" aria-hidden="true" />Preview generated PDF
               </DropdownMenuItem>
               {/* Always available: renders the current content, no AI key needed. */}
@@ -501,13 +533,26 @@ export function EditorHeader({ onSave, linkedJob }: Props) {
         </div>
       </div>
 
-      {showHistory && resume?.id && <ResumeHistoryDrawer resumeId={resume.id} open={showHistory} onClose={() => setShowHistory(false)} />}
-      {showPdf && resume?.id && <ResumePdfDrawer resumeId={resume.id} onSave={onSave} open={showPdf} onClose={() => setShowPdf(false)} />}
+      {showHistory && resume?.id && (
+        <ResumeHistoryDrawer
+          resumeId={resume.id}
+          open={showHistory}
+          onClose={() => setActiveLocalDrawer(null)}
+        />
+      )}
+      {showPdf && resume?.id && (
+        <ResumePdfDrawer
+          resumeId={resume.id}
+          onSave={onSave}
+          open={showPdf}
+          onClose={() => setActiveLocalDrawer(null)}
+        />
+      )}
       {showCompare && resume?.id && (
         <ResumeComparisonDrawer
           resumeId={resume.id}
           open={showCompare}
-          onOpenChange={setShowCompare}
+          onOpenChange={(next) => setActiveLocalDrawer(next ? "compare" : null)}
         />
       )}
     </div>

@@ -170,7 +170,9 @@ export function UploadResumeDialog() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-700/20 mb-3">
                   <FileText className="h-5 w-5 text-brand-400" />
                 </div>
-                <p className="text-sm font-medium">{file.name}</p>
+                <p className="max-w-full break-all text-sm font-medium" title={file.name}>
+                  {file.name}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {(file.size / 1024).toFixed(0)} KB
                 </p>

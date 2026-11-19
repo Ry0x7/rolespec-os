@@ -123,7 +123,7 @@ function CertificationCard({
         <button
           type="button"
           onPointerDown={(e) => controls.start(e)}
-          className="cursor-grab active:cursor-grabbing touch-none p-1 rounded hover:bg-muted"
+          className="shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 rounded hover:bg-muted"
           aria-label="Drag to reorder"
           title="Drag to reorder"
         >
@@ -133,11 +133,12 @@ function CertificationCard({
           value={content.name ?? ""}
           onChange={(e) => onUpdate({ ...content, name: e.target.value })}
           placeholder="Certification Name"
-          className="bg-transparent border-none outline-none text-sm font-medium w-full placeholder:text-muted-foreground focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent border-none outline-none text-sm font-medium w-full placeholder:text-muted-foreground focus:outline-none"
         />
         <Button
           variant="ghost"
           size="icon"
+          className="shrink-0"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
           aria-controls={`cert-details-${item.id}`}
@@ -152,7 +153,7 @@ function CertificationCard({
         <Button
           variant="ghost"
           size="icon"
-          className="hover:bg-destructive/10"
+          className="shrink-0 hover:bg-destructive/10"
           aria-label={`Remove ${content.name || "certification"}`}
           onClick={onRemove}
         >
@@ -195,7 +196,7 @@ function CertificationCard({
                   placeholder="Expiration date"
                 />
               </div>
-              <div className="space-y-1.5 col-span-2">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label>Credential ID (optional)</Label>
                 <Input
                   value={content.credentialId ?? ""}

@@ -1,6 +1,21 @@
 import { describe, it, expect } from "vitest"
 
-import { looksLikeUrl, normalizeUrl, displayUrl, parseLinkValue } from "../url"
+import { isHttpUrl, looksLikeUrl, normalizeUrl, displayUrl, parseLinkValue } from "../url"
+
+describe("isHttpUrl", () => {
+  it("accepts http and https URLs", () => {
+    expect(isHttpUrl("https://example.com/jobs/1")).toBe(true)
+    expect(isHttpUrl("  http://localhost:3000  ")).toBe(true)
+  })
+
+  it("rejects non-http schemes and malformed URLs", () => {
+    expect(isHttpUrl("javascript:alert(1)")).toBe(false)
+    expect(isHttpUrl("data:text/html,<script>alert(1)</script>")).toBe(false)
+    expect(isHttpUrl("ftp://example.com/file")).toBe(false)
+    expect(isHttpUrl("example.com")).toBe(false)
+    expect(isHttpUrl("")).toBe(false)
+  })
+})
 
 describe("looksLikeUrl", () => {
   it("accepts protocol, www and bare domains", () => {

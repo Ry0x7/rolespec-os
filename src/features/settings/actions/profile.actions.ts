@@ -4,10 +4,15 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { auth } from "@/features/auth/config"
 import { prisma } from "@/shared/lib/prisma"
+import { isHttpUrl } from "@/shared/lib/url"
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
-  image: z.union([z.literal(""), z.url("Enter a valid image URL")]),
+  image: z
+    .string()
+    .trim()
+    .max(2000, "Image URL is too long")
+    .refine((v) => v === "" || isHttpUrl(v), "Enter a valid http(s) image URL"),
 })
 
 export async function updateProfile(name: string, image: string) {

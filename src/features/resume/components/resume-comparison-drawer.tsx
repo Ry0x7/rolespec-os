@@ -138,7 +138,7 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
             <div className="space-y-5 text-sm">
               <p className="text-sm text-muted-foreground">{comparedAgainst === "snapshot" ? `Compared with captured source version ${sourceVersion ?? "unknown"}. Later source edits are excluded.` : "Legacy comparison against the live source resume. No captured revision exists; later source edits may appear as changes."}</p>
               {/* Stats Overview */}
-              <div className="grid grid-cols-4 gap-2 rounded-lg border bg-muted/40 p-3 text-center">
+              <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-3 text-center sm:grid-cols-4">
                 <div>
                   <p className="text-xs text-muted-foreground">Rewritten</p>
                   <p className="text-base font-bold text-sky-600 dark:text-sky-400">
@@ -166,29 +166,33 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
               </div>
 
               {/* Source info */}
-              <div className="text-xs text-muted-foreground flex items-center justify-between rounded-md bg-muted/20 px-3 py-2 border">
-                <span>Source: <strong className="text-foreground">{diff.sourceTitle}</strong></span>
-                <span>Tailored: <strong className="text-foreground">{diff.tailoredTitle}</strong></span>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  Source: <strong className="text-foreground">{diff.sourceTitle}</strong>
+                </span>
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  Tailored: <strong className="text-foreground">{diff.tailoredTitle}</strong>
+                </span>
               </div>
 
               {/* Summary Diff */}
               {diff.summaryDiff && (
                 <div className="rounded-lg border p-3.5 space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
                       Professional Summary
                     </span>
-                    <Badge variant={badgeVariantFor(diff.summaryDiff.status)} className="text-[10px]">
+                    <Badge variant={badgeVariantFor(diff.summaryDiff.status)} className="shrink-0 text-[10px]">
                       {diff.summaryDiff.status}
                     </Badge>
                   </div>
                   {diff.summaryDiff.original && (
-                    <div className="text-xs rounded bg-muted/40 p-2 text-muted-foreground line-through">
+                    <div className="break-words [overflow-wrap:anywhere] text-xs rounded bg-muted/40 p-2 text-muted-foreground line-through">
                       {diff.summaryDiff.original}
                     </div>
                   )}
                   {diff.summaryDiff.tailored && (
-                    <div className="text-xs rounded bg-primary/5 border border-primary/20 p-2 text-foreground font-medium">
+                    <div className="break-words [overflow-wrap:anywhere] text-xs rounded bg-primary/5 border border-primary/20 p-2 text-foreground font-medium">
                       {diff.summaryDiff.tailored}
                     </div>
                   )}
@@ -198,20 +202,20 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
               {/* Skills: the tailoring pass only reorders, but the editor can edit later. */}
               {diff.skillsDiff && (
                 <div className="rounded-lg border p-3.5 space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
                       Skills
                     </span>
-                    <Badge variant="neutral" className="text-[10px]">
+                    <Badge variant="neutral" className="shrink-0 text-[10px]">
                       {skillsDiffStatus(diff.skillsDiff.original, diff.skillsDiff.tailored)}
                     </Badge>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <div className="rounded bg-muted/40 p-2 text-xs text-muted-foreground">
+                    <div className="break-words [overflow-wrap:anywhere] rounded bg-muted/40 p-2 text-xs text-muted-foreground">
                       <p className="mb-1 text-[10px] uppercase tracking-wide">Source</p>
                       {diff.skillsDiff.original.join(", ") || "—"}
                     </div>
-                    <div className="rounded border border-primary/20 bg-primary/5 p-2 text-xs text-foreground">
+                    <div className="break-words [overflow-wrap:anywhere] rounded border border-primary/20 bg-primary/5 p-2 text-xs text-foreground">
                       <p className="mb-1 text-[10px] uppercase tracking-wide">Tailored</p>
                       {diff.skillsDiff.tailored.join(", ") || "—"}
                     </div>
@@ -222,17 +226,19 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
               {/* Experience & Projects Sections */}
               {diff.sections.map((section, sIdx) => (
                 <div key={sIdx} className="rounded-lg border p-3.5 space-y-3">
-                  <p className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                  <p className="break-words [overflow-wrap:anywhere] text-xs font-semibold text-foreground uppercase tracking-wider">
                     {section.title}
                   </p>
                   <div className="space-y-3">
                     {section.changes.map((item, cIdx) => (
                       <div key={cIdx} className="rounded-md border p-2.5 text-xs space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span className="font-medium text-foreground">{item.roleAndCompany}</span>
+                        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                          <span className="min-w-0 break-words [overflow-wrap:anywhere] font-medium text-foreground">
+                            {item.roleAndCompany}
+                          </span>
                           <Badge
                             variant={badgeVariantFor(item.status)}
-                            className="text-[10px] uppercase h-4 px-1.5"
+                            className="shrink-0 text-[10px] uppercase h-4 px-1.5"
                           >
                             {item.status}
                           </Badge>
@@ -240,29 +246,29 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
 
                         {item.status === "rewritten" && (
                           <div className="space-y-1">
-                            <p className="line-through text-muted-foreground text-[11px] bg-muted/40 p-1.5 rounded">
+                            <p className="break-words [overflow-wrap:anywhere] line-through text-muted-foreground text-[11px] bg-muted/40 p-1.5 rounded">
                               {item.original}
                             </p>
-                            <p className="text-foreground font-medium bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 p-1.5 rounded border border-emerald-500/20">
+                            <p className="break-words [overflow-wrap:anywhere] text-foreground font-medium bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 p-1.5 rounded border border-emerald-500/20">
                               {item.tailored}
                             </p>
                           </div>
                         )}
 
                         {item.status === "removed" && (
-                          <p className="line-through text-muted-foreground bg-amber-500/10 text-amber-900 dark:text-amber-300 p-1.5 rounded">
+                          <p className="break-words [overflow-wrap:anywhere] line-through text-muted-foreground bg-amber-500/10 text-amber-900 dark:text-amber-300 p-1.5 rounded">
                             {item.original}
                           </p>
                         )}
 
                         {item.status === "unchanged" && (
-                          <p className="text-muted-foreground bg-muted/20 p-1.5 rounded">
+                          <p className="break-words [overflow-wrap:anywhere] text-muted-foreground bg-muted/20 p-1.5 rounded">
                             {item.original}
                           </p>
                         )}
 
                         {item.status === "added" && (
-                          <p className="text-emerald-800 dark:text-emerald-300 bg-emerald-500/10 p-1.5 rounded">
+                          <p className="break-words [overflow-wrap:anywhere] text-emerald-800 dark:text-emerald-300 bg-emerald-500/10 p-1.5 rounded">
                             {item.tailored}
                           </p>
                         )}
@@ -276,8 +282,8 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
         </DrawerBody>
 
         {diff && (
-          <DrawerFooter className="justify-between border-t border-border pt-4">
-            <div className="text-xs text-muted-foreground">
+          <DrawerFooter className="flex-wrap justify-between gap-2 border-t border-border pt-4">
+            <div className="min-w-0 flex-1 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">Want to start over?</p>
               <p className="text-[11px]">{comparedAgainst === "snapshot" ? "Replaces current content with the latest captured source." : "Replaces current content with the live source; no snapshot exists."}</p>
             </div>
@@ -286,7 +292,7 @@ export function ResumeComparisonDrawer({ resumeId, open, onOpenChange }: Props) 
               size="sm"
               onClick={() => setShowConfirm(true)}
               disabled={isRollingBack || dirty || saving || offline}
-              className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+              className="shrink-0 gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Rollback to Source

@@ -140,24 +140,28 @@ function ProjectCard({
       dragControls={controls}
       className="space-y-3 rounded-md border border-border p-4 bg-card"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             type="button"
             onPointerDown={(e) => controls.start(e)}
-            className="cursor-grab active:cursor-grabbing touch-none p-1 rounded hover:bg-muted"
+            className="shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 rounded hover:bg-muted"
             aria-label="Drag to reorder"
             title="Drag to reorder"
           >
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </button>
-          <span className="text-xs font-medium text-muted-foreground uppercase">
+          <span
+            className="min-w-0 truncate text-xs font-medium text-muted-foreground uppercase"
+            title={content.name || "New Project"}
+          >
             {content.name || "New Project"}
           </span>
         </div>
         <Button
           variant="ghost"
           size="icon"
+          className="shrink-0"
           aria-label={`Remove ${content.name || "project"}`}
           onClick={onRemove}
         >
@@ -268,14 +272,14 @@ function ProjectCard({
           {(content.technologies ?? []).map((tech, idx) => (
             <span
               key={idx}
-              className="inline-flex items-center gap-1 rounded-md bg-muted px-2.5 py-1 text-xs font-medium"
+              className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-2.5 py-1 text-xs font-medium"
             >
-              {tech}
+              <span className="min-w-0 break-all">{tech}</span>
               <button
                 type="button"
                 onClick={() => removeTechnology(idx)}
                 aria-label={`Remove ${tech}`}
-                className="text-muted-foreground hover:text-foreground"
+                className="shrink-0 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-3 w-3" />
               </button>

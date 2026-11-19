@@ -317,7 +317,9 @@ export function SectionPanel() {
                       {index + 1}
                     </span>
                     <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-                    <span className="truncate">{section.title}</span>
+                    <span className="truncate" title={section.title}>
+                      {section.title}
+                    </span>
                     {section.type !== "CONTACT" && (
                       <span className="shrink-0 rounded-full bg-muted px-1 text-[10px] text-muted-foreground">
                         {section.items.length}
@@ -560,7 +562,10 @@ function SectionIdentity({
         )}
         aria-hidden="true"
       />
-      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+      <span
+        className="min-w-0 flex-1 truncate text-sm font-medium"
+        title={section.title}
+      >
         {section.title}
       </span>
       {section.type !== "CONTACT" && (
@@ -799,7 +804,10 @@ function SectionAccordion({
             {number}
           </span>
           <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+          <span
+            className="min-w-0 flex-1 truncate text-sm font-medium"
+            title={section.title}
+          >
             {section.title}
           </span>
         </button>

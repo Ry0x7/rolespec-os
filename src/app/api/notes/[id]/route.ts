@@ -5,7 +5,7 @@ import { prisma } from "@/shared/lib/prisma"
 
 export const dynamic = "force-dynamic"
 
-const patchSchema = z.object({ content: z.string().min(1).max(10000) })
+const patchSchema = z.object({ content: z.string().trim().min(1).max(10000) })
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const userId = await resolveApiUserId(req)

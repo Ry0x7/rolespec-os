@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { WorkType } from "@/generated/prisma/enums"
+import { isHttpUrl } from "@/shared/lib/url"
 
 /**
  * The payload the client is allowed to hand back when saving a candidate.
@@ -13,9 +14,13 @@ import { WorkType } from "@/generated/prisma/enums"
 export const saveDiscoveredJobSchema = z.object({
   provider: z.string().min(1).max(50),
   externalId: z.string().min(1).max(200),
-  title: z.string().min(1, "Job title is required").max(200),
-  companyName: z.string().min(1, "Company name is required").max(200),
-  url: z.string().url("Must be a valid URL").max(2000),
+  title: z.string().trim().min(1, "Job title is required").max(200),
+  companyName: z.string().trim().min(1, "Company name is required").max(200),
+  url: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((v) => isHttpUrl(v), "Must be a valid http(s) URL"),
   location: z.string().max(200).optional(),
   workType: z.nativeEnum(WorkType).optional(),
   salaryText: z.string().max(200).optional(),
@@ -32,7 +37,7 @@ export type SaveDiscoveredJobInput = z.infer<typeof saveDiscoveredJobSchema>
  * redirect target has to pass, so there is one implementation of it.
  */
 export const addJobByUrlSchema = z.object({
-  url: z.string().min(1, "Paste a posting URL").max(2000),
+  url: z.string().trim().min(1, "Paste a posting URL").max(2000),
 })
 
 /** Longest company name worth deriving a board slug from. */

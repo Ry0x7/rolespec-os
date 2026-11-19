@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 export const createResumeSchema = z.object({
-  title: z.string().min(1, "Title is required").max(100),
+  title: z.string().trim().min(1, "Title is required").max(100),
   targetRole: z.string().max(100).optional(),
   targetCompany: z.string().max(100).optional(),
   template: z
@@ -11,18 +11,18 @@ export const createResumeSchema = z.object({
 
 export const createRoleFamilyResumeSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(100),
-  sourceResumeId: z.string().trim().min(1).max(64),
-  roleFamilyId: z.string().trim().min(1).max(64),
+  sourceResumeId: z.string().trim().min(1, "Select a source master resume").max(64),
+  roleFamilyId: z.string().trim().min(1, "Select a role family").max(64),
 })
 
 export const createJobTailoredResumeSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(100),
-  sourceResumeId: z.string().trim().min(1).max(64),
-  jobApplicationId: z.string().trim().min(1).max(64),
+  sourceResumeId: z.string().trim().min(1, "Select a source resume").max(64),
+  jobApplicationId: z.string().trim().min(1, "Select a job application").max(64),
 })
 
 export const updateResumeSchema = z.object({
-  title: z.string().min(1).max(100).optional(),
+  title: z.string().trim().min(1, "Title is required").max(100).optional(),
   targetRole: z.string().max(100).optional(),
   targetCompany: z.string().max(100).optional(),
   template: z

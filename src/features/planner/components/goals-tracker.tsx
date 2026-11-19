@@ -140,8 +140,8 @@ export function GoalsTracker({ jobOptions, openTodos, completedTodos }: GoalsTra
   function addGoal(preset?: Omit<Goal, "id">) {
     const name = (preset?.label ?? label).trim()
     const parsedTarget = preset ? preset.target : Number.parseInt(target, 10)
-    if (!name || !Number.isFinite(parsedTarget) || parsedTarget <= 0) {
-      toast.error("Give the goal a name and a target above 0.")
+    if (!name || !Number.isFinite(parsedTarget) || parsedTarget <= 0 || parsedTarget > 100) {
+      toast.error("Give the goal a name and a target between 1 and 100.")
       return
     }
     const id = newGoalId()

@@ -6,6 +6,16 @@
 
 const MARKDOWN_LINK_REGEX = /^\s*\[([^\]]+)\]\((https?:\/\/[^)]+)\)\s*$/
 
+/** True when `raw` parses as an `http:` or `https:` URL. */
+export function isHttpUrl(raw: string): boolean {
+  try {
+    const parsed = new URL(raw.trim())
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
 /** True when a string looks like a URL (with or without a protocol). */
 export function looksLikeUrl(s: string): boolean {
   const t = s.trim()

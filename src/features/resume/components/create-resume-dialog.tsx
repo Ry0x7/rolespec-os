@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type FormEvent } from "react"
 import Link from "next/link"
 import { ArrowLeft, Crosshair, FileStack, Plus } from "lucide-react"
 import { createResume, createRoleFamilyResume } from "../actions"
@@ -73,6 +73,68 @@ const HEADINGS: Record<Mode, { title: string; description: string }> = {
   },
 }
 
+function validateFormSelection(mode: Mode, formData: FormData): string | null {
+  const title = String(formData.get("title") ?? "").trim()
+  if (!title) return "Title is required."
+
+  if (mode === "role-family") {
+    const sourceResumeId = String(formData.get("sourceResumeId") ?? "").trim()
+    if (!sourceResumeId) return "Select a source master resume."
+    const roleFamilyId = String(formData.get("roleFamilyId") ?? "").trim()
+    if (!roleFamilyId) return "Select a role family."
+  } else if (mode === "job-tailored") {
+    const sourceResumeId = String(formData.get("sourceResumeId") ?? "").trim()
+    if (!sourceResumeId) return "Select a source resume."
+    const jobApplicationId = String(formData.get("jobApplicationId") ?? "").trim()
+    if (!jobApplicationId) return "Select a job application."
+  }
+
+  return null
+}
+
+function getActionErrorMessage(result: {
+  error?: string
+  details?: { fieldErrors?: Record<string, string[] | undefined> }
+} | null | undefined): string | null {
+  if (!result?.error) return null
+  const firstFieldError = result.details?.fieldErrors
+    ? Object.values(result.details.fieldErrors).flat().filter(Boolean)[0]
+    : undefined
+  return firstFieldError ?? result.error
+}
+
+function getUnavailableReason(
+  mode: Mode,
+  masterCount: number,
+  roleFamilyCount: number,
+  roleFamilyResumeCount: number,
+  jobApplicationCount: number
+): string | null {
+  if (mode === "role-family") {
+    if (masterCount === 0 && roleFamilyCount === 0) {
+      return "Create a master resume and add a role family in Career Profile first."
+    }
+    if (masterCount === 0) {
+      return "Create a master resume first to use as a source."
+    }
+    if (roleFamilyCount === 0) {
+      return "Add a role family in Career Profile first."
+    }
+  } else if (mode === "job-tailored") {
+    const hasSources = masterCount > 0 || roleFamilyResumeCount > 0
+    if (!hasSources && jobApplicationCount === 0) {
+      return "Create a master resume and track a job application first."
+    }
+    if (!hasSources) {
+      return "Create a master or role family resume first to tailor."
+    }
+    if (jobApplicationCount === 0) {
+      return "Track a job application first to tailor for it."
+    }
+  }
+  return null
+}
+
 export function CreateResumeDialog({
   masterResumes,
   roleFamilies,
@@ -101,7 +163,15 @@ export function CreateResumeDialog({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const validationError = validateFormSelection(mode, formData)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     setError(null)
     setIsSubmitting(true)
     try {
@@ -111,7 +181,8 @@ export function CreateResumeDialog({
           : mode === "role-family"
             ? await createRoleFamilyResume(formData)
             : await createJobTailoredResume(formData)
-      if (result?.error) setError(result.error)
+      const actionError = getActionErrorMessage(result)
+      if (actionError) setError(actionError)
     } finally {
       setIsSubmitting(false)
     }
@@ -147,6 +218,13 @@ export function CreateResumeDialog({
   const jobTailoredUnavailable =
     (masterResumes.length === 0 && roleFamilyResumes.length === 0) ||
     jobApplications.length === 0
+  const unavailableReason = getUnavailableReason(
+    mode,
+    masterResumes.length,
+    roleFamilies.length,
+    roleFamilyResumes.length,
+    jobApplications.length
+  )
 
   return (
     <Dialog
@@ -164,7 +242,11 @@ export function CreateResumeDialog({
         </p>
       </DialogHeader>
 
-      <form action={handleSubmit}>
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <DialogBody className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="title">Resume Title</Label>
@@ -219,6 +301,14 @@ export function CreateResumeDialog({
         </DialogBody>
 
         <DialogFooter>
+          {unavailableReason && (
+            <p
+              id="create-resume-disabled-reason"
+              className="mr-auto text-xs text-muted-foreground"
+            >
+              {unavailableReason}
+            </p>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -230,6 +320,9 @@ export function CreateResumeDialog({
           <Button
             type="submit"
             loading={isSubmitting}
+            aria-describedby={
+              unavailableReason ? "create-resume-disabled-reason" : undefined
+            }
             disabled={
               (mode === "role-family" && roleFamilyUnavailable) ||
               (mode === "job-tailored" && jobTailoredUnavailable)
@@ -444,7 +537,7 @@ function JobTailoredFields({
     <>
       {tailoredCount > 0 && (
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-          <p>
+          <p className="break-words [overflow-wrap:anywhere]">
             You already have {tailoredCount} tailored{" "}
             {tailoredCount === 1 ? "resume" : "resumes"} for this job:{" "}
             {existingTailoredResumes.map((resume, index) => (
@@ -452,7 +545,7 @@ function JobTailoredFields({
                 {index > 0 && ", "}
                 <Link
                   href={`/resumes/${resume.id}`}
-                  className="rounded-sm text-brand-400 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="break-words [overflow-wrap:anywhere] rounded-sm text-brand-400 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {resume.title}
                 </Link>
@@ -533,7 +626,7 @@ function JobTailoredFields({
           <p className="text-xs font-medium text-muted-foreground">
             Job application
           </p>
-          <p className="text-sm">
+          <p className="break-words [overflow-wrap:anywhere] text-sm">
             {fixedJob.jobTitle} — {fixedJob.companyName}
           </p>
           <input type="hidden" name="jobApplicationId" value={fixedJob.id} />

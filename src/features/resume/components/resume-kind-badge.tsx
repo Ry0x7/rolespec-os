@@ -25,7 +25,10 @@ export function ResumeKindBadge({ variant, roleFamilyName }: Props) {
             : "Job tailored"}
       </Badge>
       {variant === "ROLE_FAMILY" && roleFamilyName && (
-        <span className="truncate text-xs text-muted-foreground">
+        <span
+          className="truncate text-xs text-muted-foreground"
+          title={roleFamilyName}
+        >
           {roleFamilyName}
         </span>
       )}

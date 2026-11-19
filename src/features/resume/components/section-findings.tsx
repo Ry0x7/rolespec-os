@@ -56,10 +56,10 @@ function FindingRow({ issue }: { issue: ATSIssue }) {
   return (
     <div className="flex gap-2 rounded-md bg-muted/40 border border-border px-3 py-2 text-xs">
       <Icon className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${color}`} aria-hidden="true" />
-      <div className="space-y-0.5">
-        <p className="text-foreground">{issue.message}</p>
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <p className="break-words [overflow-wrap:anywhere] text-foreground">{issue.message}</p>
         {issue.suggestion && (
-          <p className="text-muted-foreground">{issue.suggestion}</p>
+          <p className="break-words [overflow-wrap:anywhere] text-muted-foreground">{issue.suggestion}</p>
         )}
       </div>
     </div>

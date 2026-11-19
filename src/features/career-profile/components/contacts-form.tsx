@@ -58,8 +58,13 @@ export function ContactsForm({ values }: { values: CareerContactValues }) {
     const result = await updateContactInfo(formData)
     setSaving(false)
     if (result?.error) {
-      setError(result.error)
-      toast.error(result.error)
+      const details = "details" in result ? result.details : undefined
+      const firstFieldError = details
+        ? Object.values(details.fieldErrors).flat().filter(Boolean)[0]
+        : undefined
+      const message = firstFieldError ?? result.error
+      setError(message)
+      toast.error(message)
       return
     }
     toast.success("Contact information saved")

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { auth } from "@/features/auth/config"
+import { parseCalendarDate } from "@/shared/lib/dates"
 import { prisma } from "@/shared/lib/prisma"
 import { createTodoSchema, updateTodoSchema } from "../schemas/planner.schema"
 
@@ -52,7 +53,7 @@ export async function createTodo(formData: FormData) {
       data: {
         userId: session.user.id,
         title,
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: parseCalendarDate(dueDate),
         jobApplicationId: linkedId,
       },
       select: { id: true },
@@ -92,7 +93,7 @@ export async function updateTodo(id: string, formData: FormData) {
       data: {
         ...(title !== undefined ? { title } : {}),
         ...(done !== undefined ? { done } : {}),
-        ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+        ...(dueDate !== undefined ? { dueDate: parseCalendarDate(dueDate) } : {}),
         ...(nextLinkedId !== undefined ? { jobApplicationId: nextLinkedId } : {}),
       },
     })

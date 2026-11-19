@@ -263,9 +263,10 @@ function CategoryScores({
   scores,
   isQuality,
 }: {
-  scores: ATSResultsType["scores"]
+  scores?: ATSResultsType["scores"]
   isQuality?: boolean
 }) {
+  if (!scores) return null
   const categories = [
     { key: "formatting", label: "Formatting" },
     { key: "keywords", label: "Keywords" },
@@ -286,7 +287,7 @@ function CategoryScores({
         const value = scores[key]
         // Quality rows carry `keywords: null`; the filter above already drops
         // the row, this keeps the render safe for any other null.
-        if (value === null) return null
+        if (value == null) return null
         return (
           <div key={key} className="flex items-center gap-2 text-xs">
             <span className="w-24 text-muted-foreground">{label}</span>
@@ -383,10 +384,10 @@ function IssueItem({
   return (
     <div className="flex gap-2 rounded-md border border-border bg-background p-2.5 text-xs">
       <Icon className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${color}`} />
-      <div className="space-y-1">
-        <p className="text-foreground">{issue.message}</p>
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="break-words [overflow-wrap:anywhere] text-foreground">{issue.message}</p>
         {issue.suggestion && (
-          <p className="text-muted-foreground">{issue.suggestion}</p>
+          <p className="break-words [overflow-wrap:anywhere] text-muted-foreground">{issue.suggestion}</p>
         )}
         {matchedSectionId && matchedSection && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -394,10 +395,10 @@ function IssueItem({
               type="button"
               onClick={() => onJump(matchedSectionId)}
               aria-label={`Go to ${matchedSection.title} section`}
-              className="inline-flex items-center gap-1 font-medium text-brand-400 underline-offset-2 hover:underline"
+              className="inline-flex max-w-full items-center gap-1 font-medium text-brand-400 underline-offset-2 hover:underline"
             >
-              Go to {matchedSection.title}
-              <ArrowRight className="h-3 w-3" aria-hidden="true" />
+              <span className="truncate">Go to {matchedSection.title}</span>
+              <ArrowRight className="h-3 w-3 shrink-0" aria-hidden="true" />
             </button>
             {enhanceableSectionIds.has(matchedSectionId) && (
               <button
@@ -407,7 +408,7 @@ function IssueItem({
                 aria-label={`Fix ${matchedSection.title} with Enhance`}
                 className="inline-flex items-center gap-1 font-medium text-brand-400 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline"
               >
-                <Wand2 className="h-3 w-3" aria-hidden="true" />
+                <Wand2 className="h-3 w-3 shrink-0" aria-hidden="true" />
                 Fix with Enhance
               </button>
             )}
@@ -448,9 +449,9 @@ function SuggestionsList({
         return (
           <div key={idx} className="flex gap-2 rounded-md border border-border bg-background p-2.5 text-xs">
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5 text-green-600 dark:text-green-500" />
-            <div className="space-y-0.5">
-              <p className="font-medium text-foreground">{s.title}</p>
-              <p className="text-muted-foreground">{s.description}</p>
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="break-words [overflow-wrap:anywhere] font-medium text-foreground">{s.title}</p>
+              <p className="break-words [overflow-wrap:anywhere] text-muted-foreground">{s.description}</p>
             </div>
           </div>
         )
@@ -469,7 +470,7 @@ function MissingKeywords({ keywords }: { keywords: string[] }) {
         {keywords.map((keyword) => (
           <span
             key={keyword}
-            className="rounded-full border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground"
+            className="max-w-full break-all rounded-full border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground"
           >
             {keyword}
           </span>

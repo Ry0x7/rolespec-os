@@ -64,6 +64,19 @@ describe("updateContactInfoSchema", () => {
     }
   })
 
+  it("rejects non-http(s) schemes on contact URL fields", () => {
+    for (const field of ["linkedinUrl", "githubUrl", "websiteUrl"]) {
+      expect(
+        updateContactInfoSchema.safeParse({ [field]: "javascript:alert(1)" }).success,
+        field
+      ).toBe(false)
+      expect(
+        updateContactInfoSchema.safeParse({ [field]: "data:text/html,hi" }).success,
+        field
+      ).toBe(false)
+    }
+  })
+
   it("offers no way to reassign the row from the request", () => {
     const parsed = updateContactInfoSchema.safeParse({
       contactEmail: "ada@example.com",

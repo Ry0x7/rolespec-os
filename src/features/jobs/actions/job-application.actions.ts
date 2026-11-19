@@ -320,14 +320,14 @@ export async function createJobApplication(
       // that know their own calendar day send it as `dateApplied`; otherwise
       // the same `clientToday` convention as `outcomeAt` above decides the day,
       // falling back to the server's UTC day only when nothing was sent.
-      dateApplied: dateApplied
-        ? new Date(dateApplied)
-        : rest.status === ApplicationStatus.APPLIED
+      dateApplied:
+        parseCalendarDate(dateApplied) ??
+        (rest.status === ApplicationStatus.APPLIED
           ? resolveClientToday(clientToday)
-          : null,
-      deadline: deadline ? new Date(deadline) : null,
+          : null),
+      deadline: parseCalendarDate(deadline),
       interviewDate: interviewDate ? new Date(interviewDate) : null,
-      followUpAt: followUpAt ? new Date(followUpAt) : null,
+      followUpAt: parseCalendarDate(followUpAt),
     })
 
     // The unique key caught what the pre-check did not (a lookup that failed, or
@@ -482,10 +482,10 @@ export async function updateJobApplication(id: string, formData: FormData) {
         ...(salaryPeriod !== undefined ? { salaryPeriod: salaryPeriod || null } : {}),
         // "" is not a clear here — the column cannot be null, so it means no change.
         ...(salaryCurrency ? { salaryCurrency } : {}),
-        ...(dateApplied !== undefined ? { dateApplied: dateApplied ? new Date(dateApplied) : null } : {}),
-        ...(deadline !== undefined ? { deadline: deadline ? new Date(deadline) : null } : {}),
+        ...(dateApplied !== undefined ? { dateApplied: parseCalendarDate(dateApplied) } : {}),
+        ...(deadline !== undefined ? { deadline: parseCalendarDate(deadline) } : {}),
         ...(interviewDate !== undefined ? { interviewDate: interviewDate ? new Date(interviewDate) : null } : {}),
-        ...(followUpAt !== undefined ? { followUpAt: followUpAt ? new Date(followUpAt) : null } : {}),
+        ...(followUpAt !== undefined ? { followUpAt: parseCalendarDate(followUpAt) } : {}),
       }
     )
 

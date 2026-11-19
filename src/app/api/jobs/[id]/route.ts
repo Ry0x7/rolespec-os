@@ -2,13 +2,20 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { resolveApiUserId } from "@/features/auth/api-auth"
 import { prisma } from "@/shared/lib/prisma"
+import { isHttpUrl } from "@/shared/lib/url"
 
 export const dynamic = "force-dynamic"
 
 const patchSchema = z.object({
-  companyName: z.string().min(1).max(200).optional(),
-  title: z.string().min(1).max(200).optional(),
-  url: z.string().max(2000).nullable().optional(),
+  companyName: z.string().trim().min(1).max(200).optional(),
+  title: z.string().trim().min(1).max(200).optional(),
+  url: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((v) => v === "" || isHttpUrl(v), "Must be a valid http(s) URL")
+    .nullable()
+    .optional(),
   location: z.string().max(200).nullable().optional(),
   description: z.string().max(50000).nullable().optional(),
 })
@@ -43,7 +50,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const existing = await prisma.job.findFirst({ where: { id, userId }, select: { id: true } })
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  const job = await prisma.job.update({ where: { id }, data: parsed.data })
+  const data = {
+    ...parsed.data,
+    ...(parsed.data.url !== undefined ? { url: parsed.data.url || null } : {}),
+  }
+  const job = await prisma.job.update({ where: { id }, data })
   return NextResponse.json({ job })
 }
 

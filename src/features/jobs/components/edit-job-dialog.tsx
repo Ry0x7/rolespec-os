@@ -87,7 +87,11 @@ export function EditJobDialog({
     }
     if (result?.error) {
       setIsSaving(false)
-      setError(result.error)
+      const details = "details" in result ? result.details : undefined
+      const firstFieldError = details
+        ? Object.values(details.fieldErrors).flat().filter(Boolean)[0]
+        : undefined
+      setError(firstFieldError ?? result.error)
       return
     }
 

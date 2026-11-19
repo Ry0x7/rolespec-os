@@ -30,4 +30,20 @@ describe("UploadResumeDialog", () => {
     fireEvent.click(container.querySelector("button")!)
     expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false)
   })
+
+  it("wraps long unbroken filenames and exposes the full name via title", () => {
+    render(<UploadResumeDialog />)
+    fireEvent.click(screen.getByRole("button", { name: "Upload Resume" }))
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
+    const longName =
+      "Q3_Board_Deck_FINAL_revised_v12_approved_by_legal_and_platform_architecture_review.pdf"
+    fireEvent.change(input, {
+      target: { files: [new File(["%PDF-1.4"], longName, { type: "application/pdf" })] },
+    })
+
+    const fileNameEl = screen.getByText(longName)
+    expect(fileNameEl.getAttribute("title")).toBe(longName)
+    expect(fileNameEl.className).toMatch(/\bmax-w-full\b/)
+    expect(fileNameEl.className).toMatch(/\bbreak-all\b/)
+  })
 })

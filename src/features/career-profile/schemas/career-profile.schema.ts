@@ -8,6 +8,7 @@ import {
   SalaryPeriod,
   WorkType,
 } from "@/generated/prisma/enums"
+import { isHttpUrl } from "@/shared/lib/url"
 
 /** `""` is how a `<select>`/`<input>` submits "no value"; it must clear, not fail. */
 const emptyToUndefined = (v: unknown) =>
@@ -84,6 +85,11 @@ function optionalContactField<T extends z.ZodType<string>>(inner: T) {
   )
 }
 
+const httpUrlField = z
+  .string()
+  .max(500)
+  .refine((v) => isHttpUrl(v), "Must be a valid http(s) URL")
+
 /**
  * The resume header block. Deliberately separate from the account: `User.email`
  * is the sign-in address, which is often not the address a candidate wants on a
@@ -96,9 +102,9 @@ export const updateContactInfoSchema = z.object({
   ),
   contactPhone: optionalContactField(z.string().max(50)),
   contactLocation: optionalContactField(z.string().max(200)),
-  linkedinUrl: optionalContactField(z.string().url("Must be a valid URL").max(500)),
-  githubUrl: optionalContactField(z.string().url("Must be a valid URL").max(500)),
-  websiteUrl: optionalContactField(z.string().url("Must be a valid URL").max(500)),
+  linkedinUrl: optionalContactField(httpUrlField),
+  githubUrl: optionalContactField(httpUrlField),
+  websiteUrl: optionalContactField(httpUrlField),
 })
 
 export const createRoleFamilySchema = z.object({

@@ -3,6 +3,7 @@ import { z } from "zod"
 import { logActivityEvent, resolveApiUserId } from "@/features/auth/api-auth"
 import { canonicalizeUrl } from "@/features/discovery/services/normalize.service"
 import { prisma } from "@/shared/lib/prisma"
+import { isHttpUrl } from "@/shared/lib/url"
 
 export const dynamic = "force-dynamic"
 
@@ -13,9 +14,14 @@ const querySchema = z.object({
 })
 
 const createSchema = z.object({
-  companyName: z.string().min(1).max(200),
-  title: z.string().min(1).max(200),
-  url: z.string().url().max(2000).optional().or(z.literal("")),
+  companyName: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(200),
+  url: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((v) => v === "" || isHttpUrl(v), "Must be a valid http(s) URL")
+    .optional(),
   location: z.string().max(200).optional().or(z.literal("")),
   description: z.string().max(50000).optional().or(z.literal("")),
 })

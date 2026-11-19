@@ -120,10 +120,10 @@ function SuggestedKeywords({
             type="button"
             onClick={() => onAdd(kw)}
             aria-label={`Add "${kw}" to skills`}
-            className="inline-flex items-center gap-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+            className="inline-flex max-w-full items-center gap-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-left text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
           >
-            <Plus className="h-2.5 w-2.5" aria-hidden="true" />
-            {kw}
+            <Plus className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 break-all">{kw}</span>
           </button>
         ))}
       </div>
@@ -158,7 +158,7 @@ function SkillCategory({
   return (
     <div className="space-y-3 rounded-md border border-border p-4">
       <div className="flex items-center justify-between">
-        <div className="flex-1 space-y-1.5">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <Label>Category</Label>
           <Input
             value={content.category ?? ""}
@@ -171,7 +171,7 @@ function SkillCategory({
           size="icon"
           aria-label={`Remove ${content.category || "skill category"}`}
           onClick={onRemove}
-          className="ml-2 mt-5"
+          className="ml-2 mt-5 shrink-0"
         >
           <X className="h-3.5 w-3.5 text-error" />
         </Button>
@@ -181,14 +181,14 @@ function SkillCategory({
         {(content.skills ?? []).map((skill, idx) => (
           <span
             key={idx}
-            className="inline-flex items-center gap-1 rounded-md bg-muted px-2.5 py-1 text-xs font-medium"
+            className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-2.5 py-1 text-xs font-medium"
           >
-            {skill}
+            <span className="min-w-0 break-all">{skill}</span>
             <button
               type="button"
               onClick={() => removeSkill(idx)}
               aria-label={`Remove ${skill}`}
-              className="text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-muted-foreground hover:text-foreground"
             >
               <X className="h-3 w-3" />
             </button>

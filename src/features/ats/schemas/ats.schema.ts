@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { isHttpUrl } from "@/shared/lib/url"
 
 export const atsFieldSchema = z
   .object({
@@ -26,7 +27,11 @@ export const atsFieldResultSchema = z
 
 export const createAtsPreparationSchema = z
   .object({
-    sourceUrl: z.string().url().max(4000),
+    sourceUrl: z
+      .string()
+      .trim()
+      .max(4000)
+      .refine((v) => isHttpUrl(v), "Must be a valid http(s) URL"),
     vendor: z.string().max(40).optional(),
     pageTitle: z.string().max(300).optional(),
     jobTitle: z.string().max(200).optional(),

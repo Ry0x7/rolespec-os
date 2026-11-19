@@ -64,8 +64,8 @@ describe("CreateResumeDialog", () => {
     fireEvent.change(screen.getByLabelText("Resume Title"), {
       target: { value: "Primary Resume" },
     })
-    fireEvent.submit(
-      screen.getByRole("button", { name: "Create Master Resume" }).closest("form")!
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create Master Resume" })
     )
 
     await waitFor(() => expect(createResume).toHaveBeenCalledOnce())
@@ -97,8 +97,8 @@ describe("CreateResumeDialog", () => {
     fireEvent.change(screen.getByLabelText("Role family"), {
       target: { value: "family-1" },
     })
-    fireEvent.submit(
-      screen.getByRole("button", { name: "Create Role Family Resume" }).closest("form")!
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create Role Family Resume" })
     )
 
     await waitFor(() => expect(createRoleFamilyResume).toHaveBeenCalledOnce())
@@ -115,6 +115,9 @@ describe("CreateResumeDialog", () => {
     openRoleFamilyMode()
 
     expect(screen.getByText("Create a master resume first")).toBeTruthy()
+    expect(
+      screen.getByText("Create a master resume first to use as a source.")
+    ).toBeTruthy()
     expect((screen.getByLabelText("Source master resume") as HTMLSelectElement).disabled).toBe(true)
     expect(
       (screen.getByRole("button", { name: "Create Role Family Resume" }) as HTMLButtonElement)
@@ -216,10 +219,8 @@ describe("CreateResumeDialog", () => {
     fireEvent.change(screen.getByLabelText("Job application"), {
       target: { value: "job-1" },
     })
-    fireEvent.submit(
-      screen
-        .getByRole("button", { name: "Create Job Tailored Resume" })
-        .closest("form")!
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create Job Tailored Resume" })
     )
 
     await waitFor(() => expect(createJobTailoredResume).toHaveBeenCalledOnce())
@@ -238,6 +239,9 @@ describe("CreateResumeDialog", () => {
     openJobTailoredMode()
 
     expect(screen.getByText("Create a master resume first")).toBeTruthy()
+    expect(
+      screen.getByText("Create a master or role family resume first to tailor.")
+    ).toBeTruthy()
     expect((screen.getByLabelText("Source resume") as HTMLSelectElement).disabled).toBe(
       true
     )
@@ -256,6 +260,9 @@ describe("CreateResumeDialog", () => {
 
     expect(screen.getByText("Track a job application to continue")).toBeTruthy()
     expect(
+      screen.getByText("Track a job application first to tailor for it.")
+    ).toBeTruthy()
+    expect(
       screen.getByRole("link", { name: "Open Job Tracker" }).getAttribute("href")
     ).toBe("/jobs")
     expect(
@@ -273,6 +280,9 @@ describe("CreateResumeDialog", () => {
 
     expect(screen.getByText("Add a role family to continue")).toBeTruthy()
     expect(
+      screen.getByText("Add a role family in Career Profile first.")
+    ).toBeTruthy()
+    expect(
       screen.getByRole("link", { name: "Open Career Profile" }).getAttribute("href")
     ).toBe("/career-profile")
     expect((screen.getByLabelText("Role family") as HTMLSelectElement).disabled).toBe(true)
@@ -280,6 +290,143 @@ describe("CreateResumeDialog", () => {
       (screen.getByRole("button", { name: "Create Role Family Resume" }) as HTMLButtonElement)
         .disabled
     ).toBe(true)
+  })
+
+  it("shows combined actionable reasons when both prerequisites are absent", () => {
+    renderDialog({
+      masterResumes: [],
+      roleFamilies: [],
+      roleFamilyResumes: [],
+      jobApplications: [],
+    })
+    openRoleFamilyMode()
+    expect(
+      screen.getByText(
+        "Create a master resume and add a role family in Career Profile first."
+      )
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to master resume" }))
+    openJobTailoredMode()
+    expect(
+      screen.getByText(
+        "Create a master resume and track a job application first."
+      )
+    ).toBeTruthy()
+  })
+
+  it("validates omitted selects explicitly on button click and preserves entered fields", () => {
+    renderDialog()
+    openRoleFamilyMode()
+
+    fireEvent.change(screen.getByLabelText("Resume Title"), {
+      target: { value: "Incomplete Role Family" },
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create Role Family Resume" })
+    )
+
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Select a source master resume."
+    )
+    expect((screen.getByLabelText("Resume Title") as HTMLInputElement).value).toBe(
+      "Incomplete Role Family"
+    )
+    expect(createRoleFamilyResume).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText("Source master resume"), {
+      target: { value: "master-1" },
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create Role Family Resume" })
+    )
+
+    expect(screen.getByRole("alert").textContent).toBe("Select a role family.")
+    expect((screen.getByLabelText("Resume Title") as HTMLInputElement).value).toBe(
+      "Incomplete Role Family"
+    )
+    expect(
+      (screen.getByLabelText("Source master resume") as HTMLSelectElement).value
+    ).toBe("master-1")
+    expect(createRoleFamilyResume).not.toHaveBeenCalled()
+
+    // Job-tailored omitted select checks
+    fireEvent.click(screen.getByRole("button", { name: "Back to master resume" }))
+    openJobTailoredMode()
+
+    fireEvent.change(screen.getByLabelText("Resume Title"), {
+      target: { value: "Incomplete Tailored" },
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create Job Tailored Resume" })
+    )
+
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Select a source resume."
+    )
+    expect((screen.getByLabelText("Resume Title") as HTMLInputElement).value).toBe(
+      "Incomplete Tailored"
+    )
+    expect(createJobTailoredResume).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText("Source resume"), {
+      target: { value: "master-1" },
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create Job Tailored Resume" })
+    )
+
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Select a job application."
+    )
+    expect((screen.getByLabelText("Resume Title") as HTMLInputElement).value).toBe(
+      "Incomplete Tailored"
+    )
+    expect((screen.getByLabelText("Source resume") as HTMLSelectElement).value).toBe(
+      "master-1"
+    )
+    expect(createJobTailoredResume).not.toHaveBeenCalled()
+  })
+
+  it("preserves fields and exposes detailed server errors when an action fails", async () => {
+    vi.mocked(createJobTailoredResume).mockResolvedValue({
+      error: "Invalid input",
+      details: {
+        formErrors: [],
+        fieldErrors: {
+          sourceResumeId: ["Select a source resume"],
+        },
+      },
+    } as never)
+
+    renderDialog()
+    openJobTailoredMode()
+
+    fireEvent.change(screen.getByLabelText("Resume Title"), {
+      target: { value: "Tailored Persist Test" },
+    })
+    fireEvent.change(screen.getByLabelText("Source resume"), {
+      target: { value: "master-1" },
+    })
+    fireEvent.change(screen.getByLabelText("Job application"), {
+      target: { value: "job-1" },
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create Job Tailored Resume" })
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe("Select a source resume")
+    )
+    expect((screen.getByLabelText("Resume Title") as HTMLInputElement).value).toBe(
+      "Tailored Persist Test"
+    )
+    expect((screen.getByLabelText("Source resume") as HTMLSelectElement).value).toBe(
+      "master-1"
+    )
+    expect((screen.getByLabelText("Job application") as HTMLSelectElement).value).toBe(
+      "job-1"
+    )
   })
 })
 

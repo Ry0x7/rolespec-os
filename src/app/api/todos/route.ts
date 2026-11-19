@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { logActivityEvent, resolveApiUserId } from "@/features/auth/api-auth"
+import { parseCalendarDate } from "@/shared/lib/dates"
 import { prisma } from "@/shared/lib/prisma"
 
 export const dynamic = "force-dynamic"
@@ -13,8 +14,12 @@ const querySchema = z.object({
 })
 
 const createSchema = z.object({
-  title: z.string().min(1).max(200),
-  dueDate: z.string().optional(),
+  title: z.string().trim().min(1).max(200),
+  dueDate: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || parseCalendarDate(v) !== null)
+    .optional(),
   jobApplicationId: z.string().cuid().optional(),
 })
 
@@ -76,8 +81,8 @@ export async function POST(req: Request) {
   const todo = await prisma.todo.create({
     data: {
       userId,
-      title: parsed.data.title.trim(),
-      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+      title: parsed.data.title,
+      dueDate: parseCalendarDate(parsed.data.dueDate),
       jobApplicationId,
     },
     select: { id: true },

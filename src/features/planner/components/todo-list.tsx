@@ -80,7 +80,11 @@ export function TodoList({ todos, jobOptions, today }: TodoListProps) {
     const result = await createTodo(formData)
     setLoading(false)
     if (result?.error) {
-      setError(result.error)
+      const details = "details" in result ? result.details : undefined
+      const firstFieldError = details
+        ? Object.values(details.fieldErrors).flat().filter(Boolean)[0]
+        : undefined
+      setError(firstFieldError ?? result.error)
     } else {
       formRef.current?.reset()
       toast.success("Todo added")
@@ -153,13 +157,21 @@ export function TodoList({ todos, jobOptions, today }: TodoListProps) {
       {/* Add form */}
       <Card>
         <CardContent>
-          <form ref={formRef} action={handleAdd} className="space-y-3">
+          <form
+            ref={formRef}
+            onSubmit={(event) => {
+              event.preventDefault()
+              void handleAdd(new FormData(event.currentTarget))
+            }}
+            className="space-y-3"
+          >
             <div className="space-y-2">
               <Label htmlFor="todo-title">New todo</Label>
               <Input
                 id="todo-title"
                 name="title"
                 placeholder="e.g. Follow up with recruiter"
+                maxLength={200}
                 required
               />
             </div>
@@ -278,7 +290,7 @@ function TodoRowItem({ todo, pending, onToggle, onDelete }: TodoRowItemProps) {
         className="mt-1 h-4 w-4 shrink-0 rounded border-border bg-muted accent-brand-600"
       />
       <div className="min-w-0 flex-1">
-        <p className={todo.done ? "text-sm text-muted-foreground line-through" : "text-sm font-medium"}>
+        <p className={todo.done ? "break-words text-sm text-muted-foreground line-through" : "break-words text-sm font-medium"}>
           {todo.title}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">

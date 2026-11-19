@@ -1395,3 +1395,68 @@ describe("updateJobApplication link edits", () => {
     })
   })
 })
+
+describe("createJobApplication defensive validation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockAuth.mockResolvedValue({ user: { id: "user-1" } })
+  })
+
+  it("rejects whitespace-only or omitted companyName or jobTitle with field messages", async () => {
+    const data = new FormData()
+    data.set("companyName", "   ")
+    data.set("jobTitle", "   ")
+
+    const result = await createJobApplication(data)
+
+    expect(result).toMatchObject({ error: "Invalid input" })
+    expect(mockPrisma.jobApplication.create).not.toHaveBeenCalled()
+
+    const omitted = await createJobApplication(new FormData())
+    expect(omitted).toMatchObject({
+      error: "Invalid input",
+      details: {
+        fieldErrors: {
+          companyName: ["Company name is required"],
+          jobTitle: ["Job title is required"],
+        },
+      },
+    })
+  })
+
+  it("rejects javascript: URLs in jobLink", async () => {
+    const data = new FormData()
+    data.set("companyName", "Acme")
+    data.set("jobTitle", "Engineer")
+    data.set("jobLink", "javascript:alert(1)")
+
+    const result = await createJobApplication(data)
+
+    expect(result).toMatchObject({ error: "Invalid input" })
+    expect(mockPrisma.jobApplication.create).not.toHaveBeenCalled()
+  })
+
+  it("rejects salaries above INT4 max", async () => {
+    const data = new FormData()
+    data.set("companyName", "Acme")
+    data.set("jobTitle", "Engineer")
+    data.set("salary", "99999999999")
+
+    const result = await createJobApplication(data)
+
+    expect(result).toMatchObject({ error: "Invalid input" })
+    expect(mockPrisma.jobApplication.create).not.toHaveBeenCalled()
+  })
+
+  it("rejects impossible calendar dates", async () => {
+    const data = new FormData()
+    data.set("companyName", "Acme")
+    data.set("jobTitle", "Engineer")
+    data.set("deadline", "2026-02-30")
+
+    const result = await createJobApplication(data)
+
+    expect(result).toMatchObject({ error: "Invalid input" })
+    expect(mockPrisma.jobApplication.create).not.toHaveBeenCalled()
+  })
+})

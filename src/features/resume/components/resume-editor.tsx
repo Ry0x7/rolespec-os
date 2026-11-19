@@ -15,6 +15,8 @@ import { SectionPanel } from "./section-panel"
 import { type JobOption } from "./job-target-panel"
 import { ResumePreview } from "./resume-preview"
 import { EditorHeader } from "./editor-header"
+import { DevBreakUiToggle, useDevBreakUiMode } from "./dev-break-ui-toggle"
+import { buildBreakUiEditorResume } from "../dev/break-ui-fixtures"
 
 // AI inspectors + mobile sheet load on demand so the first paint ships only
 // the editing pane + preview. Each is client-only and opens via
@@ -74,6 +76,7 @@ export function ResumeEditor({
   const jobDescription = useResumeStore((s) => s.jobDescription)
   const setJobDescription = useResumeStore((s) => s.setJobDescription)
   const setOpenInspector = useResumeStore((s) => s.setOpenInspector)
+  const [breakMode, setBreakMode, breakEnabled] = useDevBreakUiMode()
 
   useEffect(() => {
     // Server components hand us fresh object identities on every refresh; only
@@ -86,6 +89,22 @@ export function ResumeEditor({
     // server's verdict has to be applied after it.
     setExportStale(initialStale ?? false)
   }, [resume, initialExport, initialStale, setResume, setLastExport, setExportStale])
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || !breakEnabled) return
+    if (breakMode === "demo") {
+      setResume(resume)
+      return
+    }
+    const fixture = buildBreakUiEditorResume(resume, breakMode)
+    setResume(fixture.resume)
+    useResumeStore.setState({
+      atsResults: fixture.atsResults,
+      enhanceSuggestions: fixture.enhanceSuggestions,
+      isDirty: false,
+      saveStatus: "idle",
+    })
+  }, [breakEnabled, breakMode, resume, setResume])
 
   // Job Target's drawer only mounts while open, so the deep-link prefill has
   // to live somewhere that is always mounted — this component — or a
@@ -200,18 +219,21 @@ export function ResumeEditor({
             {/* Contextual summary, not the full form — Job Target used to be a
                 permanent block of saved-job picker, textarea and up to 20
                 keyword chips. "Change" opens the same content in a drawer. */}
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-[0_1px_0_rgba(0,0,0,0.02)] sm:p-4">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-[0_1px_0_rgba(0,0,0,0.02)] sm:p-4">
               <span
                 aria-hidden="true"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400"
               >
                 <Briefcase className="h-4 w-4" />
               </span>
-              <div className="min-w-0 flex-1 space-y-0.5">
+              <div className="min-w-[8rem] flex-1 space-y-0.5">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   Job target
                 </p>
-                <p className="truncate text-sm font-semibold">
+                <p
+                  className="truncate text-sm font-semibold"
+                  title={storeResume?.targetRole ?? "No target role"}
+                >
                   {storeResume?.targetRole ?? "No target role"}
                 </p>
                 <p className="text-xs leading-relaxed text-muted-foreground">
@@ -257,6 +279,13 @@ export function ResumeEditor({
       <ATSDrawer />
       <EnhanceDrawer />
       {!isDesktop && <ResumePreviewSheet />}
+      {process.env.NODE_ENV !== "production" && (
+        <DevBreakUiToggle
+          mode={breakMode}
+          onChange={setBreakMode}
+          enabled={breakEnabled}
+        />
+      )}
     </div>
   )
 }

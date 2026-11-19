@@ -794,3 +794,45 @@ describe("EditorHeader - toolbar fits a phone", () => {
     expect(screen.queryByRole("button", { name: "Run Resume Quality" })).toBeNull()
   })
 })
+
+describe("EditorHeader - drawer mutual exclusivity", () => {
+  beforeEach(() => {
+    useResumeStore.getState().setResume(
+      makeResume({
+        sections: [
+          {
+            id: "sec-1",
+            resumeId: "resume-header",
+            type: "SUMMARY",
+            title: "Summary",
+            order: 0,
+            visible: true,
+            items: [{ id: "item-1", sectionId: "sec-1", content: { text: "Hi" }, order: 0 }],
+          },
+        ],
+      })
+    )
+    useResumeStore.setState({ openInspector: "job" })
+  })
+
+  it("clears store openInspector when opening History and checks", () => {
+    render(<EditorHeader onSave={vi.fn()} />)
+    openTools()
+    fireEvent.click(screen.getByLabelText("Resume history and validation"))
+
+    expect(useResumeStore.getState().openInspector).toBeNull()
+    expect(screen.getByRole("dialog", { name: "Resume history and validation" })).toBeDefined()
+  })
+
+  it("closes History drawer when a store inspector is opened from Tools", () => {
+    render(<EditorHeader onSave={vi.fn()} />)
+    openTools()
+    fireEvent.click(screen.getByLabelText("Resume history and validation"))
+    expect(screen.queryByRole("dialog", { name: "Resume history and validation" })).not.toBeNull()
+
+    openTools()
+    fireEvent.click(screen.getByLabelText("Job target"))
+    expect(useResumeStore.getState().openInspector).toBe("job")
+    expect(screen.queryByRole("dialog", { name: "Resume history and validation" })).toBeNull()
+  })
+})

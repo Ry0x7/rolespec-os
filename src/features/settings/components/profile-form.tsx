@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { Button } from "@/shared/ui/button"
 import { Input } from "@/shared/ui/input"
 import { Label } from "@/shared/ui/label"
+import { isHttpUrl } from "@/shared/lib/url"
 import { updateProfile } from "../actions/profile.actions"
 
 type ProfileFormProps = {
@@ -22,7 +23,7 @@ export function ProfileForm({ name, email, image }: ProfileFormProps) {
   const [imageValue, setImageValue] = useState(image)
   const [imageFailed, setImageFailed] = useState(false)
 
-  const showPreview = imageValue.trim().length > 0 && !imageFailed
+  const showPreview = isHttpUrl(imageValue.trim()) && !imageFailed
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()

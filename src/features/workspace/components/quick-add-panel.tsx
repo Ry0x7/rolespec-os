@@ -45,8 +45,13 @@ export function QuickAddPanel() {
     router.refresh()
   }
 
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    void handleAdd(new FormData(e.currentTarget))
+  }
+
   return (
-    <form ref={formRef} action={handleAdd} className="space-y-3">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="quickadd-company">Company</Label>
@@ -54,6 +59,7 @@ export function QuickAddPanel() {
             id="quickadd-company"
             name="companyName"
             placeholder="e.g. Acme Inc"
+            maxLength={200}
             required
           />
         </div>
@@ -63,6 +69,7 @@ export function QuickAddPanel() {
             id="quickadd-title"
             name="jobTitle"
             placeholder="e.g. Project Coordinator"
+            maxLength={200}
             required
           />
         </div>

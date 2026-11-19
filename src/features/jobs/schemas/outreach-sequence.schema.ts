@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { parseCalendarDate } from "@/shared/lib/dates"
+import { isHttpUrl } from "@/shared/lib/url"
 
 const calendarDate = z
   .string()
@@ -9,11 +10,16 @@ const calendarDate = z
 
 const contactSchema = z
   .object({
-    name: z.string().min(1).max(200),
+    name: z.string().trim().min(1).max(200),
     role: z.string().max(200).optional(),
     company: z.string().max(200).optional(),
     email: z.string().email().max(320).optional(),
-    linkedinUrl: z.string().url().max(1000).optional(),
+    linkedinUrl: z
+      .string()
+      .trim()
+      .max(1000)
+      .refine((v) => isHttpUrl(v), "Must be a valid http(s) URL")
+      .optional(),
     notes: z.string().max(2000).optional(),
   })
   .strict()

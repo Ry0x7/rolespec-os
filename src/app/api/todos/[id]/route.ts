@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { logActivityEvent, resolveApiUserId } from "@/features/auth/api-auth"
+import { parseCalendarDate } from "@/shared/lib/dates"
 import { prisma } from "@/shared/lib/prisma"
 
 export const dynamic = "force-dynamic"
 
 const patchSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
+  title: z.string().trim().min(1).max(200).optional(),
   done: z.boolean().optional(),
-  dueDate: z.string().nullable().optional(),
+  dueDate: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || parseCalendarDate(v) !== null)
+    .nullable()
+    .optional(),
 })
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -31,10 +37,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const todo = await prisma.todo.update({
     where: { id },
     data: {
-      ...(parsed.data.title !== undefined ? { title: parsed.data.title.trim() } : {}),
+      ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
       ...(parsed.data.done !== undefined ? { done: parsed.data.done } : {}),
       ...(parsed.data.dueDate !== undefined
-        ? { dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null }
+        ? { dueDate: parseCalendarDate(parsed.data.dueDate) }
         : {}),
     },
   })

@@ -438,14 +438,16 @@ function SuggestionGroup({
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left text-xs font-medium text-foreground"
       >
-        <span className="flex items-center gap-1.5">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
           <ChevronDown
             className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${open ? "" : "-rotate-90"}`}
             aria-hidden="true"
           />
-          {title} ({suggestions.length})
+          <span className="min-w-0 truncate" title={title}>
+            {title} ({suggestions.length})
+          </span>
         </span>
-        <span className="text-[11px] font-normal text-muted-foreground">
+        <span className="shrink-0 text-[11px] font-normal text-muted-foreground">
           {appliedCount} of {suggestions.length} applied
         </span>
       </button>
@@ -517,7 +519,7 @@ function SuggestionRow({
         isDismissed ? "opacity-60" : ""
       }`}
     >
-      <p className="text-muted-foreground">{suggestion.reason}</p>
+      <p className="break-words [overflow-wrap:anywhere] text-muted-foreground">{suggestion.reason}</p>
       {isRemoval && (
         <p className="inline-flex items-center gap-1 rounded-md bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400">
           <Trash2 className="h-3 w-3" />
@@ -527,9 +529,11 @@ function SuggestionRow({
       {/* del/ins carry the "replaced by" relationship for assistive tech; the
           strike-through is spelled out rather than left to UA defaults. A
           removal has no replacement, so it shows the del on its own. */}
-      <del className="block text-muted-foreground line-through">{suggestion.original}</del>
+      <del className="block break-words [overflow-wrap:anywhere] text-muted-foreground line-through">
+        {suggestion.original}
+      </del>
       {!isRemoval && (
-        <ins className="block leading-relaxed text-foreground no-underline">
+        <ins className="block break-words [overflow-wrap:anywhere] leading-relaxed text-foreground no-underline">
           {suggestion.suggested}
         </ins>
       )}

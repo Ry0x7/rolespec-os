@@ -65,6 +65,22 @@ describe("createTodo", () => {
 
     expect(revalidated()).toEqual(["/planner", "/dashboard"])
   })
+
+  it("rejects whitespace-only titles without writing", async () => {
+    const result = await createTodo(formData({ title: "   " }))
+
+    expect(result).toMatchObject({ error: "Invalid input" })
+    expect(mockPrisma.todo.create).not.toHaveBeenCalled()
+  })
+
+  it("rejects impossible or malformed calendar due dates without writing", async () => {
+    const impossible = await createTodo(formData({ title: "Check", dueDate: "2026-02-30" }))
+    const malformed = await createTodo(formData({ title: "Check", dueDate: "not-a-date" }))
+
+    expect(impossible).toMatchObject({ error: "Invalid input" })
+    expect(malformed).toMatchObject({ error: "Invalid input" })
+    expect(mockPrisma.todo.create).not.toHaveBeenCalled()
+  })
 })
 
 describe("updateTodo", () => {

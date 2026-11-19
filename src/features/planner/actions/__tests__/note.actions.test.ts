@@ -49,4 +49,11 @@ describe("createNote", () => {
     expect(result).toMatchObject({ error: "Invalid input" })
     expect(mockPrisma.note.create).not.toHaveBeenCalled()
   })
+
+  it("rejects whitespace-only content without writing", async () => {
+    const result = await createNote(formData({ content: "   \n\t  " }))
+
+    expect(result).toMatchObject({ error: "Invalid input" })
+    expect(mockPrisma.note.create).not.toHaveBeenCalled()
+  })
 })

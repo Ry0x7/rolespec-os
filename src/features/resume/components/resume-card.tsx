@@ -120,7 +120,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-semibold">
+            <h3 className="break-words [overflow-wrap:anywhere] font-semibold">
               <Link
                 href={`/resumes/${resume.id}`}
                 className="rounded-sm transition-colors after:absolute after:inset-0 after:rounded-lg after:content-[''] group-hover:text-brand-400 focus-visible:outline-none"
@@ -129,7 +129,10 @@ export function ResumeCard({ resume }: ResumeCardProps) {
               </Link>
             </h3>
             {resume.targetRole && (
-              <p className="truncate text-sm text-muted-foreground">
+              <p
+                className="truncate text-sm text-muted-foreground"
+                title={resume.targetRole}
+              >
                 {resume.targetRole}
               </p>
             )}
@@ -140,19 +143,26 @@ export function ResumeCard({ resume }: ResumeCardProps) {
               />
               {resume.sourceResume?.status === "ARCHIVED" ? (
                 // An archived source has no editor to open, so it is named only.
-                <span className="truncate text-xs text-muted-foreground">
+                <span
+                  className="truncate text-xs text-muted-foreground"
+                  title={`From ${resume.sourceResume.title}`}
+                >
                   From {resume.sourceResume.title}
                 </span>
               ) : resume.sourceResume ? (
                 <Link
                   href={`/resumes/${resume.sourceResume.id}`}
+                  title={`From ${resume.sourceResume.title}`}
                   className="relative z-10 truncate rounded-sm text-xs text-muted-foreground underline-offset-4 hover:text-brand-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   From {resume.sourceResume.title}
                 </Link>
               ) : (
                 originText && (
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span
+                    className="truncate text-xs text-muted-foreground"
+                    title={originText}
+                  >
                     {originText}
                   </span>
                 )
@@ -165,6 +175,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
               {showJobLink && resume.jobApplication && (
                 <Link
                   href={`/jobs/${resume.jobApplication.id}`}
+                  title={`${resume.jobApplication.jobTitle} — ${resume.jobApplication.companyName}`}
                   className="relative z-10 truncate rounded-sm text-xs text-muted-foreground underline-offset-4 hover:text-brand-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {resume.jobApplication.jobTitle} —{" "}

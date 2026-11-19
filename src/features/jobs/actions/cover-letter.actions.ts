@@ -159,19 +159,36 @@ export async function generateCoverLetter(
   redirect(`/jobs/cover-letter/${newId}`)
 }
 
+const updateCoverLetterSchema = z.object({
+  id: z.string().min(1),
+  content: z
+    .string()
+    .trim()
+    .min(1, "Cover letter content cannot be empty")
+    .max(MAX_COVER_LETTER_LENGTH, "Cover letter is too long"),
+})
+
 export async function updateCoverLetterContent(id: string, content: string) {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
 
+  const parsed = updateCoverLetterSchema.safeParse({ id, content })
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" }
+  }
+
   try {
     const existing = await prisma.coverLetter.findUnique({
-      where: { id, userId: session.user.id },
+      where: { id: parsed.data.id, userId: session.user.id },
       select: { id: true },
     })
     if (!existing) return { error: "Not found" }
 
-    await prisma.coverLetter.update({ where: { id }, data: { content } })
-    revalidatePath(`/jobs/cover-letter/${id}`)
+    await prisma.coverLetter.update({
+      where: { id: parsed.data.id },
+      data: { content: parsed.data.content },
+    })
+    revalidatePath(`/jobs/cover-letter/${parsed.data.id}`)
     return { success: true as const }
   } catch {
     return { error: "Something went wrong. Please try again." }

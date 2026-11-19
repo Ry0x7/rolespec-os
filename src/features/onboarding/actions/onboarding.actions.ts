@@ -10,7 +10,12 @@ import { onboardingSchema } from "../schemas/onboarding.schema"
 const log = logger("onboarding-actions")
 
 const completeOnboardingSchema = onboardingSchema.partial().extend({
-  applicationGoalTarget: z.number().int().min(1).max(200).optional(),
+  applicationGoalTarget: z
+    .number({ message: "Application goal must be a whole number" })
+    .int("Application goal must be a whole number")
+    .min(1, "Application goal must be at least 1")
+    .max(200, "Application goal must be 200 or fewer")
+    .optional(),
   applicationGoalPeriod: z.enum(["DAILY", "WEEKLY"]).optional(),
 })
 
