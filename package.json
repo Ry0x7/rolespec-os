@@ -45,6 +45,7 @@
     "ai-sdk-provider-codex-cli": "^2.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "decimal.js": "^10.6.0",
     "dotenv": "^18.0.10",
     "framer-motion": "^14.12.0",
     "lucide-react": "^1.70.0",
@@ -94,7 +95,8 @@
     },
     "@vercel/cli-config": {
       "zod": "^4.6.7"
-    }
+    },
+    "effect": "^3.22.5"
   },
   "allowScripts": {
     "@prisma/engines@7.8.0": true,

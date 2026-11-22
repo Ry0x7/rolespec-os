@@ -34,6 +34,7 @@ import {
 import { verifyApiToken } from "@/features/settings/services/api-token"
 import { logger } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
+import { isHttpUrl } from "@/shared/lib/url"
 import {
   RATE_LIMIT_BUCKETS,
   RATE_LIMIT_MESSAGE,
@@ -53,6 +54,9 @@ import {
  */
 
 const log = logger("extension-jobs")
+
+/** `DECIMAL(14,2)` upper bound, shared by the three pay fields. */
+const SALARY_MAX = 999_999_999_999.99
 
 /**
  * A date the *posting* published, not one the user typed: `datePosted` and
@@ -92,17 +96,42 @@ const calendarDate = postingDate.transform(
 const extensionJobSchema = z.object({
   companyName: z.string().min(1, "Company name is required").max(200),
   jobTitle: z.string().min(1, "Job title is required").max(200),
-  jobLink: z.string().url("Must be a valid URL").optional(),
+  // Same rule as the in-app form: http(s) only. A `javascript:` or `data:` link
+  // would otherwise be stored verbatim and later rendered as an href.
+  jobLink: z
+    .string()
+    .trim()
+    .max(2000, "Job link must be 2,000 characters or fewer")
+    .refine(isHttpUrl, "Must be a valid http(s) URL")
+    .optional(),
   jobDescription: z.string().max(20000).optional(),
   location: z.string().max(200).optional(),
-  salary: z.coerce.number().int().positive().optional(),
-  salaryPeriod: z.nativeEnum(SalaryPeriod).optional(),
+  // Bounded to `DECIMAL(14,2)` so an oversized value is a 400, not a 500.
+  // `salary` is the single-figure shape older extension builds post; it is read
+  // as a one-point range and stripped before the write.
+  salary: z.coerce.number().nonnegative().max(SALARY_MAX).optional(),
+  salaryMin: z.coerce.number().nonnegative().max(SALARY_MAX).optional(),
+  salaryMax: z.coerce.number().nonnegative().max(SALARY_MAX).optional(),
   salaryCurrency: z.nativeEnum(SalaryCurrency).optional(),
+  salaryPeriod: z.nativeEnum(SalaryPeriod).optional(),
+  salaryTermMonths: z.coerce.number().int().min(1).max(120).optional(),
+  salaryText: z.string().trim().max(500).optional(),
   jobType: z.nativeEnum(JobType).optional(),
   workType: z.nativeEnum(WorkType).optional(),
   postedAt: postingDate.optional(),
   deadline: calendarDate.optional(),
 })
+  .refine(
+    (v) =>
+      v.salaryMin === undefined ||
+      v.salaryMax === undefined ||
+      v.salaryMin <= v.salaryMax,
+    { path: ["salaryMax"], message: "Maximum pay must be at least the minimum" }
+  )
+  .refine((v) => v.salaryPeriod !== SalaryPeriod.CONTRACT || v.salaryTermMonths !== undefined, {
+    path: ["salaryTermMonths"],
+    message: "Contract pay needs a length in months",
+  })
 
 /**
  * The `qualification` block of the 201 body. A fixed wire contract the extension
@@ -288,16 +317,22 @@ export async function POST(req: Request) {
 
   // Best-effort, like the scraped questions below: a scam flag never costs the
   // extension a clip it otherwise saved.
+  // `salary` is not a posting column, so it leaves the payload here; a legacy
+  // single figure becomes a one-point range at both bounds.
+  const { salary: legacySalary, ...scraped } = parsed.data
+  const salaryMin = scraped.salaryMin ?? legacySalary ?? null
+  const salaryMax = scraped.salaryMax ?? legacySalary ?? null
+
   let risk: ReturnType<typeof assessJobRiskHeuristics> = null
   try {
     risk = assessJobRiskHeuristics({
-      jobTitle: parsed.data.jobTitle,
-      companyName: parsed.data.companyName,
-      jobDescription: parsed.data.jobDescription,
-      salary: parsed.data.salary,
-      salaryPeriod: parsed.data.salaryPeriod,
-      jobLink: parsed.data.jobLink,
-      location: parsed.data.location,
+      jobTitle: scraped.jobTitle,
+      companyName: scraped.companyName,
+      jobDescription: scraped.jobDescription,
+      salary: salaryMax ?? salaryMin,
+      salaryPeriod: scraped.salaryPeriod,
+      jobLink: scraped.jobLink,
+      location: scraped.location,
     })
   } catch (err) {
     log.warn("Failed to assess job risk heuristics", { err, userId })
@@ -396,7 +431,11 @@ export async function POST(req: Request) {
 
   try {
     const job = await createJobApplicationWithJob({
-      ...parsed.data,
+      ...scraped,
+      // Overrides the legacy `salary` above, which is not a posting column.
+      salaryMin,
+      salaryMax,
+      salaryText: scraped.salaryText ?? null,
       userId,
       status: "INTERESTED",
       source: "EXTENSION" as const,

@@ -18,10 +18,12 @@ export interface CareerPreferencesValues {
   workModes: WorkType[]
   workAuthorization: string | null
   requiresSponsorship: boolean | null
-  salaryMin: number | null
-  salaryMax: number | null
+  /** Serialised `Decimal` — money never crosses the server/client boundary as a float. */
+  salaryMin: string | null
+  salaryMax: string | null
   salaryPeriod: SalaryPeriod | null
-  salaryCurrency: SalaryCurrency
+  /** Null means no currency stated; nothing is assumed. */
+  salaryCurrency: SalaryCurrency | null
   careerGoals: string | null
 }
 

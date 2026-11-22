@@ -1,5 +1,16 @@
+import Decimal from "decimal.js"
+
 import { Prisma } from "@/generated/prisma/client"
-import type { ApplicationStatus } from "@/generated/prisma/enums"
+import type {
+  ApplicationStatus,
+  SalaryCurrency,
+  SalaryPeriod,
+} from "@/generated/prisma/enums"
+import {
+  parseSalary,
+  toSalaryColumns,
+} from "@/features/ranking/salary"
+import { dec, type DecimalLike } from "@/shared/lib/money/money"
 import { prisma } from "@/shared/lib/prisma"
 import { logger } from "@/shared/lib/logger"
 import { canonicalizeUrl } from "@/features/discovery/services/normalize.service"
@@ -40,9 +51,12 @@ const POSTING_FIELDS = [
   "location",
   "jobType",
   "workType",
-  "salary",
-  "salaryPeriod",
+  "salaryMin",
+  "salaryMax",
   "salaryCurrency",
+  "salaryPeriod",
+  "salaryTermMonths",
+  "salaryText",
   "jobDescription",
   "deadline",
   "riskLevel",
@@ -73,9 +87,12 @@ interface PostingCreateFields {
   location?: Prisma.JobUncheckedCreateInput["location"]
   jobType?: Prisma.JobUncheckedCreateInput["jobType"]
   workType?: Prisma.JobUncheckedCreateInput["workType"]
-  salary?: Prisma.JobUncheckedCreateInput["salary"]
-  salaryPeriod?: Prisma.JobUncheckedCreateInput["salaryPeriod"]
+  salaryMin?: Prisma.JobUncheckedCreateInput["salaryMin"]
+  salaryMax?: Prisma.JobUncheckedCreateInput["salaryMax"]
   salaryCurrency?: Prisma.JobUncheckedCreateInput["salaryCurrency"]
+  salaryPeriod?: Prisma.JobUncheckedCreateInput["salaryPeriod"]
+  salaryTermMonths?: Prisma.JobUncheckedCreateInput["salaryTermMonths"]
+  salaryText?: Prisma.JobUncheckedCreateInput["salaryText"]
   jobDescription?: Prisma.JobUncheckedCreateInput["description"]
   deadline?: Prisma.JobUncheckedCreateInput["deadline"]
   riskLevel?: Prisma.JobUncheckedCreateInput["riskLevel"]
@@ -120,9 +137,12 @@ interface PostingUpdateFields {
   location?: Prisma.JobUncheckedUpdateInput["location"]
   jobType?: Prisma.JobUncheckedUpdateInput["jobType"]
   workType?: Prisma.JobUncheckedUpdateInput["workType"]
-  salary?: Prisma.JobUncheckedUpdateInput["salary"]
-  salaryPeriod?: Prisma.JobUncheckedUpdateInput["salaryPeriod"]
+  salaryMin?: Prisma.JobUncheckedUpdateInput["salaryMin"]
+  salaryMax?: Prisma.JobUncheckedUpdateInput["salaryMax"]
   salaryCurrency?: Prisma.JobUncheckedUpdateInput["salaryCurrency"]
+  salaryPeriod?: Prisma.JobUncheckedUpdateInput["salaryPeriod"]
+  salaryTermMonths?: Prisma.JobUncheckedUpdateInput["salaryTermMonths"]
+  salaryText?: Prisma.JobUncheckedUpdateInput["salaryText"]
   jobDescription?: Prisma.JobUncheckedUpdateInput["description"]
   deadline?: Prisma.JobUncheckedUpdateInput["deadline"]
   riskLevel?: Prisma.JobUncheckedUpdateInput["riskLevel"]
@@ -145,6 +165,81 @@ interface PostingUpdateFields {
  */
 export type UpdateJobApplicationInput = Prisma.JobApplicationUncheckedUpdateInput &
   PostingUpdateFields
+
+/** The salary half of a write, in the caller's own vocabulary. */
+interface SalaryWriteFields {
+  salaryMin?: unknown
+  salaryMax?: unknown
+  /** `unknown` because a Prisma update may carry an enum-operation object. */
+  salaryCurrency?: unknown
+  salaryPeriod?: unknown
+  /** `unknown` for the same reason as the enums: an int operation is possible. */
+  salaryTermMonths?: unknown
+  salaryText?: unknown
+}
+
+/**
+ * Accepts anything a caller can hand us as an amount: a Prisma `Decimal`, a
+ * `DecimalJsLike`, a plain string from a form or a number from JSON. An empty
+ * string is "cleared", not zero.
+ */
+function asCurrency(value: unknown): SalaryCurrency | null {
+  return typeof value === "string" ? (value as SalaryCurrency) : null
+}
+
+function asPeriod(value: unknown): SalaryPeriod | null {
+  return typeof value === "string" ? (value as SalaryPeriod) : null
+}
+
+function asTermMonths(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.round(value)
+    : null
+}
+
+function asAmount(value: unknown): DecimalLike | null {
+  if (value === null || value === undefined) return null
+  if (value instanceof Decimal) return value
+  if (typeof value === "number") return Number.isFinite(value) ? value : null
+  if (typeof value === "string") return value.trim() === "" ? null : value
+  try {
+    return dec(String(value))
+  } catch {
+    return null
+  }
+}
+
+const SALARY_FIELDS = [
+  "salaryMin",
+  "salaryMax",
+  "salaryCurrency",
+  "salaryPeriod",
+  "salaryTermMonths",
+  "salaryText",
+] as const
+
+/**
+ * Normalizes pay once and returns the columns to persist.
+ *
+ * Every salary write goes through this — manual entry, an edit, the extension —
+ * so the stored range, its annual equivalent and the reason it is uncomparable
+ * can never disagree with each other. `parseSalary` never converts currency and
+ * never assumes one: a figure whose currency the user did not state stays
+ * `salaryCurrency: null`.
+ */
+export function salaryColumnsFrom(data: SalaryWriteFields) {
+  return toSalaryColumns(
+    parseSalary({
+      salaryMin: asAmount(data.salaryMin),
+      salaryMax: asAmount(data.salaryMax),
+      salaryText: typeof data.salaryText === "string" ? data.salaryText : null,
+      currency: asCurrency(data.salaryCurrency),
+      period: asPeriod(data.salaryPeriod),
+      termMonths: asTermMonths(data.salaryTermMonths),
+      provenance: "USER_ENTERED",
+    })
+  )
+}
 
 /** Strips the posting fields, leaving only what the application itself owns. */
 function withoutPostingFields<T extends object>(data: T): Omit<T, PostingField> {
@@ -173,10 +268,7 @@ export function jobDataFromApplication(
     location: data.location ?? null,
     jobType: data.jobType ?? null,
     workType: data.workType ?? null,
-    salary: data.salary ?? null,
-    salaryPeriod: data.salaryPeriod ?? null,
-    // Non-null column with a schema default: `undefined` keeps the default.
-    salaryCurrency: data.salaryCurrency ?? undefined,
+    ...salaryColumnsFrom(data),
     description: data.jobDescription ?? null,
     deadline: data.deadline ?? null,
     riskLevel: data.riskLevel ?? null,
@@ -221,9 +313,12 @@ export function jobUpdateFromApplicationUpdate(
   if ("location" in data) job.location = data.location
   if ("jobType" in data) job.jobType = data.jobType
   if ("workType" in data) job.workType = data.workType
-  if ("salary" in data) job.salary = data.salary
-  if ("salaryPeriod" in data) job.salaryPeriod = data.salaryPeriod
-  if ("salaryCurrency" in data) job.salaryCurrency = data.salaryCurrency
+  // The whole salary block is rewritten together: a range, its annual
+  // equivalent and its provenance only mean anything as one set. An edit that
+  // clears the figures clears the derived columns with them.
+  if (SALARY_FIELDS.some((field) => field in data)) {
+    Object.assign(job, salaryColumnsFrom(data))
+  }
   if ("jobDescription" in data) job.description = data.jobDescription
   if ("deadline" in data) job.deadline = data.deadline
   if ("riskLevel" in data) job.riskLevel = data.riskLevel

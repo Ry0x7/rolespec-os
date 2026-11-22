@@ -10,6 +10,12 @@ import {
   DAILY_JOB_GOAL_MIN,
   DEFAULT_DAILY_JOB_GOAL,
 } from "@/features/jobs/constants/goals"
+import {
+  DEFAULT_OPPORTUNITY_SETTINGS,
+  PRESET_WEIGHTS,
+  type OpportunityWeights,
+} from "@/features/opportunity/types"
+import { SUPPORTED_CURRENCIES } from "@/shared/lib/money/currencies"
 
 export const MAX_AI_INSTRUCTIONS_LENGTH = 1000
 
@@ -117,10 +123,55 @@ export function defaultAtsWatchlist(): AtsWatchlist {
  * The currency job salaries are *displayed* in. Separate from
  * `JobApplication.salaryCurrency`, which is the currency a salary was entered
  * in — this only picks the counter-currency for the "≈ equivalent" line.
+ *
+ * Any ISO 4217 code RoleSpec can store is selectable, because the equivalent is
+ * only offered when a real rate exists.
  */
-export const PREFERRED_CURRENCIES = ["USD", "PHP"] as const
+export const PREFERRED_CURRENCIES = SUPPORTED_CURRENCIES
 
 export type PreferredCurrency = (typeof PREFERRED_CURRENCIES)[number]
+
+/**
+ * Opportunity Value settings.
+ *
+ * Weights are optional: `null` means "use the preset", and a partial weight set
+ * is completed from the preset rather than from zero. A weight of 0 is honoured
+ * — it is how a user turns a dimension off.
+ */
+export const opportunityWeightsSchema = z.object({
+  compensation: z.number().min(0).max(100),
+  effectiveHourly: z.number().min(0).max(100),
+  workload: z.number().min(0).max(100),
+  friction: z.number().min(0).max(100),
+  eligibility: z.number().min(0).max(100),
+  confidence: z.number().min(0).max(100),
+  fit: z.number().min(0).max(100),
+  risk: z.number().min(0).max(100),
+})
+
+export const opportunitySettingsSchema = z.object({
+  preset: z.enum(["BALANCED", "PAY_OVER_LOAD"]).default(DEFAULT_OPPORTUNITY_SETTINGS.preset),
+  weights: opportunityWeightsSchema.nullable().default(null),
+  /** Annual floor, as a decimal string in `minimumPayCurrency`. */
+  minimumAnnualPay: z
+    .string()
+    .trim()
+    .regex(/^\d{1,12}(?:\.\d{1,2})?$/, "Enter a yearly amount, for example 900000")
+    .nullable()
+    .default(null),
+  minimumPayCurrency: z.enum(SUPPORTED_CURRENCIES).nullable().default(null),
+  minimumPayStrict: z.boolean().default(false),
+  workloadPreference: z.enum(["LIGHTER", "BALANCED", "INTENSE"]).default("BALANCED"),
+  /** ALLOW keeps unstated pay, FLAG warns, REJECT removes it from a filtered run. */
+  unknownPay: z.enum(["ALLOW", "FLAG", "REJECT"]).default("FLAG"),
+})
+
+export type OpportunitySettingsInput = z.input<typeof opportunitySettingsSchema>
+
+/** Weights the UI shows for a preset, so the form starts from real numbers. */
+export function presetWeights(preset: keyof typeof PRESET_WEIGHTS): OpportunityWeights {
+  return { ...PRESET_WEIGHTS[preset] }
+}
 
 export const preferencesSchema = z.object({
   /** Applications the dashboard counts toward each day. */
@@ -140,6 +191,7 @@ export const preferencesSchema = z.object({
   emailNotifications: z.boolean(),
   preferredCurrency: z.enum(PREFERRED_CURRENCIES),
   atsWatchlist: atsWatchlistSchema.default(defaultAtsWatchlist),
+  opportunityValue: opportunitySettingsSchema.default(DEFAULT_OPPORTUNITY_SETTINGS),
 })
 
 export type UserPreferences = z.infer<typeof preferencesSchema>
@@ -151,9 +203,12 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   dailyApplicationGoal: DEFAULT_DAILY_JOB_GOAL,
   defaultAiInstructions: "",
   emailNotifications: true,
-  // PHP keeps the behaviour every existing row already had.
+  // A display default only — it is never used to interpret a stored salary, and
+  // the settings form always shows the value the user actually chose. Existing
+  // rows keep the PHP they already had.
   preferredCurrency: "PHP",
   atsWatchlist: defaultAtsWatchlist(),
+  opportunityValue: { ...DEFAULT_OPPORTUNITY_SETTINGS },
 }
 
 /** Safely reads the `preferences` Json column into a fully-populated object. */

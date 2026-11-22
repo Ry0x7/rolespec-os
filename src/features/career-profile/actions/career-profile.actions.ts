@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { WorkType } from "@/generated/prisma/enums"
 import { prisma } from "@/shared/lib/prisma"
+import { parseAmountInput } from "@/shared/lib/money/money"
 import {
   createRoleFamilySchema,
   createTargetRoleSchema,
@@ -45,12 +46,24 @@ export async function updateCareerPreferences(formData: FormData) {
 
   const data = parsed.data
 
-  if (
-    data.salaryMin !== undefined &&
-    data.salaryMax !== undefined &&
-    data.salaryMin > data.salaryMax
-  ) {
+  const salaryMin = data.salaryMin ? parseAmountInput(data.salaryMin) : null
+  const salaryMax = data.salaryMax ? parseAmountInput(data.salaryMax) : null
+  const hasExpectation = salaryMin !== null || salaryMax !== null
+
+  if (salaryMin !== null && salaryMax !== null && salaryMin.gt(salaryMax)) {
     return { error: "Minimum salary cannot be higher than the maximum." }
+  }
+  // A number with no currency is not a salary expectation — it is a figure
+  // nobody can compare. Ask instead of guessing USD.
+  if (hasExpectation && !data.salaryCurrency) {
+    return { error: "Choose the currency your salary expectation is in." }
+  }
+  if (hasExpectation && !data.salaryPeriod) {
+    return { error: "Choose whether that figure is hourly, weekly, monthly or yearly." }
+  }
+  if (salaryMin !== null && salaryMax !== null && salaryMin.eq(salaryMax)) {
+    // A single figure is a floor, not a range: store it as one bound.
+    data.salaryMax = undefined
   }
 
   try {
@@ -68,10 +81,11 @@ export async function updateCareerPreferences(formData: FormData) {
             : data.requiresSponsorship === "no"
               ? false
               : null,
-        salaryMin: data.salaryMin ?? null,
-        salaryMax: data.salaryMax ?? null,
-        salaryPeriod: data.salaryPeriod ? data.salaryPeriod : null,
-        salaryCurrency: data.salaryCurrency ? data.salaryCurrency : undefined,
+        salaryMin,
+        salaryMax,
+        // `""` is how an empty <select> submits; it clears the column.
+        salaryPeriod: hasExpectation && data.salaryPeriod ? data.salaryPeriod : null,
+        salaryCurrency: hasExpectation && data.salaryCurrency ? data.salaryCurrency : null,
         careerGoals: trimToNull(data.careerGoals),
       },
     })
@@ -199,6 +213,10 @@ export async function createTargetRole(formData: FormData) {
         title,
         roleFamilyId: ownedRoleFamilyId,
         priority: priority ?? 0,
+        // A role the user typed is their own search intent and is on by
+        // default. Only career-path approvals start opted out.
+        source: "USER",
+        discoveryEnabled: true,
       },
       select: { id: true },
     })
@@ -208,6 +226,22 @@ export async function createTargetRole(formData: FormData) {
   } catch {
     return { error: "Something went wrong. Please try again." }
   }
+}
+
+export async function setTargetRoleDiscoveryEnabled(id: string, enabled: boolean) {
+  const owner = await resolveOwnProfileId()
+  if ("error" in owner) return { error: owner.error }
+  if (!id) return { error: "Not found" }
+
+  const result = await prisma.careerTargetRole.updateMany({
+    where: { id, careerProfileId: owner.profileId },
+    data: { discoveryEnabled: enabled },
+  })
+  if (result.count === 0) return { error: "Not found" }
+
+  revalidatePath(CAREER_PROFILE_PATH)
+  revalidatePath("/jobs/discover")
+  return { success: true as const }
 }
 
 export async function setTargetRoleActive(id: string, active: boolean) {

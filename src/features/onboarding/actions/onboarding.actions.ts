@@ -114,10 +114,24 @@ export async function completeOnboarding(input: CompleteOnboardingInput) {
     try {
       const careerProfile = await prisma.careerProfile.upsert({
         where: { userId: session.user.id },
-        create: { userId: session.user.id },
+        create: {
+          userId: session.user.id,
+          ...(experienceLevel !== undefined && { experienceLevel }),
+        },
         update: {},
-        select: { id: true },
+        select: { id: true, experienceLevel: true },
       })
+
+      // Onboarding asks the seniority question, and every matching surface reads
+      // the canonical profile. Fill an unanswered field, but never overwrite a
+      // level the user has since set on the Career Profile itself.
+      if (careerProfile.experienceLevel === null && experienceLevel !== undefined) {
+        await prisma.careerProfile.update({
+          where: { userId: session.user.id },
+          data: { experienceLevel },
+          select: { id: true },
+        })
+      }
 
       if (targetRole) {
         const existing = await prisma.careerTargetRole.findFirst({

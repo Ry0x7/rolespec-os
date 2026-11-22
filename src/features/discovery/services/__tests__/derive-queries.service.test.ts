@@ -156,3 +156,18 @@ describe("deriveDiscoveryKeywords", () => {
     expect(deriveDiscoveryKeywords([])).toEqual([])
   })
 })
+
+describe("discovery opt-in", () => {
+  it("leaves out a role that has not been enabled for discovery", () => {
+    const queries = deriveDiscoveryQueries([
+      role({ title: "Manual Role", discoveryEnabled: true }),
+      role({ title: "Approved Recommendation", discoveryEnabled: false }),
+    ])
+    expect(queries.map((query) => query.role)).toEqual(["Manual Role"])
+  })
+
+  it("keeps a legacy role with no explicit flag searchable", () => {
+    const queries = deriveDiscoveryQueries([role({ title: "Legacy Role" })])
+    expect(queries.map((query) => query.role)).toEqual(["Legacy Role"])
+  })
+})

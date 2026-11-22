@@ -3,7 +3,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { OpportunityLeaderboard } from "../opportunity-leaderboard"
 import type { RankingResult } from "../../types"
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+// The leaderboard now persists its filters in the URL.
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(""),
+}))
+
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.localStorage.clear() })
 const result: RankingResult = {
   snapshot: { rankedAt: "2026-11-12T00:00:00Z", corpusSize: 1, unscoredCount: 1, averageDocumentLength: 0, queryTerms: [], topK: 20, minScore: 40, lexicalWeight: 0.4, fitWeight: 0.6 },
   entries: [{ postingId: "posting-1", rank: 1, score: 42, lexicalScore: null, lexicalRank: null, fitScore: 70, coverage: 0.5, factors: [{ id: "SKILLS", label: "Skills", state: "MATCH", weight: 25, reason: "Confirmed React experience matches the posting.", evidence: ["React"] }, { id: "AUTHORIZATION", label: "Work authorization", state: "UNKNOWN", weight: 15, reason: "Not specified", evidence: [] }], explanation: ["Uses confirmed facts."] }],

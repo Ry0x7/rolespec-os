@@ -1,9 +1,14 @@
 import type {
   ExperienceLevel,
+  JobFeedbackVerdict,
   SalaryCurrency,
   SalaryPeriod,
+  SalaryProvenance,
   WorkType,
 } from "@/generated/prisma/enums"
+
+import type { FeedbackAdjustment } from "@/features/feedback/types"
+import type { DecimalLike } from "@/shared/lib/money/money"
 
 /**
  * Ranking vocabulary shared by the pure scorer, the discovery pipeline and the
@@ -54,8 +59,8 @@ export interface RankingProfile {
   /** Null means the user has not answered — never treated as "no". */
   requiresSponsorship: boolean | null
   experienceLevel: ExperienceLevel | null
-  salaryMin: number | null
-  salaryMax: number | null
+  salaryMin: DecimalLike | null
+  salaryMax: DecimalLike | null
   salaryPeriod: SalaryPeriod | null
   salaryCurrency: SalaryCurrency | null
   capabilities: Array<{ name: string; confirmed: boolean }>
@@ -71,13 +76,24 @@ export interface RankingPosting {
   description?: string | null
   location?: string | null
   workType?: WorkType | null
+  /** The posting's own salary line, when it had one. */
   salaryText?: string | null
-  salary?: number | null
+  salaryMin?: DecimalLike | null
+  salaryMax?: DecimalLike | null
   salaryCurrency?: SalaryCurrency | null
   salaryPeriod?: SalaryPeriod | null
+  /** Contract length in months; only read for a CONTRACT period. */
+  salaryTermMonths?: number | null
+  salaryProvenance?: SalaryProvenance | null
   postedAt?: Date | string | null
   requirementFlags?: string[]
   url?: string | null
+  /**
+   * The user's own verdict about this posting. It is an explicit statement, not
+   * an inference from the description, and it only adjusts the composite after
+   * every factual factor has been scored.
+   */
+  feedback?: JobFeedbackVerdict | null
 }
 
 export interface RankingOptions {
@@ -118,6 +134,8 @@ export interface RankedEntry {
   explanation: string[]
   /** Present only when the optional model rerank accepted a grounded verdict. */
   ai?: AiRerankJudgement
+  /** Present only when the user recorded a verdict for this posting. */
+  feedback?: FeedbackAdjustment
 }
 
 export interface RankingExclusion {
@@ -137,6 +155,8 @@ export interface RankingSnapshot {
   minScore: number | null
   lexicalWeight: number
   fitWeight: number
+  /** How many entries carried an explicit user verdict. */
+  feedbackAdjustedCount?: number
 }
 
 export interface RankingResult {

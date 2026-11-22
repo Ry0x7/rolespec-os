@@ -17,6 +17,13 @@ export interface TargetRoleInput {
   title: string
   priority: number
   active: boolean
+  /**
+   * Explicit permission to search for this role. Omitted means yes, so a row
+   * that predates the column keeps the behaviour it had. A career-path role
+   * approved by the user is inserted with it false.
+   */
+  discoveryEnabled?: boolean
+  source?: "USER" | "CAREER_PATH" | "INTAKE" | string
 }
 
 /** The subset of a Career Profile capability this needs. */
@@ -70,7 +77,10 @@ export function deriveDiscoveryQueries(
 ): DiscoveryQuery[] {
   const keywords = deriveDiscoveryKeywords(capabilities)
   const active = targetRoles
-    .filter((role) => role.active && role.title.trim().length > 0)
+    .filter(
+      (role) =>
+        role.active && role.discoveryEnabled !== false && role.title.trim().length > 0
+    )
     .map((role, index) => ({ ...role, index }))
     // Ties keep the caller's order, matching `loadCareerProfile`'s createdAt tiebreak.
     .sort((a, b) => a.priority - b.priority || a.index - b.index)

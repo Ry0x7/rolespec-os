@@ -18,6 +18,9 @@ describe("parsePreferences", () => {
       emailNotifications: false,
       preferredCurrency: "PHP",
       atsWatchlist: DEFAULT_ATS_COMPANY_WATCHLIST,
+      // A row saved before Opportunity Value existed gets the documented
+      // defaults, never a zero-weighted engine.
+      opportunityValue: DEFAULT_PREFERENCES.opportunityValue,
     })
   })
 
@@ -42,8 +45,14 @@ describe("parsePreferences", () => {
     expect(parsePreferences("nonsense")).toEqual(DEFAULT_PREFERENCES)
   })
 
+  it("keeps any supported ISO 4217 currency", () => {
+    expect(parsePreferences({ preferredCurrency: "EUR" }).preferredCurrency).toBe("EUR")
+    expect(parsePreferences({ preferredCurrency: "JPY" }).preferredCurrency).toBe("JPY")
+    expect(parsePreferences({ preferredCurrency: "SAR" }).preferredCurrency).toBe("SAR")
+  })
+
   it("drops an unknown currency back to the default", () => {
-    expect(parsePreferences({ preferredCurrency: "EUR" })).toEqual(DEFAULT_PREFERENCES)
+    expect(parsePreferences({ preferredCurrency: "XYZ" })).toEqual(DEFAULT_PREFERENCES)
   })
 
   it("defaults the ATS watchlist on rows saved before the field existed", () => {

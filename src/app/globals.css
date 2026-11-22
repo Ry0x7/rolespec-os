@@ -35,7 +35,10 @@
 
   --color-border: #38383A;
   --color-input: #48484A;
-  --color-ring: #1447E6;
+  /* Focus indicators are non-text UI: the dark accent fails the 3:1 floor on
+     a #1D1D1F card. Dark mode uses the light brand step; html.light restores
+     the dark accent for white surfaces. */
+  --color-ring: #8EC5FF;
 
   /* Default accent: Apple blue. Other accents remain switchable themes below. */
   --color-brand-50: #EFF6FF;
@@ -174,7 +177,7 @@ html.theme-blue {
   --color-brand-900: #1C398E;
   --color-brand-950: #162456;
   --color-accent: #1447E6;
-  --color-ring: #1447E6;
+  --color-ring: #8EC5FF;
   --accent-warm: #00D3F2;
   --brand-300-dark: #8EC5FF;
   --brand-400-dark: #51A2FF;
@@ -194,7 +197,7 @@ html.theme-violet {
   --color-brand-900: #581C87;
   --color-brand-950: #3B0764;
   --color-accent: #7C3AED;
-  --color-ring: #7C3AED;
+  --color-ring: #D8B4FE;
   --accent-warm: #ED6AFF;
   --brand-300-dark: #D8B4FE;
   --brand-400-dark: #C084FC;
@@ -214,7 +217,7 @@ html.theme-emerald {
   --color-brand-900: #004F3B;
   --color-brand-950: #002C22;
   --color-accent: #007A55;
-  --color-ring: #007A55;
+  --color-ring: #5EE9B5;
   --accent-warm: #9AE600;
   --brand-300-dark: #5EE9B5;
   --brand-400-dark: #00D492;
@@ -234,7 +237,7 @@ html.theme-amber {
   --color-brand-900: #7B3306;
   --color-brand-950: #461901;
   --color-accent: #BB4D00;
-  --color-ring: #BB4D00;
+  --color-ring: #FFD230;
   --accent-warm: #FF8904;
   --brand-300-dark: #FFD230;
   --brand-400-dark: #FFB900;
@@ -254,7 +257,7 @@ html.theme-rose {
   --color-brand-900: #8B0836;
   --color-brand-950: #4D0218;
   --color-accent: #C70036;
-  --color-ring: #C70036;
+  --color-ring: #FFA1AD;
   --accent-warm: #ED6AFF;
   --brand-300-dark: #FFA1AD;
   --brand-400-dark: #FF637E;
@@ -274,7 +277,7 @@ html.theme-cyan {
   --color-brand-900: #104E64;
   --color-brand-950: #053345;
   --color-accent: #007595;
-  --color-ring: #007595;
+  --color-ring: #53EAFD;
   --accent-warm: #74D4FF;
   --brand-300-dark: #53EAFD;
   --brand-400-dark: #00D3F2;
@@ -314,10 +317,13 @@ html.light {
   --color-card-foreground: #1D1D1F;
 
   --color-muted: #E5E5EA;
-  --color-muted-foreground: #6E6E73;
+  /* #6E6E73 is only 4.04:1 on the muted fill; 11–12px helper text needs AA. */
+  --color-muted-foreground: #5F5F66;
 
   --color-border: #D1D1D6;
   --color-input: #C7C7CC;
+  /* White surfaces need the dark accent for a visible focus ring. */
+  --color-ring: #1447E6;
 
   /* Status colours at the weight that clears 4.5:1 as small text on white:
      green/amber need 700, red/blue already pass at 600. */
@@ -336,8 +342,8 @@ html.light {
   /* Near-opaque: a 70% white fill washes out over light page content, which
      made dialogs read as a tint rather than a panel. */
   --glass-bg: rgba(255, 255, 255, 0.94);
-  /* Matches this mode's #6E6E73 muted-foreground. */
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236E6E73' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  /* Matches this mode's #5F5F66 muted-foreground. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235F5F66' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
 
   --glass-border: rgba(9, 9, 12, 0.12);
   --scrollbar-thumb: #D1D1D6;
@@ -349,36 +355,42 @@ html.light {
 }
 
 html.light.theme-blue {
+  --color-ring: #1447E6;
   --color-brand-300: #193CB8;
   --color-brand-400: #1447E6;
   --color-brand-500: #1447E6;
 }
 
 html.light.theme-violet {
+  --color-ring: #7C3AED;
   --color-brand-300: #6B21A8;
   --color-brand-400: #7C3AED;
   --color-brand-500: #7C3AED;
 }
 
 html.light.theme-emerald {
+  --color-ring: #007A55;
   --color-brand-300: #006045;
   --color-brand-400: #007A55;
   --color-brand-500: #007A55;
 }
 
 html.light.theme-amber {
+  --color-ring: #BB4D00;
   --color-brand-300: #973C00;
   --color-brand-400: #BB4D00;
   --color-brand-500: #BB4D00;
 }
 
 html.light.theme-rose {
+  --color-ring: #C70036;
   --color-brand-300: #A50036;
   --color-brand-400: #C70036;
   --color-brand-500: #C70036;
 }
 
 html.light.theme-cyan {
+  --color-ring: #007595;
   --color-brand-300: #005F78;
   --color-brand-400: #007595;
   --color-brand-500: #007595;
@@ -422,6 +434,7 @@ html.light.theme-cyan {
   --color-brand-300: var(--brand-300-dark);
   --color-brand-400: var(--brand-400-dark);
   --color-brand-500: var(--brand-500-dark);
+  --color-ring: var(--brand-300-dark);
 }
 
 @layer base {

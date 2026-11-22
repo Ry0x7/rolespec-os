@@ -104,7 +104,7 @@ export function CoverLetterCard({ coverLetter }: Props) {
         </CardContent>
       </Card>
 
-      <div className="absolute right-2 top-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+      <div className="absolute right-2 top-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         <Button
           size="icon"
           variant="ghost"

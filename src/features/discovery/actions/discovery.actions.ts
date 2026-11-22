@@ -11,6 +11,8 @@ import {
 } from "@/generated/prisma/enums"
 import { auth } from "@/features/auth/config"
 import { loadCareerProfile } from "@/features/career-profile/services/career-profile.service"
+import { loadFeedbackByKeys } from "@/features/feedback/services/feedback.service"
+import type { FeedbackVerdict } from "@/features/feedback/types"
 import { extractEmployerQuestions } from "@/features/jobs/services/interview-questions.service"
 import { extractJobRequirements } from "@/features/jobs/services/job-requirements.service"
 import { assessJobRiskHeuristics } from "@/features/jobs/services/job-risk.service"
@@ -22,6 +24,7 @@ import {
   DISCOVERY_ADD_URL_RATE_LIMIT,
   DISCOVERY_RUN_RATE_LIMIT,
 } from "@/features/settings/constants/data"
+import { valueForJob } from "@/features/opportunity/services/opportunity-value.service"
 import { parsePreferences } from "@/features/settings/schemas/preferences.schema"
 import { logger } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
@@ -67,7 +70,8 @@ import {
 import type { MarketFit } from "../services/market-fit.service"
 import {
   canonicalizeUrl,
-  normalizeAndDedupe,
+  dedupeKey,
+  normalizeBatch,
   normalizePosting,
 } from "../services/normalize.service"
 import {
@@ -91,6 +95,7 @@ import {
   type QualificationPosting,
   type QualificationVerdict,
 } from "../services/qualify.service"
+import { parseSalary } from "@/features/ranking/salary"
 import { rankJobPool } from "@/features/ranking/services/ranking.service"
 import { rerankShortlist } from "@/features/ranking/services/rerank.service"
 import type {
@@ -99,6 +104,13 @@ import type {
   RankingPosting,
   RankingProfile,
 } from "@/features/ranking/types"
+import { buildDiscoveryCoverage, type DiscoveryCoverage } from "../lib/coverage"
+import {
+  buildPresetQueries,
+  readPresetForRun,
+  recordPresetRun,
+} from "../presets/service"
+import { presetIdSchema } from "../presets/schema"
 import type { DiscoveryRunContext, NormalizedPosting, RawPosting } from "../types"
 
 /**
@@ -133,6 +145,15 @@ export interface DiscoverySourceReport {
   status: DiscoverySourceStatus
 }
 
+import {
+  partitionByOpportunityValue,
+  serializeOpportunityValue,
+  type SerializedOpportunityValue,
+} from "../lib/opportunity-value"
+
+export { partitionByOpportunityValue, serializeOpportunityValue }
+export type { SerializedOpportunityValue }
+
 /** A normalized posting plus whether this user already has it on their board. */
 export interface DiscoveryCandidate extends Omit<NormalizedPosting, "postedAt"> {
   /** ISO string: server actions serialise to the client, so no Date crosses. */
@@ -153,6 +174,16 @@ export interface DiscoveryCandidate extends Omit<NormalizedPosting, "postedAt"> 
    * a row from the list.
    */
   ranking?: RankedEntry
+  /**
+   * What this posting is worth to this user: pay against their expectation,
+   * effective hourly pay, workload, friction, and the checks that already ran.
+   * Deterministic, and every claim carries its source sentence.
+   */
+  opportunityValue?: SerializedOpportunityValue
+  /** The stable key a user feedback row is stored under. */
+  feedbackKey?: string
+  /** The user's own verdict, already applied to the ranking score. */
+  feedback?: FeedbackVerdict
 }
 
 /** Sort order for the candidate list: the ones worth reading first come first. */
@@ -198,8 +229,14 @@ function sortRank(
 export interface RunDiscoveryResult {
   queries: string[]
   candidates: DiscoveryCandidate[]
+  /** Postings the user's own Opportunity Value settings excluded, with reasons. */
+  excluded: DiscoveryCandidate[]
   /** One entry per adapter in the registry, in registry order. */
   sources: DiscoverySourceReport[]
+  /** Honest counts of what the run knew, removed, or could not read. */
+  coverage: DiscoveryCoverage
+  /** Present when this run was a saved search. */
+  preset?: { id: string; name: string }
   /**
    * Present only when the caller asked for the optional model rerank. A
    * provider failure leaves the deterministic order untouched and appears in
@@ -291,8 +328,8 @@ function toRankingProfile(profile: {
   workModes?: RankingProfile["workModes"]
   requiresSponsorship?: boolean | null
   experienceLevel?: RankingProfile["experienceLevel"]
-  salaryMin?: number | null
-  salaryMax?: number | null
+  salaryMin?: RankingProfile["salaryMin"]
+  salaryMax?: RankingProfile["salaryMax"]
   salaryPeriod?: RankingProfile["salaryPeriod"]
   salaryCurrency?: RankingProfile["salaryCurrency"]
   capabilities?: Array<{ name: string; confirmed: boolean }>
@@ -335,6 +372,8 @@ function toRankingProfile(profile: {
 export async function runDiscovery(options: {
   /** Opt-in grounded model rerank of the deterministic shortlist. */
   aiRerank?: boolean
+  /** Run one saved search instead of the profile's target roles. */
+  presetId?: string
 } = {}): Promise<RunDiscoveryResult | { error: string }> {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
@@ -350,33 +389,72 @@ export async function runDiscovery(options: {
   let queries: ReturnType<typeof deriveDiscoveryQueries>
   let qualificationProfile: ReturnType<typeof toQualificationProfile>
   let rankingProfile: RankingProfile
+  /** Kept for the value engine: pay expectation lives on the same profile row. */
+  let careerProfile: Awaited<ReturnType<typeof loadCareerProfile>>
+  let preset: {
+    id: string
+    name: string
+    roles: string[]
+    keywords: string[]
+    includeCareerPathRoles: boolean
+    alertFrequency: "OFF" | "DAILY" | "WEEKLY"
+  } | null = null
   try {
-    const profile = await loadCareerProfile(userId)
-    queries = deriveDiscoveryQueries(profile.targetRoles, profile.capabilities)
+    careerProfile = await loadCareerProfile(userId)
+    if (options.presetId !== undefined) {
+      const parsedId = presetIdSchema.safeParse(options.presetId)
+      if (!parsedId.success) return { error: "Saved search not found." }
+      const row = await readPresetForRun(userId, parsedId.data)
+      if (!row) return { error: "Saved search not found." }
+      preset = row
+      queries = buildPresetQueries(row, careerProfile.targetRoles)
+      if (queries.length === 0) {
+        return { error: "This saved search has no roles to run. Edit it and choose at least one." }
+      }
+    } else {
+      queries = deriveDiscoveryQueries(careerProfile.targetRoles, careerProfile.capabilities)
+    }
     // The same read the queries come from — qualification and ranking cost no
     // extra query.
-    qualificationProfile = toQualificationProfile(profile)
-    rankingProfile = toRankingProfile(profile)
+    qualificationProfile = toQualificationProfile(careerProfile)
+    rankingProfile = toRankingProfile(careerProfile)
   } catch (err) {
     log.error("Failed to derive discovery queries", { err, userId })
     return { error: "Could not read your career profile. Please try again." }
   }
 
-  if (queries.length === 0) return { queries: [], candidates: [], sources: [] }
+  if (queries.length === 0) {
+    return {
+      queries: [],
+      candidates: [],
+      excluded: [],
+      sources: [],
+      coverage: buildDiscoveryCoverage({
+        candidates: [],
+        received: 0,
+        duplicatesRemoved: 0,
+        unreadable: 0,
+        now: new Date(),
+      }),
+    }
+  }
 
   // The ATS adapters have no cross-company search, so they need this user's
   // watchlist. A read failure falls back to the defaults rather than the
   // error screen — the run is still useful without the user's edits.
   let context: DiscoveryRunContext
+  /** Opportunity Value settings live in the same preferences column. */
+  let preferences = parsePreferences(null)
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { preferences: true },
     })
-    context = { atsWatchlist: parsePreferences(user?.preferences).atsWatchlist }
+    preferences = parsePreferences(user?.preferences)
+    context = { atsWatchlist: preferences.atsWatchlist }
   } catch (err) {
     log.warn("Failed to read the ATS watchlist preference", { err, userId })
-    context = { atsWatchlist: parsePreferences(null).atsWatchlist }
+    context = { atsWatchlist: preferences.atsWatchlist }
   }
 
   const controller = new AbortController()
@@ -438,7 +516,8 @@ export async function runDiscovery(options: {
     clearTimeout(timer)
   }
 
-  const normalized = normalizeAndDedupe(raw)
+  const batch = normalizeBatch(raw)
+  const normalized = batch.postings
   const sources = summarizeSources(timings, normalized)
 
   // The one line that says where a slow run went. Per-provider, so the source
@@ -448,6 +527,11 @@ export async function runDiscovery(options: {
     totalMs: Math.round(performance.now() - runStarted),
     sources,
   })
+
+  const feedbackByKey = await loadFeedbackByKeys(
+    userId,
+    normalized.map((posting) => dedupeKey(posting))
+  )
 
   const canonicalUrls = normalized.map((posting) => posting.canonicalUrl).filter(Boolean)
   const urls = normalized.map((posting) => posting.url)
@@ -499,17 +583,29 @@ export async function runDiscovery(options: {
       posting.canonicalUrl || posting.url || `${posting.provider}:${posting.externalId}`
     )
   }
-  const rankingPostings: RankingPosting[] = normalized.map((posting) => ({
-    id: postingIds.get(posting)!,
-    title: posting.title,
-    companyName: posting.companyName,
-    description: posting.description,
-    location: posting.location,
-    workType: posting.workType,
-    salaryText: posting.salaryText,
-    postedAt: posting.postedAt,
-    url: posting.url,
-  }))
+  const rankingPostings: RankingPosting[] = normalized.map((posting) => {
+    // Read the posting's own salary line once, here, so ranking compares the
+    // provider's figures instead of re-parsing free text for every factor.
+    const salary = parseSalary({ salaryText: posting.salaryText, provenance: "POSTING_TEXT" })
+    return {
+      id: postingIds.get(posting)!,
+      title: posting.title,
+      companyName: posting.companyName,
+      description: posting.description,
+      location: posting.location,
+      workType: posting.workType,
+      salaryText: posting.salaryText,
+      salaryMin: salary?.min ?? null,
+      salaryMax: salary?.max ?? null,
+      salaryCurrency: salary?.currency ?? null,
+      salaryPeriod: salary?.period ?? null,
+      salaryTermMonths: salary?.termMonths ?? null,
+      salaryProvenance: salary?.provenance ?? null,
+      postedAt: posting.postedAt,
+      url: posting.url,
+      feedback: feedbackByKey[dedupeKey(posting)] ?? null,
+    }
+  })
   const ranking = rankJobPool({
     postings: rankingPostings,
     profile: rankingProfile,
@@ -551,22 +647,55 @@ export async function runDiscovery(options: {
 
   const ranked = normalized.map((posting) => {
     const savedJobId = savedByKey.get(posting.canonicalUrl || posting.url)
+    const qualification = qualifyCandidate(posting, qualificationProfile)
+    const confidence = assessOpportunityConfidence({
+      provider: posting.provider,
+      source: JobSource.DISCOVERY,
+      url: posting.canonicalUrl || posting.url,
+      postedAt: posting.postedAt,
+      companyName: posting.companyName,
+      description: posting.description,
+    })
+    const rankingEntry = rankingById.get(postingIds.get(posting)!)
+    // Fit is read from the ranking that actually ran; when there is none it
+    // stays null rather than becoming a made-up zero.
+    const opportunityValue = serializeOpportunityValue(
+      valueForJob({
+        posting: {
+          title: posting.title,
+          companyName: posting.companyName,
+          url: posting.url,
+          description: posting.description ?? null,
+          salaryText: posting.salaryText ?? null,
+          salaryProvenance: "POSTING_TEXT",
+        },
+        profile: careerProfile,
+        preferences,
+        context: {
+          fitScore: rankingEntry?.fitScore ?? null,
+          eligibility: qualification.eligible.signal,
+          // UNKNOWN means the posting gave too little to judge; the engine
+          // treats that as no data rather than as low confidence.
+          confidence: confidence.level === "UNKNOWN" ? null : confidence.level,
+          risk: qualification.risk.level,
+        },
+      })
+    )
+
     return {
       candidate: {
         ...posting,
         postedAt: posting.postedAt?.toISOString(),
         alreadySaved: Boolean(savedJobId),
         savedJobId,
-        qualification: qualifyCandidate(posting, qualificationProfile),
-        confidence: assessOpportunityConfidence({
-          provider: posting.provider,
-          source: JobSource.DISCOVERY,
-          url: posting.canonicalUrl || posting.url,
-          postedAt: posting.postedAt,
-          companyName: posting.companyName,
-          description: posting.description,
-        }),
-        ranking: rankingById.get(postingIds.get(posting)!),
+        qualification,
+        confidence,
+        ranking: rankingEntry,
+        opportunityValue,
+        feedbackKey: dedupeKey(posting),
+        ...(feedbackByKey[dedupeKey(posting)]
+          ? { feedback: feedbackByKey[dedupeKey(posting)] }
+          : {}),
       } satisfies DiscoveryCandidate,
     }
   })
@@ -591,19 +720,49 @@ export async function runDiscovery(options: {
       (b.candidate.ranking?.coverage ?? 0) - (a.candidate.ranking?.coverage ?? 0)
   )
 
-  const candidates: DiscoveryCandidate[] = ranked.map((entry) => entry.candidate)
+  const allCandidates: DiscoveryCandidate[] = ranked.map((entry) => entry.candidate)
+  // The user's own settings decide what is actionable and what is excluded;
+  // excluded rows are returned, never silently dropped.
+  const { accepted, excluded } = partitionByOpportunityValue(allCandidates)
+  const coverage = buildDiscoveryCoverage({
+    candidates: allCandidates,
+    received: batch.received,
+    duplicatesRemoved: batch.duplicates,
+    unreadable: batch.invalid,
+    now: new Date(),
+  })
+
+  if (preset) {
+    try {
+      await recordPresetRun({
+        userId,
+        presetId: preset.id,
+        count: accepted.length,
+        now: new Date(),
+        alertFrequency: preset.alertFrequency,
+      })
+    } catch (err) {
+      // Recording the run is bookkeeping; it must not turn a useful result
+      // into an error, and the next run will simply try again.
+      log.warn("Failed to record a saved search run", { err, userId, presetId: preset.id })
+    }
+  }
 
   log.info("Discovery run complete", {
     userId,
     queries: queries.length,
     raw: raw.length,
-    candidates: candidates.length,
+    candidates: accepted.length,
+    excluded: excluded.length,
   })
 
   return {
     queries: queries.map((query) => query.role),
-    candidates,
+    candidates: accepted,
+    excluded,
     sources,
+    coverage,
+    ...(preset ? { preset: { id: preset.id, name: preset.name } } : {}),
     ...(rerank ? { rerank } : {}),
   }
 }
@@ -752,11 +911,21 @@ export async function addJobByUrl(
   }
   const qualificationProfile = toQualificationProfile(profileResult.profile)
 
+  // One read serves both branches: the listing batch and the single posting
+  // both need the user's Opportunity Value settings.
+  const preferenceRow = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { preferences: true },
+  })
+  const preferences = parsePreferences(preferenceRow?.preferences)
+
   if (listing) {
     const candidates = await buildListingCandidates(
       userId,
       listing.postings,
-      qualificationProfile
+      qualificationProfile,
+      profileResult.profile,
+      preferences
     )
     log.info("Added a careers listing by URL", {
       userId,
@@ -812,6 +981,14 @@ export async function addJobByUrl(
   })
 
   const qualification = qualifyCandidate(posting, qualificationProfile)
+  const confidence = assessOpportunityConfidence({
+    provider: posting.provider,
+    source: JobSource.MANUAL,
+    url: posting.canonicalUrl || posting.url,
+    postedAt: posting.postedAt,
+    companyName: posting.companyName,
+    description: posting.description,
+  })
   mark("qualifyMs")
   emitTiming("ok", { extractionMethod: result.extractionMethod })
 
@@ -822,14 +999,29 @@ export async function addJobByUrl(
       alreadySaved: Boolean(savedJobId),
       savedJobId,
       qualification,
-      confidence: assessOpportunityConfidence({
-        provider: posting.provider,
-        source: JobSource.MANUAL,
-        url: posting.canonicalUrl || posting.url,
-        postedAt: posting.postedAt,
-        companyName: posting.companyName,
-        description: posting.description,
-      }),
+      confidence,
+      // A pasted posting is read like any other: no ranking ran here, so fit
+      // stays unknown rather than becoming an invented score.
+      opportunityValue: serializeOpportunityValue(
+        valueForJob({
+          posting: {
+            title: posting.title,
+            companyName: posting.companyName,
+            url: posting.url,
+            description: posting.description ?? null,
+            salaryText: posting.salaryText ?? null,
+            salaryProvenance: "POSTING_TEXT",
+          },
+          profile: profileResult.profile,
+          preferences,
+          context: {
+            fitScore: null,
+            eligibility: qualification.eligible.signal,
+            confidence: confidence.level === "UNKNOWN" ? null : confidence.level,
+            risk: qualification.risk.level,
+          },
+        })
+      ),
     },
     extractionMethod: result.extractionMethod,
   }
@@ -951,7 +1143,9 @@ async function fetchPostingsInParallel(
 async function buildListingCandidates(
   userId: string,
   postings: NormalizedPosting[],
-  qualificationProfile: ReturnType<typeof toQualificationProfile>
+  qualificationProfile: ReturnType<typeof toQualificationProfile>,
+  careerProfile: Parameters<typeof valueForJob>[0]["profile"],
+  preferences: ReturnType<typeof parsePreferences>
 ): Promise<DiscoveryCandidate[]> {
   const deduped: NormalizedPosting[] = []
   const seen = new Set<string>()
@@ -999,21 +1193,45 @@ async function buildListingCandidates(
     const savedJobId =
       (posting.canonicalUrl ? savedByUrl.get(posting.canonicalUrl) : undefined) ??
       savedByUrl.get(posting.url)
+    const qualification = qualifyCandidate(posting, qualificationProfile)
+    const confidence = assessOpportunityConfidence({
+      provider: posting.provider,
+      source: JobSource.MANUAL,
+      url: posting.canonicalUrl || posting.url,
+      postedAt: posting.postedAt,
+      companyName: posting.companyName,
+      description: posting.description,
+    })
 
     return {
       ...posting,
       postedAt: posting.postedAt?.toISOString(),
       alreadySaved: Boolean(savedJobId),
       savedJobId,
-      qualification: qualifyCandidate(posting, qualificationProfile),
-      confidence: assessOpportunityConfidence({
-        provider: posting.provider,
-        source: JobSource.MANUAL,
-        url: posting.canonicalUrl || posting.url,
-        postedAt: posting.postedAt,
-        companyName: posting.companyName,
-        description: posting.description,
-      }),
+      qualification,
+      confidence,
+      // A listing candidate is read exactly like a run candidate: no ranking
+      // ran here, so fit stays unknown rather than becoming a made-up score.
+      opportunityValue: serializeOpportunityValue(
+        valueForJob({
+          posting: {
+            title: posting.title,
+            companyName: posting.companyName,
+            url: posting.url,
+            description: posting.description ?? null,
+            salaryText: posting.salaryText ?? null,
+            salaryProvenance: "POSTING_TEXT",
+          },
+          profile: careerProfile,
+          preferences,
+          context: {
+            fitScore: null,
+            eligibility: qualification.eligible.signal,
+            confidence: confidence.level === "UNKNOWN" ? null : confidence.level,
+            risk: qualification.risk.level,
+          },
+        })
+      ),
     }
   })
 }

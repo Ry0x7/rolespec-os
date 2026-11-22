@@ -4,6 +4,7 @@ import { auth } from "@/features/auth/config"
 import { loadCareerProfile } from "@/features/career-profile/services/career-profile.service"
 import { BoardSearchLinks } from "@/features/discovery/components/board-search-links"
 import { DiscoveryView } from "@/features/discovery/components/discovery-view"
+import { listDiscoveryPresets } from "@/features/discovery/presets/service"
 import { buildBoardSearchGroups } from "@/features/discovery/services/board-search-groups.service"
 import { resolveProfileCountry } from "@/features/discovery/services/market-fit.service"
 import { parsePreferences } from "@/features/settings/schemas/preferences.schema"
@@ -20,13 +21,14 @@ export default async function DiscoverJobsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/unlock")
 
-  const [profile, user, firecrawl] = await Promise.all([
+  const [profile, user, firecrawl, presets] = await Promise.all([
     loadCareerProfile(session.user.id),
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { preferences: true },
     }),
     getFirecrawlStatus(),
+    listDiscoveryPresets(session.user.id),
   ])
   // `activeTargetRoleCount` is what the run would search if nothing were
   // capped, so the page can say why some of the user's roles are missing.
@@ -52,6 +54,14 @@ export default async function DiscoverJobsPage() {
         atsWatchlist={atsWatchlist}
         requiresSponsorship={profile.requiresSponsorship === true}
         marketCountry={resolveProfileCountry(profile.locations ?? [])}
+        presets={presets}
+        roleOptions={profile.targetRoles.map((role) => ({
+          id: role.id,
+          title: role.title,
+          source: role.source,
+          discoveryEnabled: role.discoveryEnabled,
+          active: role.active,
+        }))}
       />
 
       <BoardSearchLinks groups={boardSearchGroups} />

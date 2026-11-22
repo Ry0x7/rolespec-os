@@ -8,9 +8,6 @@ import { JobApplicationList } from "../job-application-list"
 import type { JobApplicationCardData } from "../job-application-card"
 import type { JobApplicationRowJob } from "../../hooks/use-job-filters"
 
-/** Fixed so the converted-salary assertions are arithmetic, not a live rate. */
-const FX_RATE = 58
-
 /** The user's calendar day, as `/jobs/page.tsx` hands it in. */
 const TODAY = new Date(Date.UTC(2026, 9, 12))
 
@@ -135,9 +132,26 @@ function makeApplication(
       companyName: "Globex",
       title: "Staff Engineer",
       location: "Remote",
-      salary: 185000,
-      salaryPeriod: null,
+      salaryMin: 185000,
+      salaryMax: 185000,
       salaryCurrency: "USD" as const,
+      salaryPeriod: "YEARLY" as const,
+      salaryTermMonths: null,
+      salaryText: null,
+      salary: {
+        min: "185000",
+        max: "185000",
+        currency: "USD" as const,
+        period: "YEARLY" as const,
+        termMonths: null,
+      },
+      ageDays: 30,
+      salaryDisplay: {
+        primary: "$185,000 per year",
+        equivalent: null,
+        equivalentNotice: null,
+        caveat: null,
+      },
       deadline: null,
       url: null,
       description: null,
@@ -206,8 +220,6 @@ describe("JobApplicationList grid", () => {
   it("renders a card per application with company, title and status", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -225,7 +237,7 @@ describe("JobApplicationList grid", () => {
     expect(globex.textContent).toMatch("Staff Engineer")
     expect(globex.textContent).toMatch("Interested")
     expect(globex.textContent).toMatch("Remote")
-    expect(globex.textContent).toMatch("$185,000 / year")
+    expect(globex.textContent).toMatch("$185,000 per year")
     expect(globex.textContent).toMatch("Full-time")
     // The formatted date itself is locale/timezone dependent — only the label
     // and the year are asserted so the test does not encode the runner's zone.
@@ -243,8 +255,6 @@ describe("JobApplicationList grid", () => {
   it("shows the empty state when there are no applications at all", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[]}
@@ -256,8 +266,6 @@ describe("JobApplicationList grid", () => {
   it("opens the create dialog from the empty state CTA", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[]}
@@ -276,8 +284,6 @@ describe("JobApplicationList grid", () => {
   it("hides non-matching cards on search and shows the no-results state", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -303,8 +309,6 @@ describe("JobApplicationList grid", () => {
   it("filters by status", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -328,8 +332,6 @@ describe("JobApplicationList grid", () => {
   it("labels each status option with the server-side count", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication()]}
@@ -352,8 +354,6 @@ describe("JobApplicationList quick actions", () => {
   function renderList(applications: JobApplicationCardData[]) {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={applications}
@@ -495,8 +495,6 @@ describe("JobApplicationList next-step line", () => {
   it("shows the outcome date on a terminal-status card", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -514,8 +512,6 @@ describe("JobApplicationList next-step line", () => {
   it("says nothing for an application still in flight", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -533,8 +529,6 @@ describe("JobApplicationList next-step line", () => {
   it("says only Closed for a terminal application with no recorded date", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication({ status: "WITHDRAWN", outcomeAt: null })]}
@@ -555,8 +549,6 @@ describe("JobApplicationList next-step line", () => {
     )
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication({ status: "APPLIED", followUpAt })]}
@@ -571,8 +563,6 @@ describe("JobApplicationList next-step line", () => {
   it("drops the Not-applied-yet filler in favour of the decision to make", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication({ dateApplied: null })]}
@@ -589,8 +579,6 @@ describe("JobApplicationList fit, confidence and provenance", () => {
   it("badges the stored verdict before the posting confidence", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication({ verdict: "STRONG" })]}
@@ -608,8 +596,6 @@ describe("JobApplicationList fit, confidence and provenance", () => {
   it("spells out the negative confidence signals inline on a LOW row", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -644,8 +630,6 @@ describe("JobApplicationList fit, confidence and provenance", () => {
   it("adds nothing beside the badge for a HIGH row with no negatives", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -680,8 +664,6 @@ describe("JobApplicationList fit, confidence and provenance", () => {
       })
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -704,8 +686,6 @@ describe("JobApplicationList fit, confidence and provenance", () => {
   it("omits the verdict badge when the posting was never qualified", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication()]}
@@ -718,8 +698,6 @@ describe("JobApplicationList fit, confidence and provenance", () => {
   it("shows the provenance line the job detail page uses", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -764,8 +742,6 @@ describe("JobApplicationList sort", () => {
   it("puts the row that needs action first by default", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={twoRows()}
@@ -778,23 +754,19 @@ describe("JobApplicationList sort", () => {
   it("switches to most recently updated on request", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={twoRows()}
       />,
     )
 
-    fireEvent.change(screen.getByLabelText("Sort"), { target: { value: "RECENT" } })
+    fireEvent.change(screen.getByLabelText("Saved job order"), { target: { value: "RECENT" } })
     expect(companyOrder()).toEqual(["Initech", "Globex"])
   })
 
   it("honours the order the server was asked for", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         initialSort="RECENT"
@@ -810,8 +782,6 @@ describe("JobApplicationList deadlines", () => {
   it("flags a deadline inside the next week", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -826,8 +796,6 @@ describe("JobApplicationList deadlines", () => {
   it("leaves a distant deadline untinted", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -846,8 +814,6 @@ describe("JobApplicationList cover letter action", () => {
   it("opens the most recent letter when the application has one", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -869,11 +835,9 @@ describe("JobApplicationList cover letter action", () => {
     expect(screen.getByText("2")).toBeTruthy()
   })
 
-  it("labels the salary with its period, defaulting legacy rows to yearly", () => {
+  it("renders the pay the server worded, with its period", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -882,108 +846,102 @@ describe("JobApplicationList cover letter action", () => {
             id: "app-2",
             job: {
               companyName: "Initech",
-              salary: 4500,
-              salaryPeriod: "MONTHLY",
+              salaryDisplay: {
+                primary: "₱45,000 per month",
+                equivalent: null,
+                equivalentNotice: null,
+                caveat: null,
+              },
             },
           }),
         ]}
       />
     )
 
-    expect(cardFor("Globex").textContent).toMatch("$185,000 / year")
-    expect(cardFor("Initech").textContent).toMatch("$4,500 / month")
+    expect(cardFor("Globex").textContent).toMatch("$185,000 per year")
+    expect(cardFor("Initech").textContent).toMatch("₱45,000 per month")
   })
 
-  it("shows the yearly equivalents converted at the supplied rate", () => {
+  it("prints a converted figure only with the rate date that qualifies it", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
-        statusCounts={STATUS_COUNTS}
-        today={TODAY}
-        applications={[
-          makeApplication(),
-          makeApplication({
-            id: "app-2",
-            job: { companyName: "Initech", salary: 50, salaryPeriod: "HOURLY" },
-          }),
-        ]}
-      />
-    )
-
-    // Already yearly: only the preferred currency is worth showing.
-    expect(cardFor("Globex").textContent).toMatch("≈ ₱10,730,000 / year")
-    expect(cardFor("Initech").textContent).toMatch(
-      "≈ $104,000 / year · ₱6,032,000 / year"
-    )
-  })
-
-  it("converts into the user's preferred currency", () => {
-    render(
-      <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="USD"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
           makeApplication({
             job: {
-              companyName: "Initech",
-              salary: 80000,
-              salaryPeriod: "MONTHLY",
-              salaryCurrency: "PHP",
+              salaryDisplay: {
+                primary: "$185,000 per year",
+                equivalent: "₱10,730,000",
+                equivalentNotice: "2026-11-21",
+                caveat: null,
+              },
             },
           }),
         ]}
       />
     )
 
-    expect(cardFor("Initech").textContent).toMatch(
-      "≈ ₱960,000 / year · $16,552 / year"
-    )
+    // An approximate figure with no provenance is a number from nowhere, so the
+    // rate date is part of the same line rather than a tooltip.
+    const line = cardFor("Globex").querySelector('[data-testid="salary-equivalent"]')
+    expect(line?.textContent).toContain("₱10,730,000")
+    expect(line?.textContent).toContain("2026-11-21")
   })
 
-  it("annualises a sub-yearly salary already in the preferred currency", () => {
+  it("says why no equivalent is shown when no rate is available", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="USD"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
           makeApplication({
-            job: { companyName: "Initech", salary: 50, salaryPeriod: "HOURLY" },
+            job: {
+              salaryDisplay: {
+                primary: "$185,000 per year",
+                equivalent: null,
+                equivalentNotice:
+                  "Exchange rates are unreachable right now, so no USD→PHP equivalent is shown.",
+                caveat: null,
+              },
+            },
           }),
         ]}
       />
     )
 
-    // No conversion, so no second figure and no rate in the tooltip.
-    const equivalents = cardFor("Initech").querySelector(
-      '[title="Approximate yearly equivalent"]'
+    const line = cardFor("Globex").querySelector(
+      '[data-testid="salary-equivalent-unavailable"]'
     )
-    expect(equivalents?.textContent).toBe("≈ $104,000 / year")
+    expect(line?.textContent).toMatch("no USD→PHP equivalent is shown")
   })
 
-  it("omits the equivalents line when the salary is already in the preferred currency", () => {
+  it("shows the caveat when the posting does not state its currency", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="USD"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
-        applications={[makeApplication()]}
+        applications={[
+          makeApplication({
+            job: {
+              salaryDisplay: {
+                primary: "85,000 a year",
+                equivalent: null,
+                equivalentNotice: null,
+                caveat: "The posting's pay does not say which currency it is in.",
+              },
+            },
+          }),
+        ]}
       />
     )
 
-    expect(cardFor("Globex").textContent).toMatch("$185,000 / year")
+    expect(cardFor("Globex").textContent).toMatch("does not say which currency")
     expect(cardFor("Globex").textContent).not.toMatch("≈")
   })
 
   it("links to the create route when the application has no letter", () => {
     render(<JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication()]}
@@ -1000,8 +958,6 @@ describe("JobApplicationList create dialog", () => {
   function submitCreate(status: string) {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[]}
@@ -1059,7 +1015,7 @@ describe("JobApplicationList create dialog", () => {
     await waitFor(() => expect(createJobApplication).toHaveBeenCalled())
     const formData = createJobApplication.mock.calls[0][0] as FormData
     expect(formData.has("jobType")).toBe(false)
-    expect(formData.has("salary")).toBe(false)
+    expect(formData.has("salaryMin")).toBe(false)
     expect(formData.has("salaryPeriod")).toBe(false)
     expect(formData.has("notes")).toBe(false)
   })
@@ -1067,8 +1023,6 @@ describe("JobApplicationList create dialog", () => {
   it("sends the chosen salary period alongside the amount", async () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[]}
@@ -1085,7 +1039,7 @@ describe("JobApplicationList create dialog", () => {
 
     await waitFor(() => expect(createJobApplication).toHaveBeenCalled())
     const formData = createJobApplication.mock.calls[0][0] as FormData
-    expect(formData.get("salary")).toBe("4500")
+    expect(formData.get("salaryMin")).toBe("4500")
     expect(formData.get("salaryPeriod")).toBe("MONTHLY")
   })
 })
@@ -1093,8 +1047,6 @@ describe("JobApplicationList create dialog", () => {
 describe("JobApplicationList delete flow", () => {
   it("deletes only after the confirmation is accepted", async () => {
     render(<JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication()]}
@@ -1115,8 +1067,6 @@ describe("JobApplicationList delete flow", () => {
   it("keeps the card and surfaces the error when the delete fails", async () => {
     deleteJobApplication.mockResolvedValue({ error: "Not found" })
     render(<JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication()]}
@@ -1134,8 +1084,6 @@ describe("JobApplicationList bulk delete", () => {
   function renderThree() {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[
@@ -1228,8 +1176,6 @@ describe("JobApplicationList bulk delete", () => {
 describe("JobApplicationList edit dialog", () => {
   it("routes a status change through the XP-awarding action", async () => {
     render(<JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={TODAY}
         applications={[makeApplication()]}
@@ -1271,8 +1217,6 @@ describe("JobApplicationList on the user's calendar day", () => {
   it("counts and keeps a follow-up due on the user's today before 08:00", () => {
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={USER_TODAY}
         initialFollowUpFilter="FOLLOW_UP_DUE"
@@ -1289,8 +1233,6 @@ describe("JobApplicationList on the user's calendar day", () => {
     vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(0)
     render(
       <JobApplicationList
-        usdPhpRate={FX_RATE}
-        preferredCurrency="PHP"
         statusCounts={STATUS_COUNTS}
         today={USER_TODAY}
         applications={[makeApplication({ job: { deadline: USER_TODAY } })]}
@@ -1322,8 +1264,6 @@ describe("JobApplicationList paging", () => {
     return render(
       <JobApplicationList
         applications={applications}
-        usdPhpRate={FX_RATE}
-        preferredCurrency="USD"
         statusCounts={STATUS_COUNTS}
         initialSort="RECENT"
         today={TODAY}
@@ -1406,8 +1346,6 @@ describe("JobApplicationList paging", () => {
     rerender(
       <JobApplicationList
         applications={manyApplications(24)}
-        usdPhpRate={FX_RATE}
-        preferredCurrency="USD"
         statusCounts={STATUS_COUNTS}
         initialSort="RECENT"
         today={TODAY}

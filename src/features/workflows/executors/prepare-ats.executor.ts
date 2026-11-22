@@ -78,6 +78,11 @@ export const prepareAtsExecutor: WorkflowExecutor = async (context) => {
           location: application.job.location,
         })
 
+  // A salary figure on the profile is a floor for ranking, not an answer to
+  // give an employer: the expectation depends on the role, the currency the
+  // employer pays in and what the user wants on that day.
+  const hasSalaryPreference = profile?.salaryMin !== null && profile?.salaryMin !== undefined
+
   // Deliberately always asked, never auto-answered from `workAuthorization`.
   const needsUserAnswer = [
     {
@@ -99,10 +104,9 @@ export const prepareAtsExecutor: WorkflowExecutor = async (context) => {
     {
       field: "salaryExpectation",
       question: "What salary expectation should be entered on this application?",
-      reason:
-        profile?.salaryMin === null
-          ? "No salary preference is stored in your profile."
-          : "Salary expectations are a personal answer, not a profile default.",
+      reason: hasSalaryPreference
+        ? "Your profile stores a pay preference, but the expectation entered on an application is your decision."
+        : "Salary expectations are a personal answer, and your profile stores no preference to start from.",
     },
     {
       field: "demographics",

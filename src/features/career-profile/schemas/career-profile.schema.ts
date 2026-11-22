@@ -8,6 +8,7 @@ import {
   SalaryPeriod,
   WorkType,
 } from "@/generated/prisma/enums"
+import { parseAmountInput } from "@/shared/lib/money/money"
 import { isHttpUrl } from "@/shared/lib/url"
 
 /** `""` is how a `<select>`/`<input>` submits "no value"; it must clear, not fail. */
@@ -16,9 +17,25 @@ const emptyToUndefined = (v: unknown) =>
 
 const optionalId = z.string().min(1).max(64).optional()
 
-const optionalPositiveInt = z.preprocess(
-  emptyToUndefined,
-  z.coerce.number().int().positive().max(100_000_000).optional()
+/**
+ * A money amount as typed: `45000`, `45,000.50`, `45 000`. Parsed with the same
+ * reader the rest of the app uses so a comma cannot mean two different things
+ * in two places. The parsed `Decimal` is what gets stored.
+ */
+const optionalMoneyString = z.preprocess(
+  (v) => (typeof v === "string" ? v.trim() : v),
+  z
+    .union([
+      z.literal(""),
+      z
+        .string()
+        .max(32)
+        .refine(
+          (value) => parseAmountInput(value) !== null,
+          "Enter an amount, e.g. 45000 or 45,000.50"
+        ),
+    ])
+    .optional()
 )
 
 /**
@@ -66,8 +83,8 @@ export const updateCareerPreferencesSchema = z.object({
   workAuthorization: z.string().max(2000).optional(),
   /** Tri-state: "" leaves it unanswered. */
   requiresSponsorship: z.enum(["", "yes", "no"]).optional(),
-  salaryMin: optionalPositiveInt,
-  salaryMax: optionalPositiveInt,
+  salaryMin: optionalMoneyString,
+  salaryMax: optionalMoneyString,
   salaryPeriod: z.nativeEnum(SalaryPeriod).optional().or(z.literal("")),
   salaryCurrency: z.nativeEnum(SalaryCurrency).optional().or(z.literal("")),
   careerGoals: z.string().max(5000).optional(),

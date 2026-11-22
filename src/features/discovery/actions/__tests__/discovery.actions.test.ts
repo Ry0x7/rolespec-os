@@ -18,6 +18,8 @@ const {
     job: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
     applicationStatusEvent: { create: vi.fn() },
     careerProfile: { findUnique: vi.fn() },
+    jobFeedback: { findMany: vi.fn() },
+    discoverySearchPreset: { findFirst: vi.fn(), updateMany: vi.fn() },
     user: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -136,6 +138,9 @@ beforeEach(() => {
   })
   mockSearch.mockResolvedValue([rawPosting()])
   mockPrisma.job.findMany.mockResolvedValue([])
+  mockPrisma.jobFeedback.findMany.mockResolvedValue([])
+  mockPrisma.discoverySearchPreset.findFirst.mockResolvedValue(null)
+  mockPrisma.discoverySearchPreset.updateMany.mockResolvedValue({ count: 1 })
   mockPrisma.user.findUnique.mockResolvedValue({
     preferences: { atsWatchlist: { greenhouse: ["gitlab"], lever: [] } },
   })
@@ -195,7 +200,52 @@ describe("runDiscovery", () => {
       targetRoles: [{ title: "Paused", priority: 0, active: false }],
     })
 
-    expect(await runDiscovery()).toEqual({ queries: [], candidates: [], sources: [] })
+    expect(await runDiscovery()).toMatchObject({
+      queries: [],
+      candidates: [],
+      excluded: [],
+      sources: [],
+      coverage: { received: 0, unique: 0 },
+    })
+    expect(mockSearch).not.toHaveBeenCalled()
+  })
+
+  it("runs a saved search's explicit roles instead of every profile role", async () => {
+    mockPrisma.discoverySearchPreset.findFirst.mockResolvedValue({
+      id: "preset-1",
+      name: "Saved backend search",
+      roles: ["Backend Engineer"],
+      keywords: [],
+      includeCareerPathRoles: false,
+    })
+
+    const result = await runDiscovery({ presetId: "preset-1" })
+
+    expect("error" in result).toBe(false)
+    if ("error" in result) return
+    expect(mockSearch).toHaveBeenCalledTimes(1)
+    expect(result.queries).toEqual(["Backend Engineer"])
+    expect(result.preset).toEqual({ id: "preset-1", name: "Saved backend search" })
+    expect(mockPrisma.discoverySearchPreset.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "preset-1", userId: "user-1" },
+        data: expect.objectContaining({ lastRunCount: expect.any(Number) }),
+      })
+    )
+  })
+
+  it("refuses a saved search with no runnable roles", async () => {
+    mockPrisma.discoverySearchPreset.findFirst.mockResolvedValue({
+      id: "preset-1",
+      name: "Empty",
+      roles: [],
+      keywords: [],
+      includeCareerPathRoles: true,
+    })
+
+    expect(await runDiscovery({ presetId: "preset-1" })).toEqual({
+      error: "This saved search has no roles to run. Edit it and choose at least one.",
+    })
     expect(mockSearch).not.toHaveBeenCalled()
   })
 

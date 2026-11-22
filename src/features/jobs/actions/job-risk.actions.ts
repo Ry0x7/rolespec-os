@@ -5,6 +5,7 @@ import { z } from "zod"
 import { JobRiskSource } from "@/generated/prisma/enums"
 import { auth } from "@/features/auth/config"
 import { prisma } from "@/shared/lib/prisma"
+import { formatSalaryRange } from "@/shared/lib/money/money"
 import { AiDailyLimitError, AiKeyRequiredError } from "@/shared/lib/ai-provider"
 import { rateLimited } from "@/shared/lib/errors"
 import {
@@ -57,8 +58,11 @@ export async function assessJobRisk(jobApplicationId: string) {
             companyName: true,
             title: true,
             description: true,
-            salary: true,
+            salaryMin: true,
+            salaryMax: true,
+            salaryCurrency: true,
             salaryPeriod: true,
+            salaryText: true,
             url: true,
             location: true,
           },
@@ -72,14 +76,28 @@ export async function assessJobRisk(jobApplicationId: string) {
       return { error: "Add a job description first — the check is run against it." }
     }
 
+    // The posting's own pay line when it has one; otherwise the normalized range,
+    // rendered in its own currency. A null currency means the posting never said
+    // which one it is, so no figure is invented for the model to weigh.
+    const payText =
+      job.job.salaryText?.trim() ||
+      (job.job.salaryCurrency
+        ? formatSalaryRange(
+            job.job.salaryMin,
+            job.job.salaryMax,
+            job.job.salaryCurrency,
+            job.job.salaryPeriod,
+            { showCode: true }
+          )
+        : null)
+
     const { level, reasons } = await assessJobRiskAI({
       userId: session.user.id,
       job: {
         companyName: job.job.companyName,
         jobTitle: job.job.title,
         jobDescription,
-        salary: job.job.salary,
-        salaryPeriod: job.job.salaryPeriod,
+        salaryText: payText,
         jobLink: job.job.url,
         contact: job.contact,
         location: job.job.location,

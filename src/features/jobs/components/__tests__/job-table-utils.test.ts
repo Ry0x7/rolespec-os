@@ -22,9 +22,11 @@ function makeApp(
     jobTitle: "Engineer",
     status: ApplicationStatus.APPLIED,
     location: null,
-    salary: null,
+    salaryMin: null,
+    salaryMax: null,
     salaryPeriod: null,
-    salaryCurrency: "USD",
+    salaryCurrency: null,
+    salaryTermMonths: null,
     dateApplied: null,
     deadline: null,
     interviewDate: null,
@@ -106,10 +108,12 @@ describe("getEditableCellValue", () => {
     expect(getEditableCellValue(row, "deadline")).toBe("2024-06-01")
   })
 
-  it("stringifies salary and keeps zero distinct from null", () => {
-    expect(getEditableCellValue(makeApp({ salary: 85000 }), "salary")).toBe("85000")
-    expect(getEditableCellValue(makeApp({ salary: 0 }), "salary")).toBe("0")
-    expect(getEditableCellValue(makeApp({ salary: null }), "salary")).toBe("")
+  it("stringifies the salary floor and treats null as empty", () => {
+    expect(getEditableCellValue(makeApp({ salaryMin: "85000.00" }), "salaryMin")).toBe(
+      "85000.00"
+    )
+    expect(getEditableCellValue(makeApp({ salaryMin: "0.00" }), "salaryMin")).toBe("0.00")
+    expect(getEditableCellValue(makeApp({ salaryMin: null }), "salaryMin")).toBe("")
   })
 
   it("reads jobType as its enum value", () => {
@@ -166,13 +170,13 @@ describe("buildFieldFormData", () => {
   })
 
   it("keeps an empty string so salary can be cleared", () => {
-    const formData = buildFieldFormData("salary", "  ")
-    expect([...formData.keys()]).toEqual(["salary"])
-    expect(formData.get("salary")).toBe("")
+    const formData = buildFieldFormData("salaryMin", "  ")
+    expect([...formData.keys()]).toEqual(["salaryMin"])
+    expect(formData.get("salaryMin")).toBe("")
   })
 
   it("still sends a non-empty salary as digits", () => {
-    expect(buildFieldFormData("salary", " 85000 ").get("salary")).toBe("85000")
+    expect(buildFieldFormData("salaryMin", " 85000 ").get("salaryMin")).toBe("85000")
   })
 })
 
@@ -211,13 +215,13 @@ describe("buildCreateFormData", () => {
       jobTitle: "Engineer",
       status: "INTERVIEW",
       jobType: "CONTRACT",
-      salary: "85000",
+      salaryMin: "85000",
       dateApplied: "2024-05-20",
     })
     expect(formData.get("companyName")).toBe("Acme")
     expect(formData.get("status")).toBe("INTERVIEW")
     expect(formData.get("jobType")).toBe("CONTRACT")
-    expect(formData.get("salary")).toBe("85000")
+    expect(formData.get("salaryMin")).toBe("85000")
     expect(formData.get("dateApplied")).toBe("2024-05-20")
     expect(formData.has("deadline")).toBe(false)
   })

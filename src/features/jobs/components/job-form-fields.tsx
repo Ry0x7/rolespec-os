@@ -6,6 +6,8 @@ import { Label } from "@/shared/ui/label"
 import { Select } from "@/shared/ui/select"
 import { Textarea } from "@/shared/ui/textarea"
 import { toDateInputValue, toDateTimeInputValue } from "./job-table-utils"
+import { compactCurrencyLabel } from "@/shared/lib/money/money"
+
 import {
   JOB_TYPE_OPTIONS,
   SALARY_CURRENCY_OPTIONS,
@@ -23,9 +25,11 @@ export const JOB_FORM_FIELDS = [
   "location",
   "jobType",
   "workType",
-  "salary",
+  "salaryMin",
+  "salaryMax",
   "salaryPeriod",
   "salaryCurrency",
+  "salaryTermMonths",
   "jobLink",
   "dateApplied",
   "deadline",
@@ -139,40 +143,55 @@ export const JobFormFields = forwardRef<HTMLInputElement, JobFormFieldsProps>(
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor={id("salary")}>Salary</Label>
-          {/* Currency, amount and period read as one control. The row spans
-              both columns so the amount keeps a usable width and the period
-              select is wide enough for its longest option. */}
-          <div className="flex gap-2">
+          <Label htmlFor={id("salaryMin")}>Salary</Label>
+          <p className="text-xs text-muted-foreground">
+            The posting&apos;s own figures, in the posting&apos;s own currency. Leave the
+            currency blank only when the posting does not state one — it is never assumed.
+          </p>
+          {/* Range, currency, period and contract term are one control group:
+              a figure without a currency and a period cannot be compared, and a
+              contract total without its length cannot be annualized. */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_7rem_9rem_9rem]">
+            <Input
+              id={id("salaryMin")}
+              name="salaryMin"
+              inputMode="decimal"
+              aria-label="Salary minimum"
+              placeholder="85000"
+              defaultValue={application?.salaryMin ?? ""}
+              className="min-w-0"
+            />
+            <Input
+              id={id("salaryMax")}
+              name="salaryMax"
+              inputMode="decimal"
+              aria-label="Salary maximum"
+              placeholder="95000"
+              defaultValue={application?.salaryMax ?? ""}
+              className="min-w-0"
+            />
             <Select
               id={id("salaryCurrency")}
               name="salaryCurrency"
               aria-label="Salary currency"
-              defaultValue={application?.salaryCurrency ?? "USD"}
-              className="w-24 shrink-0"
+              defaultValue={application?.salaryCurrency ?? ""}
+              className="min-w-0"
             >
+              <option value="">none</option>
+              {/* Code plus glyph: the field is narrow, and "JPY ¥" identifies a
+                  currency faster than a truncated name would. */}
               {SALARY_CURRENCY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {compactCurrencyLabel(option.value)}
                 </option>
               ))}
             </Select>
-            <Input
-              id={id("salary")}
-              name="salary"
-              type="number"
-              min={1}
-              max={2147483647}
-              placeholder="85000"
-              defaultValue={application?.salary?.toString() ?? ""}
-              className="min-w-24 flex-1"
-            />
             <Select
               id={id("salaryPeriod")}
               name="salaryPeriod"
               aria-label="Salary period"
               defaultValue={application?.salaryPeriod ?? ""}
-              className="w-36 shrink-0"
+              className="min-w-0"
             >
               <option value="">— select —</option>
               {SALARY_PERIOD_OPTIONS.map((option) => (
@@ -181,6 +200,17 @@ export const JobFormFields = forwardRef<HTMLInputElement, JobFormFieldsProps>(
                 </option>
               ))}
             </Select>
+            <Input
+              id={id("salaryTermMonths")}
+              name="salaryTermMonths"
+              type="number"
+              min={1}
+              max={120}
+              aria-label="Contract length in months"
+              placeholder="Contract months"
+              defaultValue={application?.salaryTermMonths ?? ""}
+              className="min-w-0"
+            />
           </div>
         </div>
 

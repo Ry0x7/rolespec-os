@@ -301,12 +301,38 @@ export function dedupePostings(postings: NormalizedPosting[]): NormalizedPosting
   return out
 }
 
-/** Normalizes a batch and dedupes it, dropping postings that cannot be mapped. */
-export function normalizeAndDedupe(raw: RawPosting[]): NormalizedPosting[] {
+/** Counts behind one batch, so a coverage report can name what was removed. */
+export interface NormalizeBatchResult {
+  postings: NormalizedPosting[]
+  /** Provider rows handed to the pipeline. */
+  received: number
+  /** Rows that could not be mapped (missing title, company or URL). */
+  invalid: number
+  /** Rows that mapped but repeated a posting already in the batch. */
+  duplicates: number
+}
+
+/**
+ * Normalizes a batch, drops what cannot be mapped, and counts the removals.
+ * The count is reported, never used to reorder: a duplicate is not a better or
+ * worse posting, it is the same one seen twice.
+ */
+export function normalizeBatch(raw: RawPosting[]): NormalizeBatchResult {
   const normalized: NormalizedPosting[] = []
   for (const posting of raw) {
     const mapped = normalizePosting(posting)
     if (mapped) normalized.push(mapped)
   }
-  return dedupePostings(normalized)
+  const postings = dedupePostings(normalized)
+  return {
+    postings,
+    received: raw.length,
+    invalid: raw.length - normalized.length,
+    duplicates: normalized.length - postings.length,
+  }
+}
+
+/** Normalizes a batch and dedupes it, dropping postings that cannot be mapped. */
+export function normalizeAndDedupe(raw: RawPosting[]): NormalizedPosting[] {
+  return normalizeBatch(raw).postings
 }

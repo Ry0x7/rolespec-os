@@ -30,6 +30,8 @@ import { JobPipelineStepper } from "@/features/jobs/components/job-pipeline-step
 import { IntelligentMatchingCard } from "@/features/jobs/components/intelligent-matching-card"
 import { CompanyResearchPanel } from "@/features/jobs/components/company-research-panel"
 import { computeIntelligentMatch } from "@/features/jobs/services/intelligent-matching.service"
+import { valueForJob } from "@/features/opportunity/services/opportunity-value.service"
+import { OpportunityValueCard } from "@/features/jobs/components/opportunity-value-card"
 import type { CompanyResearchResult } from "@/features/jobs/services/company-research.service"
 import { isVerifiedCompanyResearch } from "@/features/jobs/lib/company-research"
 import {
@@ -51,15 +53,13 @@ import { OutcomePanel } from "@/features/jobs/components/outcome-panel"
 import { JobTasksPanel } from "@/features/jobs/components/job-tasks-panel"
 import { ApplicationStatusTimeline } from "@/features/jobs/components/application-status-timeline"
 import { getApplicationStatusHistory } from "@/features/jobs/services/application-status.service"
-import {
-  WORK_TYPE_LABELS,
-  formatSalary,
-  formatSalaryEquivalents,
-  salaryEquivalentsHint,
-} from "@/features/jobs/components/job-form-options"
+import { WORK_TYPE_LABELS } from "@/features/jobs/components/job-form-options"
+import { describeSalary } from "@/shared/lib/money/salary-display"
+import { serializeMoney } from "@/shared/lib/money/money"
+import { loadDisplayRates } from "@/shared/lib/money/rates"
+import { parseStoredSalary } from "@/features/ranking/salary"
 import { JobEditProvider } from "@/features/jobs/components/job-edit-provider"
 import { parsePreferences } from "@/features/settings/schemas/preferences.schema"
-import { getUsdPhpRate } from "@/shared/lib/fx"
 import { formatDate } from "@/shared/lib/utils"
 import { calendarDaysBetween, formatCalendarDate, toCalendarDateString } from "@/shared/lib/dates"
 import { EmptyState } from "@/shared/components/empty-state"
@@ -117,7 +117,7 @@ export default async function JobApplicationDetailPage({ params }: Props) {
   // mean the same thing on every surface.
   const todayStart = await getUserDayStart()
 
-  const [row, resumes, usdPhpRate, user, resumeSourceOptions, tasks, statusHistory, careerProfile] =
+  const [row, resumes, user, resumeSourceOptions, tasks, statusHistory, careerProfile] =
     await Promise.all([
     prisma.jobApplication.findUnique({
       where: { id, userId: session.user.id },
@@ -148,9 +148,14 @@ export default async function JobApplicationDetailPage({ params }: Props) {
             location: true,
             jobType: true,
             workType: true,
-            salary: true,
-            salaryPeriod: true,
+            salaryMin: true,
+            salaryMax: true,
             salaryCurrency: true,
+            salaryPeriod: true,
+            salaryTermMonths: true,
+            salaryText: true,
+            salaryAnnualMin: true,
+            salaryAnnualMax: true,
             description: true,
             deadline: true,
             riskLevel: true,
@@ -199,7 +204,6 @@ export default async function JobApplicationDetailPage({ params }: Props) {
         updatedAt: true,
       },
     }),
-    getUsdPhpRate(),
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { preferences: true },
@@ -236,18 +240,21 @@ export default async function JobApplicationDetailPage({ params }: Props) {
   if (!row) notFound()
 
   // The posting fields come off the `job` relation now; the page and the panels
-  // below it still work off the flat shape they always have. `salaryCurrency`
-  // falls back to the column's schema default rather than null, because
-  // `JobApplicationRow` requires one.
+  // below it still work off the flat shape they always have.
   const application = {
     id: row.id,
     companyName: row.job.companyName,
     jobTitle: row.job.title,
     status: row.status,
     location: row.job.location,
-    salary: row.job.salary,
-    salaryPeriod: row.job.salaryPeriod,
+    salaryMin: serializeMoney(row.job.salaryMin),
+    salaryMax: serializeMoney(row.job.salaryMax),
     salaryCurrency: row.job.salaryCurrency,
+    salaryPeriod: row.job.salaryPeriod,
+    salaryTermMonths: row.job.salaryTermMonths,
+    salaryText: row.job.salaryText,
+    salaryAnnualMin: row.job.salaryAnnualMin,
+    salaryAnnualMax: row.job.salaryAnnualMax,
     dateApplied: row.dateApplied,
     deadline: row.job.deadline,
     interviewDate: row.interviewDate,
@@ -298,19 +305,24 @@ export default async function JobApplicationDetailPage({ params }: Props) {
     description: row.job.description,
   })
 
-  const { preferredCurrency } = parsePreferences(user?.preferences)
+  const preferences = parsePreferences(user?.preferences)
+  const { preferredCurrency } = preferences
 
-  // Null when the salary is already in the user's display currency.
-  const salaryEquivalents =
-    application.salary !== null
-      ? formatSalaryEquivalents(
-          application.salary,
-          application.salaryPeriod,
-          application.salaryCurrency,
-          usdPhpRate,
-          preferredCurrency,
-        )
-      : null
+  // Pay as the server words it: the posting's own figure, the annual equivalent
+  // in the reader's currency, and the rate date that qualifies it. A failed
+  // lookup keeps the reason, so the page says why no equivalent is shown.
+  const { rates, failure } = await loadDisplayRates(preferredCurrency)
+  const salaryDisplay = describeSalary(
+    {
+      min: application.salaryMin,
+      max: application.salaryMax,
+      currency: application.salaryCurrency,
+      period: application.salaryPeriod,
+      text: application.salaryText,
+      reason: parseStoredSalary(application)?.reason ?? null,
+    },
+    { preferredCurrency, rates, failure },
+  )
 
   // `riskReasons` is a Json column, so nothing guarantees its shape at runtime.
   const riskReasons = Array.isArray(application.riskReasons)
@@ -448,9 +460,10 @@ export default async function JobApplicationDetailPage({ params }: Props) {
       description: application.jobDescription,
       location: application.location,
       workType: row.job.workType,
-      salary: application.salary,
-      salaryPeriod: application.salaryPeriod,
+      salaryAnnualMin: application.salaryAnnualMin,
+      salaryAnnualMax: application.salaryAnnualMax,
       salaryCurrency: application.salaryCurrency,
+      salaryPeriod: application.salaryPeriod,
       postedAt: row.job.postedAt,
       requirementFlags: (row.job.requirementFlags as string[] | null) ?? [],
     },
@@ -475,6 +488,34 @@ export default async function JobApplicationDetailPage({ params }: Props) {
         }
       : {}
   )
+  // Opportunity Value is deliberately computed after the fit and qualification
+  // results it reuses: same inputs, one composite, no second definition of fit.
+  const opportunityValue = valueForJob({
+    posting: {
+      title: application.jobTitle,
+      companyName: application.companyName,
+      url: application.jobLink,
+      description: application.jobDescription,
+      requirementFlags: (row.job.requirementFlags as string[] | null) ?? [],
+      salaryMin: row.job.salaryMin,
+      salaryMax: row.job.salaryMax,
+      salaryCurrency: row.job.salaryCurrency,
+      salaryPeriod: row.job.salaryPeriod,
+      salaryTermMonths: row.job.salaryTermMonths,
+      salaryText: row.job.salaryText,
+    },
+    profile: careerProfile,
+    preferences,
+    context: {
+      // There is no ranking entry on this page, so profile fit is genuinely
+      // unknown here rather than borrowed from a different model.
+      fitScore: null,
+      eligibility: storedQualification?.qualification.eligible.signal ?? null,
+      confidence: confidence.level === "UNKNOWN" ? null : confidence.level,
+      risk: row.job.riskLevel,
+    },
+  })
+
   const nextStep = describeNextStep(
     {
       status: row.status,
@@ -519,7 +560,7 @@ export default async function JobApplicationDetailPage({ params }: Props) {
     application.location,
     application.jobType,
     application.workType,
-    application.salary,
+    salaryDisplay.primary,
     application.contact,
     application.dateApplied,
     application.deadline,
@@ -547,6 +588,27 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           <div className="min-w-0">
             <h1 className="text-2xl font-bold">{application.companyName}</h1>
             <p className="text-sm text-muted-foreground">{application.jobTitle}</p>
+            {/*
+              Pay belongs beside the role, not three tabs deep: "is this worth my
+              time" cannot be answered without it. The equivalent keeps its rate
+              date on the same line, so no figure is shown without provenance.
+            */}
+            {salaryDisplay.primary && (
+              <p className="mt-1 text-sm" data-testid="header-salary">
+                {salaryDisplay.primary}
+                {salaryDisplay.equivalent ? (
+                  <span className="text-muted-foreground">
+                    {" · "}≈ {salaryDisplay.equivalent}
+                    {salaryDisplay.equivalentNotice ? ` (${salaryDisplay.equivalentNotice})` : null}
+                  </span>
+                ) : salaryDisplay.equivalentNotice ? (
+                  <span className="text-muted-foreground"> · {salaryDisplay.equivalentNotice}</span>
+                ) : null}
+              </p>
+            )}
+            {salaryDisplay.caveat && (
+              <p className="text-xs text-muted-foreground">{salaryDisplay.caveat}</p>
+            )}
             {/* Where it came from and how old it is, before any AI panel speaks. */}
             <p className="text-xs text-muted-foreground">{provenanceLine}</p>
           </div>
@@ -662,6 +724,11 @@ export default async function JobApplicationDetailPage({ params }: Props) {
           />
 
           <IntelligentMatchingCard matchingResult={intelligentMatch} />
+
+          {/* Pay, workload and friction as one auditable number, with the
+              sentences it read. Sits under fit because fit is what the user
+              checks first; value is what they weigh before applying. */}
+          <OpportunityValueCard value={opportunityValue} />
         </div>
 
         {/*
@@ -847,28 +914,32 @@ export default async function JobApplicationDetailPage({ params }: Props) {
                 </div>
               )}
 
-              {application.salary && (
+              {salaryDisplay.primary && (
                 <div className="flex items-start gap-2">
                   <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <div>
                     <dt className="text-xs uppercase tracking-wide text-muted-foreground">Salary</dt>
-                    <dd className="mt-0.5 text-sm">
-                      {formatSalary(
-                        application.salary,
-                        application.salaryPeriod,
-                        application.salaryCurrency
-                      )}
-                    </dd>
-                    {salaryEquivalents ? (
+                    <dd className="mt-0.5 text-sm">{salaryDisplay.primary}</dd>
+                    {salaryDisplay.equivalent && salaryDisplay.equivalent !== salaryDisplay.primary ? (
                       <dd
                         className="mt-0.5 text-xs text-muted-foreground"
-                        title={salaryEquivalentsHint(
-                          usdPhpRate,
-                          application.salaryCurrency,
-                          preferredCurrency,
-                        )}
+                        data-testid="salary-equivalent"
                       >
-                        {salaryEquivalents}
+                        ≈ {salaryDisplay.equivalent}
+                        {salaryDisplay.equivalentNotice ? (
+                          <span className="text-muted-foreground/70">
+                            {" "}· {salaryDisplay.equivalentNotice}
+                          </span>
+                        ) : null}
+                      </dd>
+                    ) : salaryDisplay.equivalentNotice ? (
+                      <dd className="mt-0.5 text-xs text-muted-foreground">
+                        {salaryDisplay.equivalentNotice}
+                      </dd>
+                    ) : null}
+                    {salaryDisplay.caveat ? (
+                      <dd className="mt-0.5 text-xs text-muted-foreground">
+                        {salaryDisplay.caveat}
                       </dd>
                     ) : null}
                   </div>

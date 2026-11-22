@@ -60,6 +60,8 @@ model User {
   rankingSnapshots    RankingSnapshot[]
   outreachContacts    OutreachContact[]
   outreachSequences   OutreachSequence[]
+  jobFeedback         JobFeedback[]
+  discoveryPresets    DiscoverySearchPreset[]
 
   @@map("users")
 }
@@ -461,9 +463,26 @@ model Job {
   location         String?
   jobType          JobType?
   workType         WorkType?
-  salary           Int?
-  salaryPeriod     SalaryPeriod?
-  salaryCurrency   SalaryCurrency @default(USD)
+  /// Pay exactly as the source stated it. `salaryMin`/`salaryMax` are the
+  /// figures in `salaryCurrency` and `salaryPeriod`; the `salaryAnnual*` pair
+  /// is the same range expressed per year so ranking never re-derives it.
+  /// `salaryText` keeps the posting's own words for provenance and for a
+  /// range the parser could not split. Decimal, never Float or Int.
+  salaryMin            Decimal?         @db.Decimal(14, 2)
+  salaryMax            Decimal?         @db.Decimal(14, 2)
+  salaryCurrency       SalaryCurrency?
+  salaryPeriod         SalaryPeriod?
+  /// Contract length in months; only meaningful when `salaryPeriod` is CONTRACT.
+  salaryTermMonths     Int?
+  /// The posting's own salary line, verbatim.
+  salaryText           String?          @db.Text
+  /// Where the figures came from: a person, the posting text, or a structured
+  /// provider field. Null when the row predates the column and nothing is known.
+  salaryProvenance     SalaryProvenance?
+  /// `salaryMin`/`salaryMax` annualized with the configured pay calendar.
+  salaryAnnualMin      Decimal?         @db.Decimal(14, 2)
+  salaryAnnualMax      Decimal?         @db.Decimal(14, 2)
+  salaryNormalizedAt   DateTime?
   description      String?        @db.Text
   deadline         DateTime?      @db.Date
   riskLevel        JobRiskLevel?
@@ -503,6 +522,65 @@ model Job {
   @@index([userId, updatedAt])
   @@index([userId, source])
   @@map("jobs")
+}
+
+/// One explicit user verdict about one posting, keyed by the same canonical
+/// dedupe key discovery uses. It survives the candidate list and does not need
+/// the posting to have been saved. No row here is derived from a job
+/// description, and no row changes confirmed capabilities or evidence.
+model JobFeedback {
+  id          String             @id @default(cuid())
+  userId      String
+  /// Canonical URL when one exists, otherwise `provider:externalId` or the
+  /// saved job id. Stable across repeated discovery runs.
+  postingKey  String
+  /// The saved job this verdict refers to, when one exists. Not a foreign key:
+  /// feedback must outlive a deleted job and remain a user statement.
+  jobId       String?
+  title       String
+  companyName String
+  url         String?
+  verdict     JobFeedbackVerdict
+  note        String?            @db.Text
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postingKey])
+  @@index([userId, verdict, updatedAt])
+  @@index([userId, jobId])
+  @@map("job_feedback")
+}
+
+/// A named, reusable discovery query plus its in-app alert cadence.
+///
+/// Alerts are deliberately not a background scheduler: there is no mail
+/// provider or worker here, so a saved search reports when it is due and the
+/// user runs it explicitly. That keeps the feature usable offline and avoids
+/// spending a source's rate limit without a person asking.
+model DiscoverySearchPreset {
+  id                     String               @id @default(cuid())
+  userId                 String
+  name                   String
+  /// One query per role, capped again when the run is built.
+  roles                  String[]             @default([])
+  keywords               String[]             @default([])
+  /// Explicit permission to add career-path target roles to this search.
+  includeCareerPathRoles Boolean              @default(false)
+  alertFrequency         SearchAlertFrequency @default(OFF)
+  lastRunAt              DateTime?
+  lastRunCount           Int?
+  /// When the user last acknowledged the due alert by running it.
+  lastAlertedAt          DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId, alertFrequency])
+  @@map("discovery_search_presets")
 }
 
 model CoverLetter {
@@ -802,10 +880,14 @@ model CareerProfile {
   workAuthorization   String?          @db.Text
   /// Tri-state on purpose: null means the user has not answered.
   requiresSponsorship Boolean?
-  salaryMin           Int?
-  salaryMax           Int?
+  /// Target pay range. Decimal because pay is money, not a count: an hourly
+  /// rate of 12.75 must survive, and yen has no minor unit to fall back on.
+  /// `salaryCurrency` stays nullable because "no currency stated" is a fact;
+  /// assuming USD would silently reinterpret the figure.
+  salaryMin           Decimal?         @db.Decimal(14, 2)
+  salaryMax           Decimal?         @db.Decimal(14, 2)
   salaryPeriod        SalaryPeriod?
-  salaryCurrency      SalaryCurrency   @default(USD)
+  salaryCurrency      SalaryCurrency?
   careerGoals         String?          @db.Text
 
   createdAt DateTime @default(now())
@@ -843,14 +925,21 @@ model CareerRoleFamily {
 }
 
 model CareerTargetRole {
-  id              String  @id @default(cuid())
+  id              String                 @id @default(cuid())
   careerProfileId String
   title           String
   roleFamilyId    String?
   /// Lower sorts first. Ties fall back to `createdAt`.
-  priority        Int     @default(0)
+  priority        Int                    @default(0)
   /// Kept rather than deleted so a paused direction can be resumed.
-  active          Boolean @default(true)
+  active          Boolean                @default(true)
+  /// Where the title came from. A career-path approval is a suggestion the user
+  /// accepted; it is not automatically a discovery search.
+  source          CareerTargetRoleSource @default(USER)
+  /// Explicit opt-in to use this role in discovery. Manual roles default on;
+  /// career-path approvals are inserted with it off and must be enabled by the
+  /// user before a run searches for them.
+  discoveryEnabled Boolean               @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -860,6 +949,7 @@ model CareerTargetRole {
 
   @@unique([careerProfileId, title])
   @@index([careerProfileId, active, priority])
+  @@index([careerProfileId, discoveryEnabled])
   @@map("career_target_roles")
 }
 
@@ -1355,6 +1445,22 @@ model SubmissionAttempt {
 /// One persisted ranking computation. The payload is the exact response the API
 /// returned (posting ids, scores, factors and explanations), not a recomputation:
 /// a later leaderboard can compare what the user actually saw with the tracker.
+/// Last accepted Frankfurter rate set per base currency. One row per base; a
+/// failed lookup reads it and marks the result stale instead of inventing a
+/// rate. `payload` holds exact decimal strings, never floats.
+model FxRateSnapshot {
+  id        String         @id @default(cuid())
+  base      SalaryCurrency @unique
+  source    String
+  fetchedAt DateTime
+  payload   Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("fx_rate_snapshots")
+}
+
 model RankingSnapshot {
   id         String   @id @default(cuid())
   userId     String
@@ -1688,6 +1794,30 @@ enum ApplicationStatus {
   WITHDRAWN
 }
 
+/// A user's explicit verdict on a posting. Deliberately separate from an
+/// application status: "irrelevant" is not a rejected application, and a
+/// rejected application is never evidence about the user's skills.
+enum JobFeedbackVerdict {
+  INTERESTED
+  IRRELEVANT
+  APPLIED
+  REJECTED
+  INTERVIEWED
+  OFFERED
+}
+
+enum SearchAlertFrequency {
+  OFF
+  DAILY
+  WEEKLY
+}
+
+enum CareerTargetRoleSource {
+  USER
+  CAREER_PATH
+  INTAKE
+}
+
 enum JobSource {
   MANUAL
   EXTENSION
@@ -1725,15 +1855,42 @@ enum JobRiskSource {
   AI
 }
 
+/// Pay periods a posting can quote. CONTRACT is a total, so it only normalizes
+/// when `salaryTermMonths` gives the length.
 enum SalaryPeriod {
   HOURLY
+  DAILY
+  WEEKLY
   MONTHLY
   YEARLY
+  CONTRACT
 }
 
+/// ISO 4217 codes RoleSpec stores. Must stay identical to
+/// `SUPPORTED_CURRENCIES` in src/shared/lib/money/currencies.ts; a test asserts
+/// the two lists agree, and the registry carries each currency's minor-unit
+/// scale (JPY has none).
 enum SalaryCurrency {
   USD
   PHP
+  EUR
+  GBP
+  AUD
+  CAD
+  SGD
+  JPY
+  INR
+  AED
+  SAR
+  NZD
+  CHF
+}
+
+/// How a salary figure entered the system.
+enum SalaryProvenance {
+  USER_ENTERED
+  POSTING_TEXT
+  PROVIDER_STRUCTURED
 }
 
 enum GoalPeriod {

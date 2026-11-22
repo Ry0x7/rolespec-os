@@ -1,6 +1,9 @@
+import type Decimal from "decimal.js"
+
 import type { ExperienceLevel, SalaryPeriod, SalaryCurrency, WorkType } from "@/generated/prisma/enums"
 import { extractRequirementTerms } from "@/shared/lib/application-grounding"
-import { annualizeSalary, formatSalary } from "../components/job-form-options"
+import { dec, formatSalaryRange, type DecimalLike } from "@/shared/lib/money/money"
+import { annualizeSalary } from "../components/job-form-options"
 import type { JobRequirementFlag } from "./job-requirements.service"
 
 export interface IntelligentMatchingProfile {
@@ -9,10 +12,10 @@ export interface IntelligentMatchingProfile {
   workModes?: WorkType[]
   workAuthorization?: string | null
   requiresSponsorship?: boolean | null
-  salaryMin?: number | null
-  salaryMax?: number | null
+  salaryMin?: DecimalLike | null
+  salaryMax?: DecimalLike | null
   salaryPeriod?: SalaryPeriod | null
-  salaryCurrency?: SalaryCurrency
+  salaryCurrency?: SalaryCurrency | null
   capabilities?: Array<{
     name: string
     depth?: "EXPOSURE" | "WORKING" | "DEEP"
@@ -25,9 +28,16 @@ export interface IntelligentMatchingJob {
   description?: string | null
   location?: string | null
   workType?: WorkType | null
-  salary?: number | null
+  /**
+   * The posting's yearly bounds, as the write path normalized them. Read from
+   * the stored columns rather than annualized here: the calendar that did it is
+   * the same one that told the user what the figure means, and a contract total
+   * needs its term, which the job row already carries.
+   */
+  salaryAnnualMin?: DecimalLike | null
+  salaryAnnualMax?: DecimalLike | null
+  salaryCurrency?: SalaryCurrency | null
   salaryPeriod?: SalaryPeriod | null
-  salaryCurrency?: SalaryCurrency
   postedAt?: Date | null
   requirementFlags?: JobRequirementFlag[] | string[] | null
 }
@@ -201,8 +211,14 @@ function claimsCitizenship(value: string | null | undefined): boolean {
   })
 }
 
-function formatAnnual(amount: number, currency: SalaryCurrency | undefined): string {
-  return formatSalary(Math.round(amount), null, currency)
+/**
+ * A yearly figure in the currency it was paid in. When the currency is unstated
+ * it is not guessed at: the line says so, because "$85,000" and "¥85,000" are
+ * different salaries and only the posting knows which one it meant.
+ */
+function formatAnnual(amount: Decimal, currency: SalaryCurrency | null | undefined): string {
+  if (!currency) return `${amount.toFixed(0)} a year (currency not stated)`
+  return formatSalaryRange(amount, amount, currency, "YEARLY") ?? `${amount.toFixed(0)} a year`
 }
 
 export function computeIntelligentMatch(
@@ -448,37 +464,46 @@ export function computeIntelligentMatch(
     gaps.push(`Work mode differs (${job.workType.toLowerCase()})`)
   }
 
-  // 6. Salary — annualize both sides; never compare across currencies without a rate.
-  const jobCurrency = job.salaryCurrency ?? "USD"
-  const profileCurrency = profile.salaryCurrency ?? "USD"
-  const jobAnnual =
-    job.salary != null && job.salary > 0 ? annualizeSalary(job.salary, job.salaryPeriod ?? null) : null
-  const profileAnnual =
-    profile.salaryMin != null && profile.salaryMin > 0
-      ? annualizeSalary(profile.salaryMin, profile.salaryPeriod ?? null)
-      : null
+  // 6. Salary — compare yearly bounds, and only inside one currency.
+  //
+  // The annual figures are the ones the write path stored, so an hourly posting
+  // is compared through the same working calendar the user was shown. Nothing
+  // here converts: two currencies with no rate between them are reported as
+  // incomparable rather than turned into a number from a guessed rate.
+  const jobCurrency = job.salaryCurrency ?? null
+  const profileCurrency = profile.salaryCurrency ?? null
+  const jobAnnual = job.salaryAnnualMin ?? job.salaryAnnualMax ?? null
+  const profileAnnual = profile.salaryMin != null ? annualizeSalary(profile.salaryMin, profile.salaryPeriod ?? null) : null
   let salary: DimensionScore
 
   if (jobAnnual === null) {
-    salary = unknownDimension("salary", "The posting does not state a salary, so it cannot be compared with your minimum.")
+    salary = unknownDimension(
+      "salary",
+      "The posting does not state pay in a comparable yearly form, so it cannot be compared with your minimum."
+    )
   } else if (profileAnnual === null) {
     salary = unknownDimension(
       "salary",
-      `The posting pays ${formatAnnual(jobAnnual, jobCurrency)}, but the Career Profile does not set a minimum salary.`
+      `The posting pays ${formatAnnual(dec(jobAnnual), jobCurrency)}, but the Career Profile does not set a minimum salary.`
+    )
+  } else if (jobCurrency === null || profileCurrency === null) {
+    salary = unknownDimension(
+      "salary",
+      `The posting pays ${formatAnnual(dec(jobAnnual), jobCurrency)}; your minimum is ${formatAnnual(profileAnnual, profileCurrency)}. One side does not state its currency, so they cannot be compared.`
     )
   } else if (jobCurrency !== profileCurrency) {
     salary = unknownDimension(
       "salary",
-      `The posting pays ${formatAnnual(jobAnnual, jobCurrency)}; your minimum is ${formatAnnual(profileAnnual, profileCurrency)}. The currencies differ, so compare them manually.`
+      `The posting pays ${formatAnnual(dec(jobAnnual), jobCurrency)}; your minimum is ${formatAnnual(profileAnnual, profileCurrency)}. The currencies differ, so compare them manually.`
     )
   } else {
-    const meetsMinimum = jobAnnual >= profileAnnual
+    const meetsMinimum = dec(jobAnnual).gte(profileAnnual)
     salary = {
       score: meetsMinimum ? 100 : 40,
       weight: DIMENSION_WEIGHTS.salary,
       label: DIMENSION_LABELS.salary,
       status: meetsMinimum ? "GOOD" : "CONCERN",
-      explanation: `The posting pays ${formatAnnual(jobAnnual, jobCurrency)}; your minimum is ${formatAnnual(profileAnnual, profileCurrency)}.`,
+      explanation: `The posting pays ${formatAnnual(dec(jobAnnual), jobCurrency)}; your minimum is ${formatAnnual(profileAnnual, profileCurrency)}.`,
     }
     if (meetsMinimum) strengths.push("Stated pay meets your minimum")
     else gaps.push("Stated pay is below your minimum")

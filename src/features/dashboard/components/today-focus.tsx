@@ -91,7 +91,7 @@ export function TodayFocus({
         {nextAction && (
           <Link
             href={nextAction.href}
-            className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1.5 rounded-md bg-brand-700 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {nextAction.cta}
             <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />

@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, ExternalLink, Gauge, Info, XCircle } from "lucide-react"
 import { EmptyState } from "@/shared/components/empty-state"
 import { formatDate } from "@/shared/lib/utils"
+import { isHttpUrl } from "@/shared/lib/url"
 import type { RatingIssue } from "@/shared/lib/rating/schemas"
 import type { ProfileRatingData } from "@/shared/lib/rating/rating.service"
 
@@ -81,7 +82,7 @@ export function RatingResults({ data, emptyHint }: RatingResultsProps) {
           <p className="mt-0.5 text-xs text-muted-foreground">
             Rated {formatDate(data.createdAt)}
           </p>
-          {data.sourceUrl && (
+          {data.sourceUrl && isHttpUrl(data.sourceUrl) && (
             <a
               href={data.sourceUrl}
               target="_blank"

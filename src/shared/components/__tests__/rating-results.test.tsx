@@ -58,6 +58,17 @@ function makePortfolioRating(
 }
 
 describe("RatingResults", () => {
+  it.each(["javascript:alert(1)", "data:text/html,x", "not a url"])(
+    "does not render %s as a link",
+    (sourceUrl) => {
+      const { container } = render(
+        <RatingResults data={makePortfolioRating({ sourceUrl })} />
+      )
+
+      expect(container.querySelector("a[href]")).toBeNull()
+    }
+  )
+
   it("renders the overall score and the five LinkedIn category labels", () => {
     render(<RatingResults data={makeLinkedInRating()} />)
 

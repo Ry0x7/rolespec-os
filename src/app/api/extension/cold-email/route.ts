@@ -8,6 +8,7 @@ import { EXTENSION_COLD_EMAIL_RATE_LIMIT } from "@/features/settings/constants/d
 import { verifyApiToken } from "@/features/settings/services/api-token"
 import { AiDailyLimitError, AiKeyRequiredError } from "@/shared/lib/ai-provider"
 import { logger } from "@/shared/lib/logger"
+import { isHttpUrl } from "@/shared/lib/url"
 import {
   RATE_LIMIT_BUCKETS,
   RATE_LIMIT_MESSAGE,
@@ -43,7 +44,12 @@ const extensionColdEmailSchema = z.object({
     headline: z.string().max(300).optional(),
     company: z.string().max(200).optional(),
     about: z.string().max(5000).optional(),
-    profileUrl: z.string().url("Must be a valid URL").max(500).optional(),
+    profileUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .refine(isHttpUrl, "Must be a valid http(s) URL")
+      .optional(),
   }),
   /**
    * Optional and defaulted, so a client built before the LinkedIn message types

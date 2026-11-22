@@ -139,7 +139,7 @@ export function JobTasksPanel({ jobApplicationId, todos }: JobTasksPanelProps) {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7 text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    className="h-7 w-7 text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
                     aria-label={`Delete ${task.title}`}
                     disabled={pendingId === task.id}
                     onClick={() => handleDelete(task)}

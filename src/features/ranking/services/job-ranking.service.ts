@@ -1,3 +1,5 @@
+import { savedJobFeedbackKey } from "@/features/feedback/posting-key"
+import { loadFeedbackByKeys } from "@/features/feedback/services/feedback.service"
 import { prisma } from "@/shared/lib/prisma"
 
 import type { RankedEntry, RankingPosting, RankingResult } from "../types"
@@ -51,12 +53,17 @@ export async function rankSavedJobs(
         id: true,
         title: true,
         companyName: true,
+        canonicalUrl: true,
         description: true,
         location: true,
         workType: true,
-        salary: true,
+        salaryMin: true,
+        salaryMax: true,
+        salaryText: true,
         salaryPeriod: true,
         salaryCurrency: true,
+        salaryTermMonths: true,
+        salaryProvenance: true,
         postedAt: true,
         requirementFlags: true,
         url: true,
@@ -65,6 +72,11 @@ export async function rankSavedJobs(
     }),
   ])
 
+  const feedbackByKey = await loadFeedbackByKeys(
+    input.userId,
+    jobs.map((job) => savedJobFeedbackKey(job))
+  )
+
   const postings: RankingPosting[] = jobs.map((job) => ({
     id: job.id,
     title: job.title,
@@ -72,12 +84,17 @@ export async function rankSavedJobs(
     description: job.description,
     location: job.location,
     workType: job.workType,
-    salary: job.salary,
+    salaryMin: job.salaryMin,
+    salaryMax: job.salaryMax,
+    salaryText: job.salaryText,
     salaryCurrency: job.salaryCurrency,
     salaryPeriod: job.salaryPeriod,
+    salaryTermMonths: job.salaryTermMonths,
+    salaryProvenance: job.salaryProvenance,
     postedAt: job.postedAt,
     requirementFlags: requirementFlags(job.requirementFlags),
     url: job.url,
+    feedback: feedbackByKey[savedJobFeedbackKey(job)] ?? null,
   }))
 
   const result = rankJobPool({

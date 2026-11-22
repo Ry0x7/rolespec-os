@@ -127,10 +127,14 @@ describe("jobDataFromApplication", () => {
     }
   })
 
-  it("leaves a non-null column with a schema default undefined rather than null", () => {
+  it("never invents a currency for a posting that states no pay", () => {
     const job = jobDataFromApplication(applicationInput())
 
-    expect(job.salaryCurrency).toBeUndefined()
+    // No figure, no currency — not a silent USD default.
+    expect(job.salaryCurrency).toBeNull()
+    expect(job.salaryMin).toBeNull()
+    expect(job.salaryMax).toBeNull()
+    expect(job.salaryProvenance).toBeNull()
     expect(job.source).toBe(JobSource.DISCOVERY)
   })
 })
@@ -161,7 +165,13 @@ describe("createJobApplicationWithJob", () => {
 
   it("no longer writes the posting columns onto the application", async () => {
     await createJobApplicationWithJob(
-      applicationInput({ salary: 120000, riskLevel: JobRiskLevel.HIGH })
+      applicationInput({
+        salaryMin: 120000,
+        salaryMax: 140000,
+        salaryCurrency: "USD",
+        salaryPeriod: "YEARLY",
+        riskLevel: JobRiskLevel.HIGH,
+      })
     )
 
     const data = mockPrisma.jobApplication.create.mock.calls[0][0].data
@@ -171,7 +181,11 @@ describe("createJobApplicationWithJob", () => {
       "canonicalUrl",
       "location",
       "workType",
-      "salary",
+      "salaryMin",
+      "salaryMax",
+      "salaryCurrency",
+      "salaryPeriod",
+      "salaryText",
       "riskLevel",
       "source",
       "sourceProvider",
@@ -220,7 +234,6 @@ describe("jobUpdateFromApplicationUpdate", () => {
       companyName: "Acme",
       jobLink: null,
       jobDescription: "New description.",
-      salary: null,
       requirementFlags: Prisma.DbNull,
     })
 
@@ -231,7 +244,6 @@ describe("jobUpdateFromApplicationUpdate", () => {
       // Derived from the link, so clearing one clears the other.
       canonicalUrl: null,
       description: "New description.",
-      salary: null,
       requirementFlags: Prisma.DbNull,
     })
   })
@@ -293,7 +305,10 @@ describe("updateJobApplicationWithJob", () => {
         jobLink: null,
         jobDescription: "New description.",
         location: "Remote",
-        salary: 120000,
+        salaryMin: 120000,
+        salaryMax: 120000,
+        salaryCurrency: "USD",
+        salaryPeriod: "YEARLY",
         riskLevel: JobRiskLevel.HIGH,
         requirementFlags: Prisma.DbNull,
         status: ApplicationStatus.APPLIED,
@@ -303,7 +318,8 @@ describe("updateJobApplicationWithJob", () => {
     expect(mockPrisma.jobApplication.update.mock.calls[0][0].data).toEqual({
       status: ApplicationStatus.APPLIED,
     })
-    expect(mockPrisma.job.update.mock.calls[0][0].data).toEqual({
+    const data = mockPrisma.job.update.mock.calls[0][0].data
+    expect(data).toMatchObject({
       companyName: "Acme",
       title: "Staff Engineer",
       url: null,
@@ -311,10 +327,17 @@ describe("updateJobApplicationWithJob", () => {
       canonicalUrl: null,
       description: "New description.",
       location: "Remote",
-      salary: 120000,
+      // The whole salary block is written together, normalized at the boundary.
+      salaryCurrency: "USD",
+      salaryPeriod: "YEARLY",
+      salaryProvenance: "USER_ENTERED",
       riskLevel: JobRiskLevel.HIGH,
       requirementFlags: Prisma.DbNull,
     })
+    expect(data.salaryMin.toString()).toBe("120000")
+    expect(data.salaryMax.toString()).toBe("120000")
+    expect(data.salaryAnnualMin.toString()).toBe("120000")
+    expect(data.salaryAnnualMax.toString()).toBe("120000")
   })
 
   it("still runs the application update when the strip leaves nothing, keeping the ownership check", async () => {

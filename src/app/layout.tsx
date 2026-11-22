@@ -95,7 +95,9 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: "dark",
+  // The app ships both modes; the class on <html> picks one. Declaring only
+  // "dark" left light mode with dark native scrollbars and select popups.
+  colorScheme: "dark light",
   themeColor: "#09090C",
 }
 

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { SalaryCurrency, SalaryPeriod } from "@/generated/prisma/enums"
 import { logActivityEvent, resolveApiUserId } from "@/features/auth/api-auth"
 import { canonicalizeUrl } from "@/features/discovery/services/normalize.service"
+import { salaryColumnsFrom } from "@/features/jobs/services/job-record.service"
+import { serializeMoney } from "@/shared/lib/money/money"
 import { prisma } from "@/shared/lib/prisma"
 import { isHttpUrl } from "@/shared/lib/url"
 
@@ -13,18 +16,50 @@ const querySchema = z.object({
   cursor: z.string().cuid().optional(),
 })
 
-const createSchema = z.object({
-  companyName: z.string().trim().min(1).max(200),
-  title: z.string().trim().min(1).max(200),
-  url: z
-    .string()
-    .trim()
-    .max(2000)
-    .refine((v) => v === "" || isHttpUrl(v), "Must be a valid http(s) URL")
-    .optional(),
-  location: z.string().max(200).optional().or(z.literal("")),
-  description: z.string().max(50000).optional().or(z.literal("")),
-})
+/** `DECIMAL(14,2)` upper bound. */
+const MAX_MONEY = 999_999_999_999.99
+
+const createSchema = z
+  .object({
+    companyName: z.string().trim().min(1).max(200),
+    title: z.string().trim().min(1).max(200),
+    url: z
+      .string()
+      .trim()
+      .max(2000)
+      .refine((v) => v === "" || isHttpUrl(v), "Must be a valid http(s) URL")
+      .optional(),
+    location: z.string().max(200).optional().or(z.literal("")),
+    description: z.string().max(50000).optional().or(z.literal("")),
+    salaryMin: z.coerce.number().nonnegative().max(MAX_MONEY).optional(),
+    salaryMax: z.coerce.number().nonnegative().max(MAX_MONEY).optional(),
+    // No default: an absent currency means the posting never stated one.
+    salaryCurrency: z.nativeEnum(SalaryCurrency).optional(),
+    salaryPeriod: z.nativeEnum(SalaryPeriod).optional(),
+    salaryTermMonths: z.coerce.number().int().min(1).max(120).optional(),
+    salaryText: z.string().trim().max(500).optional(),
+  })
+  .refine(
+    (v) => v.salaryMin === undefined || v.salaryMax === undefined || v.salaryMin <= v.salaryMax,
+    { path: ["salaryMax"], message: "Maximum pay must be at least the minimum" }
+  )
+  .refine((v) => v.salaryPeriod !== SalaryPeriod.CONTRACT || v.salaryTermMonths !== undefined, {
+    path: ["salaryTermMonths"],
+    message: "Contract pay needs a length in months",
+  })
+
+/** Prisma `Decimal` leaves the process as a string; dates stay ISO from JSON. */
+function moneyWire<T extends { salaryMin: unknown; salaryMax: unknown; salaryAnnualMin: unknown; salaryAnnualMax: unknown }>(
+  row: T
+) {
+  return {
+    ...row,
+    salaryMin: serializeMoney(row.salaryMin as never),
+    salaryMax: serializeMoney(row.salaryMax as never),
+    salaryAnnualMin: serializeMoney(row.salaryAnnualMin as never),
+    salaryAnnualMax: serializeMoney(row.salaryAnnualMax as never),
+  }
+}
 
 /**
  * `GET /api/jobs` — canonical posting list for the Jobs page + workspace widgets.
@@ -66,9 +101,16 @@ export async function GET(req: Request) {
       location: true,
       jobType: true,
       workType: true,
-      salary: true,
-      salaryPeriod: true,
+      salaryMin: true,
+      salaryMax: true,
       salaryCurrency: true,
+      salaryPeriod: true,
+      salaryTermMonths: true,
+      salaryText: true,
+      salaryProvenance: true,
+      salaryAnnualMin: true,
+      salaryAnnualMax: true,
+      salaryNormalizedAt: true,
       source: true,
       createdAt: true,
       updatedAt: true,
@@ -80,7 +122,7 @@ export async function GET(req: Request) {
   const page = hasMore ? jobs.slice(0, limit) : jobs
   const nextCursor = hasMore ? page[page.length - 1]?.id ?? null : null
   return NextResponse.json(
-    { jobs: page, hasMore, nextCursor },
+    { jobs: page.map(moneyWire), hasMore, nextCursor },
     { headers: { "Cache-Control": "private, max-age=10, s-maxage=0" } }
   )
 }
@@ -118,6 +160,7 @@ export async function POST(req: Request) {
       description: parsed.data.description || null,
       canonicalUrl: canonicalUrl || null,
       source: "MANUAL",
+      ...salaryColumnsFrom(parsed.data),
     },
     select: { id: true },
   })

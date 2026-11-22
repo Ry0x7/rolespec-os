@@ -40,7 +40,12 @@ export function buildBoardSearchGroups(profile: BoardSearchProfile): {
   }))
   const activeTargetRoleCount = new Set(
     profile.targetRoles
-      .filter((role) => role.active && role.title.trim().length > 0)
+      .filter(
+        (role) =>
+          role.active &&
+          role.discoveryEnabled !== false &&
+          role.title.trim().length > 0
+      )
       .map((role) => role.title.replace(/\s+/g, " ").trim().toLowerCase())
   ).size
 

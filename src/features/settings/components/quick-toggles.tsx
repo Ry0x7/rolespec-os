@@ -6,7 +6,10 @@ import { toast } from "sonner"
 import { Bell, Coins, Wand2 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { updatePreferences } from "../actions/preferences.actions"
+import { currencyOptions } from "@/shared/lib/money/currencies"
 import type { PreferredCurrency, UserPreferences } from "../schemas/preferences.schema"
+
+const CURRENCY_OPTIONS = currencyOptions()
 
 function Toggle({
   checked,
@@ -59,6 +62,10 @@ export function QuickToggles({ preferences }: { preferences: UserPreferences }) 
         defaultAiInstructions: preferences.defaultAiInstructions,
         emailNotifications: preferences.emailNotifications,
         preferredCurrency: preferences.preferredCurrency,
+        // Owned by the settings form, but the action writes the whole column:
+        // omitting this made a quick toggle reset custom value weights and
+        // minimum-pay policy to their schema defaults.
+        opportunityValue: preferences.opportunityValue,
         ...patch,
       })
       if (result.error) {
@@ -94,21 +101,19 @@ export function QuickToggles({ preferences }: { preferences: UserPreferences }) 
             <Coins className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="truncate">Salary in {preferences.preferredCurrency}</span>
           </span>
-          <button
-            type="button"
+          <select
+            aria-label="Salary display currency"
+            value={preferences.preferredCurrency}
             disabled={isPending}
-            onClick={() =>
-              save({
-                preferredCurrency:
-                  preferences.preferredCurrency === "USD"
-                    ? ("PHP" as PreferredCurrency)
-                    : ("USD" as PreferredCurrency),
-              })
-            }
-            className="rounded-full border border-border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
+            onChange={(e) => save({ preferredCurrency: e.target.value as PreferredCurrency })}
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium disabled:opacity-50"
           >
-            Switch to {preferences.preferredCurrency === "USD" ? "PHP ₱" : "USD $"}
-          </button>
+            {CURRENCY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.value}
+              </option>
+            ))}
+          </select>
         </li>
         <li className="flex items-center justify-between gap-3 rounded-md bg-background/60 px-3 py-2">
           <span className="flex min-w-0 items-center gap-2 text-sm">

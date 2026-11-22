@@ -12,10 +12,11 @@ import { Select } from "@/shared/ui/select"
 import { Textarea } from "@/shared/ui/textarea"
 import { enhanceCareerGoals } from "../actions/enhance"
 import { updateCareerPreferences } from "../actions/career-profile.actions"
+import { currencyOptions } from "@/shared/lib/money/currencies"
+import { PAY_PERIOD_SELECT_LABELS } from "@/shared/lib/money/money"
 import {
   EXPERIENCE_LEVEL_LABELS,
   isLegacyWorkAuthorization,
-  SALARY_PERIOD_LABELS,
   WORK_AUTHORIZATION_OPTIONS,
   WORK_MODE_LABELS,
 } from "../constants/labels"
@@ -24,8 +25,14 @@ import type { CareerPreferencesValues } from "../types"
 
 const WORK_MODE_VALUES = ["REMOTE", "HYBRID", "ONSITE"] as const
 const EXPERIENCE_LEVEL_VALUES = ["JUNIOR", "MID", "SENIOR", "LEAD", "EXECUTIVE"] as const
-const SALARY_PERIOD_VALUES = ["HOURLY", "MONTHLY", "YEARLY"] as const
-const SALARY_CURRENCY_VALUES = ["USD", "PHP"] as const
+/**
+ * Five periods, not six: a contract total cannot be annualized without a
+ * contract length, and the profile does not record one. Offering it would store
+ * a range ranking must then treat as unknown.
+ */
+const SALARY_PERIOD_VALUES = ["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "YEARLY"] as const
+
+const SALARY_CURRENCY_OPTIONS = currencyOptions()
 
 /** Form state is all strings — it mirrors what the fields submit. */
 interface FormState {
@@ -51,10 +58,10 @@ function toFormState(values: CareerPreferencesValues): FormState {
     workAuthorization: values.workAuthorization ?? "",
     requiresSponsorship:
       values.requiresSponsorship === null ? "" : values.requiresSponsorship ? "yes" : "no",
-    salaryMin: values.salaryMin === null ? "" : String(values.salaryMin),
-    salaryMax: values.salaryMax === null ? "" : String(values.salaryMax),
+    salaryMin: values.salaryMin ?? "",
+    salaryMax: values.salaryMax ?? "",
     salaryPeriod: values.salaryPeriod ?? "",
-    salaryCurrency: values.salaryCurrency,
+    salaryCurrency: values.salaryCurrency ?? "",
     careerGoals: values.careerGoals ?? "",
   }
 }
@@ -253,8 +260,10 @@ export function PreferencesForm({ values }: { values: CareerPreferencesValues })
               <Input
                 id="salaryMin"
                 name="salaryMin"
-                type="number"
-                min={1}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="e.g. 45000"
                 value={state.salaryMin}
                 disabled={saving}
                 onChange={(e) => set("salaryMin", e.target.value)}
@@ -265,8 +274,10 @@ export function PreferencesForm({ values }: { values: CareerPreferencesValues })
               <Input
                 id="salaryMax"
                 name="salaryMax"
-                type="number"
-                min={1}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="optional"
                 value={state.salaryMax}
                 disabled={saving}
                 onChange={(e) => set("salaryMax", e.target.value)}
@@ -284,7 +295,7 @@ export function PreferencesForm({ values }: { values: CareerPreferencesValues })
                 <option value="">— not set —</option>
                 {SALARY_PERIOD_VALUES.map((period) => (
                   <option key={period} value={period}>
-                    {SALARY_PERIOD_LABELS[period]}
+                    {PAY_PERIOD_SELECT_LABELS[period]}
                   </option>
                 ))}
               </Select>
@@ -298,14 +309,20 @@ export function PreferencesForm({ values }: { values: CareerPreferencesValues })
                 disabled={saving}
                 onChange={(e) => set("salaryCurrency", e.target.value)}
               >
-                {SALARY_CURRENCY_VALUES.map((currency) => (
-                  <option key={currency} value={currency}>
-                    {currency}
+                <option value="">— not set —</option>
+                {SALARY_CURRENCY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </Select>
             </div>
           </div>
+          {(state.salaryMin || state.salaryMax) && !state.salaryCurrency && (
+            <p className="text-xs text-amber-600 dark:text-amber-500">
+              Add a currency and a period so your range can be compared with postings.
+            </p>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">

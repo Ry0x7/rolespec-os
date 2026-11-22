@@ -8,7 +8,7 @@ export type EditableField =
   | "dateApplied"
   | "deadline"
   | "jobType"
-  | "salary"
+  | "salaryMin"
   | "location"
   | "jobLink"
 
@@ -22,7 +22,7 @@ export const EMPTY_NEW_ROW_DRAFT: NewRowDraft = {
   dateApplied: "",
   deadline: "",
   jobType: "",
-  salary: "",
+  salaryMin: "",
   location: "",
   jobLink: "",
 }
@@ -61,8 +61,9 @@ export function getEditableCellValue(
       return toDateInputValue(row.dateApplied)
     case "deadline":
       return toDateInputValue(row.deadline)
-    case "salary":
-      return row.salary === null ? "" : String(row.salary)
+    case "salaryMin":
+      // One cell edits the lower bound; the form owns the full range.
+      return row.salaryMin ?? ""
     case "jobType":
       return row.jobType ?? ""
     default:

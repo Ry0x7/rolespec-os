@@ -1,3 +1,5 @@
+import { PAY_PERIOD_LABELS } from "@/shared/lib/money/money"
+
 import type {
   CareerCapabilityDepth,
   CareerCapabilitySelfRating,
@@ -70,11 +72,8 @@ export const WORK_MODE_LABELS: Record<WorkType, string> = {
   ONSITE: "On-site",
 }
 
-export const SALARY_PERIOD_LABELS: Record<SalaryPeriod, string> = {
-  HOURLY: "per hour",
-  MONTHLY: "per month",
-  YEARLY: "per year",
-}
+/** Prose form ("per hour") for every period the schema can store. */
+export const SALARY_PERIOD_LABELS: Record<SalaryPeriod, string> = PAY_PERIOD_LABELS
 
 /**
  * Work authorization is stored as free text; these are the choices the forms

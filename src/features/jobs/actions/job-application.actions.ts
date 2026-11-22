@@ -238,9 +238,12 @@ export async function createJobApplication(
     interviewDate,
     followUpAt,
     jobLink,
-    salary,
+    salaryMin,
+    salaryMax,
     salaryPeriod,
     salaryCurrency,
+    salaryTermMonths,
+    salaryText,
     clientToday,
     ...rest
   } = parsed.data
@@ -269,7 +272,9 @@ export async function createJobApplication(
       jobTitle: rest.jobTitle,
       companyName: rest.companyName,
       jobDescription: rest.jobDescription,
-      salary: salary ?? null,
+      // The heuristics only weigh magnitude against the stated period; the
+      // currency-blind trade-off is theirs and predates this change.
+      salary: salaryMax ?? salaryMin ?? null,
       salaryPeriod: salaryPeriod ?? null,
       jobLink: jobLink || null,
       contact: rest.contact,
@@ -311,10 +316,14 @@ export async function createJobApplication(
       }),
       jobLink: jobLink || null,
       ...(canonicalUrl && { canonicalUrl }),
-      salary: salary ?? null,
+      // The service normalizes this set together; a missing currency stays null
+      // rather than being assumed to be USD.
+      salaryMin: salaryMin ?? null,
+      salaryMax: salaryMax ?? null,
+      salaryCurrency: salaryCurrency ?? null,
       salaryPeriod: salaryPeriod ?? null,
-      // Non-null column: leave it undefined so the schema default (USD) applies.
-      salaryCurrency: salaryCurrency ?? undefined,
+      salaryTermMonths: salaryTermMonths ?? null,
+      salaryText: salaryText ?? null,
       // Quick add has no date field: an application created straight into
       // APPLIED still has to count toward the goal / "applied today". Clients
       // that know their own calendar day send it as `dateApplied`; otherwise
@@ -407,9 +416,12 @@ export async function updateJobApplication(id: string, formData: FormData) {
       interviewDate,
       followUpAt,
       jobLink,
-      salary,
+      salaryMin,
+      salaryMax,
       salaryPeriod,
       salaryCurrency,
+      salaryTermMonths,
+      salaryText,
       jobType,
       workType,
       location,
@@ -478,10 +490,16 @@ export async function updateJobApplication(id: string, formData: FormData) {
         ...(jobLink !== undefined ? { jobLink: jobLink || null } : {}),
         ...(jobType !== undefined ? { jobType: jobType || null } : {}),
         ...(workType !== undefined ? { workType: workType || null } : {}),
-        ...(salary !== undefined ? { salary: salary === "" ? null : salary } : {}),
+        // "" is a deliberate clear: the paired writer rewrites the whole salary
+        // block, so an emptied box also drops the annual columns derived from it.
+        ...(salaryMin !== undefined ? { salaryMin: salaryMin === "" ? null : salaryMin } : {}),
+        ...(salaryMax !== undefined ? { salaryMax: salaryMax === "" ? null : salaryMax } : {}),
+        ...(salaryCurrency !== undefined
+          ? { salaryCurrency: salaryCurrency || null }
+          : {}),
         ...(salaryPeriod !== undefined ? { salaryPeriod: salaryPeriod || null } : {}),
-        // "" is not a clear here — the column cannot be null, so it means no change.
-        ...(salaryCurrency ? { salaryCurrency } : {}),
+        ...(salaryTermMonths !== undefined ? { salaryTermMonths } : {}),
+        ...(salaryText !== undefined ? { salaryText: salaryText || null } : {}),
         ...(dateApplied !== undefined ? { dateApplied: parseCalendarDate(dateApplied) } : {}),
         ...(deadline !== undefined ? { deadline: parseCalendarDate(deadline) } : {}),
         ...(interviewDate !== undefined ? { interviewDate: interviewDate ? new Date(interviewDate) : null } : {}),

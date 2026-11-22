@@ -232,7 +232,7 @@ export function NotesList({ notes }: NotesListProps) {
                       <span>Updated {formatDate(note.updatedAt.toISOString())}</span>
                     </div>
                   </div>
-                  <div className="flex shrink-0 gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <div className="flex shrink-0 gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
                     <Button
                       size="icon"
                       variant="ghost"

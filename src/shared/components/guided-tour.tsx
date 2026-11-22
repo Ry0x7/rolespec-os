@@ -282,7 +282,7 @@ export function GuidedTour() {
         <button
           type="button"
           onClick={start}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-brand-700 px-3 text-sm font-medium text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
         >
           Show me around
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -392,7 +392,7 @@ export function GuidedTour() {
             <button
               type="button"
               onClick={next}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-brand-700 px-3 text-sm font-medium text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
             >
               {isLast ? "Finish" : "Next"}
               {isLast ? null : <ArrowRight className="h-4 w-4" aria-hidden="true" />}

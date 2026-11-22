@@ -29,9 +29,12 @@ vi.mock("../../actions/watchlist.actions", () => ({
 }))
 
 const push = vi.fn()
+const replace = vi.fn()
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push, refresh: vi.fn() }),
+  useRouter: () => ({ push, replace, refresh: vi.fn() }),
+  usePathname: () => "/discovery",
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 afterEach(cleanup)

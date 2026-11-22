@@ -9,6 +9,7 @@ import { Label } from "@/shared/ui/label"
 import { Select } from "@/shared/ui/select"
 import { Textarea } from "@/shared/ui/textarea"
 import { updatePreferences } from "../actions/preferences.actions"
+import { OpportunityValueSettings } from "./opportunity-value-settings"
 import {
   MAX_AI_INSTRUCTIONS_LENGTH,
   type PreferredCurrency,
@@ -18,11 +19,10 @@ import {
   DAILY_JOB_GOAL_MAX,
   DAILY_JOB_GOAL_MIN,
 } from "@/features/jobs/constants/goals"
+import { currencyOptions } from "@/shared/lib/money/currencies"
 
-const CURRENCY_OPTIONS: { value: PreferredCurrency; label: string }[] = [
-  { value: "USD", label: "$ US Dollar" },
-  { value: "PHP", label: "₱ Philippine Peso" },
-]
+/** Every ISO 4217 code RoleSpec stores, labelled with its symbol and name. */
+const CURRENCY_OPTIONS: { value: PreferredCurrency; label: string }[] = currencyOptions()
 
 export function PreferencesForm({ preferences }: { preferences: UserPreferences }) {
   const router = useRouter()
@@ -35,6 +35,7 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
   const [preferredCurrency, setPreferredCurrency] = useState<PreferredCurrency>(
     preferences.preferredCurrency
   )
+  const [opportunityValue, setOpportunityValue] = useState(preferences.opportunityValue)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -44,6 +45,7 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
         defaultAiInstructions: instructions,
         emailNotifications,
         preferredCurrency,
+        opportunityValue,
       })
       if (result.error) {
         toast.error(result.error)
@@ -74,6 +76,8 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
         dailyApplicationGoal: savedGoal,
         defaultAiInstructions: instructions,
         ...patch,
+        // Saving one toggle must not reset the value policy the user set.
+        opportunityValue,
       })
       if (result.error) {
         toast.error(result.error)
@@ -146,9 +150,17 @@ export function PreferencesForm({ preferences }: { preferences: UserPreferences 
           ))}
         </Select>
         <p className="text-xs text-muted-foreground">
-          Job salaries are shown converted into this currency.
+          Job salaries keep the currency they were posted in. This currency is the
+          approximate yearly equivalent shown beside them, always with the date of
+          the exchange rate it used.
         </p>
       </div>
+
+      <OpportunityValueSettings
+        value={opportunityValue}
+        onChange={setOpportunityValue}
+        disabled={isPending}
+      />
 
       <div className="space-y-1 rounded-md border border-border bg-muted/40 p-3">
         <p className="text-sm font-medium">Reminders stay in your workspace</p>

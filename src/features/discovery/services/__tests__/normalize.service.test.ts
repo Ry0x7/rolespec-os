@@ -6,6 +6,7 @@ import {
   canonicalizeUrl,
   dedupePostings,
   normalizeAndDedupe,
+  normalizeBatch,
   normalizePosting,
   parseWorkType,
   stripHtml,
@@ -291,5 +292,23 @@ describe("dedupePostings", () => {
 
   it("drops postings that cannot be normalized", () => {
     expect(normalizeAndDedupe([raw({ title: "" })])).toEqual([])
+  })
+
+  it("counts duplicates and unreadable rows without changing the result", () => {
+    const batch = normalizeBatch([
+      raw({ externalId: "1", url: "https://example.com/jobs/1" }),
+      raw({ externalId: "1", url: "https://example.com/jobs/1?utm_source=x" }),
+      raw({ externalId: "2", url: "https://example.com/jobs/2" }),
+      raw({ title: "", externalId: "3" }),
+    ])
+
+    expect(batch.received).toBe(4)
+    expect(batch.postings).toHaveLength(2)
+    expect(batch.duplicates).toBe(1)
+    expect(batch.invalid).toBe(1)
+    expect(normalizeAndDedupe([
+      raw({ externalId: "1", url: "https://example.com/jobs/1" }),
+      raw({ externalId: "1", url: "https://example.com/jobs/1?utm_source=x" }),
+    ])).toEqual(batch.postings.slice(0, 1))
   })
 })

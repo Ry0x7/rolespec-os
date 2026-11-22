@@ -2,20 +2,22 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { isValidElement, type ReactElement, type ReactNode } from "react"
 
-const { mockAuth, mockPrisma, mockRedirect, mockGetUsdPhpRate } = vi.hoisted(() => ({
+const { mockAuth, mockPrisma, mockRedirect, mockLoadDisplayRates } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
   mockPrisma: {
     user: { findUnique: vi.fn() },
+    careerProfile: { findUnique: vi.fn() },
     jobApplication: { groupBy: vi.fn(), findMany: vi.fn() },
+    jobFeedback: { findMany: vi.fn() },
   },
   mockRedirect: vi.fn(),
-  mockGetUsdPhpRate: vi.fn(),
+  mockLoadDisplayRates: vi.fn(),
 }))
 
 vi.mock("@/features/auth/config", () => ({ auth: mockAuth }))
 vi.mock("@/shared/lib/prisma", () => ({ prisma: mockPrisma }))
 vi.mock("next/navigation", () => ({ redirect: mockRedirect }))
-vi.mock("@/shared/lib/fx", () => ({ getUsdPhpRate: mockGetUsdPhpRate }))
+vi.mock("@/shared/lib/money/rates", () => ({ loadDisplayRates: mockLoadDisplayRates }))
 // The page frames "today" off the timezone cookie, which needs a request scope.
 vi.mock("@/shared/lib/user-day", () => ({
   getUserDayStart: async () => TODAY,
@@ -36,9 +38,11 @@ beforeEach(() => {
   mockRedirect.mockImplementation((url: string) => {
     throw new Error(`REDIRECT:${url}`)
   })
-  mockGetUsdPhpRate.mockResolvedValue(56)
+  mockLoadDisplayRates.mockResolvedValue({ rates: null, failure: null })
   mockPrisma.user.findUnique.mockResolvedValue({ preferences: null })
+  mockPrisma.careerProfile.findUnique.mockResolvedValue(null)
   mockPrisma.jobApplication.groupBy.mockResolvedValue([])
+  mockPrisma.jobFeedback.findMany.mockResolvedValue([])
 })
 
 /** Depth-first search for the element the page hands the given component. */
@@ -78,12 +82,19 @@ async function renderedRow() {
 // Every posting field gets a value nothing else in the row shares, so a mapping
 // that reads the wrong source field cannot pass by coincidence.
 const job = {
+  id: "job-1",
+  canonicalUrl: "https://sentinel.example/posting",
   companyName: "SENTINEL_COMPANY",
   title: "SENTINEL_TITLE",
   location: "SENTINEL_LOCATION",
-  salary: 133_711,
-  salaryPeriod: "MONTHLY",
+  salaryMin: 133_711,
+  salaryMax: 133_711,
   salaryCurrency: "PHP",
+  salaryPeriod: "MONTHLY",
+  salaryTermMonths: null,
+  salaryText: null,
+  salaryAnnualMin: null,
+  salaryAnnualMax: null,
   deadline: new Date("2031-03-04T00:00:00.000Z"),
   url: "https://sentinel.example/posting",
   description: "SENTINEL_DESCRIPTION",
@@ -124,6 +135,9 @@ describe("jobs page job-relation mapping", () => {
     expect(row).toEqual({
       id: applicationLevel.id,
       status: applicationLevel.status,
+      feedbackKey: "https://sentinel.example/posting",
+      feedbackJobId: "job-1",
+      feedback: null,
       dateApplied: applicationLevel.dateApplied,
       interviewDate: applicationLevel.interviewDate,
       followUpAt: applicationLevel.followUpAt,
@@ -136,9 +150,32 @@ describe("jobs page job-relation mapping", () => {
         companyName: job.companyName,
         title: job.title,
         location: job.location,
-        salary: job.salary,
-        salaryPeriod: job.salaryPeriod,
+        // Serialized for the client boundary; the card parses the same strings.
+        salaryMin: "133711",
+        salaryMax: "133711",
         salaryCurrency: job.salaryCurrency,
+        salaryPeriod: job.salaryPeriod,
+        salaryTermMonths: job.salaryTermMonths,
+        salaryText: job.salaryText,
+        // Exact strings for the list's filters, separate from the Decimal
+        // columns the card still reads.
+        salary: {
+          min: "133711",
+          max: "133711",
+          currency: "PHP",
+          period: "MONTHLY",
+          termMonths: null,
+        },
+        // Posted Sep 8, the user's day is Sep 14.
+        ageDays: 6,
+        salaryDisplay: expect.objectContaining({
+          primary: "₱133,711 per month",
+          // The reader's currency is PHP too, so no rate is involved — but a
+          // monthly figure still gets its annual equivalent.
+          equivalent: "₱1,604,532",
+          equivalentNotice: null,
+          caveat: null,
+        }),
         deadline: job.deadline,
         url: job.url,
         description: job.description,
@@ -148,6 +185,17 @@ describe("jobs page job-relation mapping", () => {
         requirementFlags: job.requirementFlags,
       },
       verdict: null,
+      // The engine's payload travels whole to the card: score, dimensions and
+      // the evidence the panel quotes.
+      opportunityValue: expect.objectContaining({
+        score: expect.any(Number),
+        grade: expect.any(String),
+        preset: "BALANCED",
+        dimensions: expect.any(Array),
+        rejections: expect.any(Array),
+        compensation: expect.objectContaining({ state: expect.any(String) }),
+        workload: expect.objectContaining({ indicators: expect.any(Array) }),
+      }),
       confidence: expect.objectContaining({ level: expect.any(String) }),
       provenance: expect.any(String),
       nextStep: expect.objectContaining({ urgency: expect.any(Number) }),
@@ -179,6 +227,27 @@ describe("jobs page job-relation mapping", () => {
     expect(rowJob).not.toHaveProperty("status")
   })
 
+  it("scores opportunity value against the stored salary expectation", async () => {
+    mockPrisma.careerProfile.findUnique.mockResolvedValue({
+      salaryMin: "100000",
+      salaryMax: "140000",
+      salaryCurrency: "PHP",
+      salaryPeriod: "MONTHLY",
+    })
+    mockPrisma.jobApplication.findMany.mockResolvedValue([{ ...applicationLevel, job }])
+
+    const row = await renderedRow()
+    const value = row.opportunityValue as {
+      compensation: { state: string; ratio: number | null }
+      dimensions: Array<{ id: string; score: number | null }>
+    }
+
+    // The posting pays ₱133,711 a month; the expectation midpoint is ₱120,000.
+    expect(value.compensation.state).toBe("SUPPORTED")
+    expect(value.compensation.ratio).toBeGreaterThan(1)
+    expect(value.dimensions.find((dimension) => dimension.id === "FIT")?.score).toBeNull()
+  })
+
   it("passes requirementFlags through untouched", async () => {
     // NULL for every row in the dev database, so this is the only exercise the
     // field gets.
@@ -203,9 +272,12 @@ describe("jobs page job-relation mapping", () => {
           companyName: "",
           title: "",
           location: null,
-          salary: null,
+          salaryMin: null,
+          salaryMax: null,
+          salaryCurrency: null,
           salaryPeriod: null,
-          salaryCurrency: "USD",
+          salaryTermMonths: null,
+          salaryText: null,
           deadline: null,
           url: null,
           description: null,
@@ -240,9 +312,27 @@ describe("jobs page job-relation mapping", () => {
         companyName: "",
         title: "",
         location: null,
-        salary: null,
+        salaryMin: null,
+        salaryMax: null,
+        salaryCurrency: null,
         salaryPeriod: null,
-        salaryCurrency: "USD",
+        salaryTermMonths: null,
+        salaryText: null,
+        salary: {
+          min: null,
+          max: null,
+          currency: null,
+          period: null,
+          termMonths: null,
+        },
+        // No posted date, so the row's creation date stands in.
+        ageDays: expect.any(Number),
+        salaryDisplay: expect.objectContaining({
+          primary: null,
+          equivalent: null,
+          equivalentNotice: null,
+          caveat: "The posting does not state pay.",
+        }),
         deadline: null,
         url: null,
         description: null,
@@ -252,6 +342,17 @@ describe("jobs page job-relation mapping", () => {
         requirementFlags: null,
       },
       verdict: null,
+      // The engine's payload travels whole to the card: score, dimensions and
+      // the evidence the panel quotes.
+      opportunityValue: expect.objectContaining({
+        score: expect.any(Number),
+        grade: expect.any(String),
+        preset: "BALANCED",
+        dimensions: expect.any(Array),
+        rejections: expect.any(Array),
+        compensation: expect.objectContaining({ state: expect.any(String) }),
+        workload: expect.objectContaining({ indicators: expect.any(Array) }),
+      }),
       confidence: expect.objectContaining({ level: expect.any(String) }),
       provenance: expect.any(String),
       nextStep: expect.objectContaining({ urgency: expect.any(Number) }),

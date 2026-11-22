@@ -54,8 +54,13 @@ export async function assessJobRiskAI(input: {
     companyName: string
     jobTitle: string
     jobDescription: string
-    salary?: number | null
-    salaryPeriod?: string | null
+    /**
+     * The posting's pay as it reads on screen — its own words, or the normalized
+     * range. Never a bare number: a model asked to judge "is this realistic?"
+     * cannot do that without the currency and the period, and a magnitude alone
+     * would let it compare pesos to dollars.
+     */
+    salaryText?: string | null
     jobLink?: string | null
     contact?: string | null
     location?: string | null
@@ -67,7 +72,7 @@ export async function assessJobRiskAI(input: {
     `Company: ${job.companyName}`,
     `Role: ${job.jobTitle}`,
     job.location ? `Location: ${job.location}` : null,
-    job.salary ? `Advertised pay: ${job.salary} ${job.salaryPeriod ?? ""}`.trim() : null,
+    job.salaryText ? `Advertised pay: ${job.salaryText}` : null,
     job.jobLink ? `Apply link: ${job.jobLink}` : null,
     job.contact ? `Recruiter contact: ${job.contact}` : null,
     `Job description:\n${job.jobDescription.slice(0, JOB_DESCRIPTION_LIMIT)}`,

@@ -1436,11 +1436,24 @@ describe("createJobApplication defensive validation", () => {
     expect(mockPrisma.jobApplication.create).not.toHaveBeenCalled()
   })
 
-  it("rejects salaries above INT4 max", async () => {
+  it("rejects pay above the DECIMAL(14,2) column", async () => {
     const data = new FormData()
     data.set("companyName", "Acme")
     data.set("jobTitle", "Engineer")
-    data.set("salary", "99999999999")
+    data.set("salaryMin", "9999999999999")
+
+    const result = await createJobApplication(data)
+
+    expect(result).toMatchObject({ error: "Invalid input" })
+    expect(mockPrisma.jobApplication.create).not.toHaveBeenCalled()
+  })
+
+  it("rejects an inverted pay range before it reaches the database", async () => {
+    const data = new FormData()
+    data.set("companyName", "Acme")
+    data.set("jobTitle", "Engineer")
+    data.set("salaryMin", "120000")
+    data.set("salaryMax", "90000")
 
     const result = await createJobApplication(data)
 

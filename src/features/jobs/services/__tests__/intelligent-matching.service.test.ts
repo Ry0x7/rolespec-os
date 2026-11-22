@@ -62,7 +62,9 @@ describe("computeIntelligentMatch", () => {
       title: "Senior Full Stack Engineer",
       description: `${REQUIRED_SKILLS}\nWe are looking for a Senior Engineer with TypeScript and React experience. Remote role.`,
       workType: "REMOTE",
-      salary: 150000,
+      salaryAnnualMin: 150000,
+      salaryAnnualMax: 150000,
+      salaryCurrency: "USD",
       postedAt: new Date(),
       requirementFlags: [],
     }
@@ -261,7 +263,9 @@ describe("computeIntelligentMatch", () => {
       title: "Junior Support Specialist",
       description: "Looking for an entry-level candidate. Onsite only.",
       workType: "ONSITE",
-      salary: 50000,
+      salaryAnnualMin: 50000,
+      salaryAnnualMax: 50000,
+      salaryCurrency: "USD",
       postedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
     }
 
@@ -304,11 +308,13 @@ describe("computeIntelligentMatch", () => {
     expect(result.dimensions.freshness.explanation).toContain("published date")
   })
 
-  it("annualizes an hourly posting before comparing it with a yearly minimum", () => {
+  it("compares the stored yearly figure of an hourly posting with a yearly minimum", () => {
     const job: IntelligentMatchingJob = {
       title: "Senior Full Stack Engineer",
       description: REQUIRED_SKILLS,
-      salary: 50,
+      // The write path already annualized the hourly rate through the pay calendar.
+      salaryAnnualMin: 104000,
+      salaryAnnualMax: 104000,
       salaryPeriod: "HOURLY",
       salaryCurrency: "USD",
       requirementFlags: [],
@@ -326,7 +332,8 @@ describe("computeIntelligentMatch", () => {
     const job: IntelligentMatchingJob = {
       title: "Senior Full Stack Engineer",
       description: REQUIRED_SKILLS,
-      salary: 100000,
+      salaryAnnualMin: 100000,
+      salaryAnnualMax: 100000,
       salaryPeriod: "YEARLY",
       salaryCurrency: "USD",
       requirementFlags: [],

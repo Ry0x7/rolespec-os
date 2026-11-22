@@ -157,13 +157,20 @@ describe("validation", () => {
     ["unknown jobType", { ...VALID_BODY, jobType: "PERMANENT" }],
     ["oversized description", { ...VALID_BODY, jobDescription: "x".repeat(20001) }],
     ["oversized location", { ...VALID_BODY, location: "x".repeat(201) }],
-    ["negative salary", { ...VALID_BODY, salary: -1 }],
-    ["unknown salaryPeriod", { ...VALID_BODY, salaryPeriod: "WEEKLY" }],
-    ["unknown salaryCurrency", { ...VALID_BODY, salaryCurrency: "EUR" }],
+    ["negative salary", { ...VALID_BODY, salaryMin: -1 }],
+    ["unknown salaryPeriod", { ...VALID_BODY, salaryPeriod: "FORTNIGHTLY" }],
+    ["unknown salaryCurrency", { ...VALID_BODY, salaryCurrency: "XYZ" }],
+    ["inverted salary range", { ...VALID_BODY, salaryMin: 120000, salaryMax: 90000 }],
+    ["contract pay without a term", { ...VALID_BODY, salaryPeriod: "CONTRACT" }],
     ["unknown workType", { ...VALID_BODY, workType: "WFH" }],
     ["unparseable postedAt", { ...VALID_BODY, postedAt: "last Tuesday" }],
     ["non-string postedAt", { ...VALID_BODY, postedAt: 20260901 }],
     ["unparseable deadline", { ...VALID_BODY, deadline: "2026-13-45" }],
+    ["javascript: jobLink", { ...VALID_BODY, jobLink: "javascript:alert(1)" }],
+    ["data: jobLink", { ...VALID_BODY, jobLink: "data:text/html,<script>1</script>" }],
+    ["ftp jobLink", { ...VALID_BODY, jobLink: "ftp://example.com/job" }],
+    ["over-long jobLink", { ...VALID_BODY, jobLink: `https://example.com/${"a".repeat(2000)}` }],
+    ["salary beyond DECIMAL(14,2)", { ...VALID_BODY, salaryMin: 1_000_000_000_000 }],
   ])("400s on %s", async (_label, body) => {
     const res = await post(body)
 
@@ -216,15 +223,23 @@ describe("creation", () => {
         title: "Engineer",
         url: "https://example.com/job",
         location: "Remote",
-        salary: 90000,
         salaryPeriod: "MONTHLY",
         salaryCurrency: "PHP",
+        salaryProvenance: "USER_ENTERED",
         jobType: "FULL_TIME",
         workType: "REMOTE",
         userId: "user_1",
       }),
       select: { id: true },
     })
+    // A legacy single figure is stored as a one-point range and annualized in
+    // its own currency — 90,000 PHP/month is 1,080,000 PHP/year.
+    const pay = mocks.jobRowCreate.mock.calls[0][0].data
+    expect(pay.salaryMin.toString()).toBe("90000")
+    expect(pay.salaryMax.toString()).toBe("90000")
+    expect(pay.salaryAnnualMax.toString()).toBe("1080000")
+    // The legacy key is transport only; it must never reach Prisma.
+    expect(pay).not.toHaveProperty("salary")
     expect(mocks.jobRowCreate.mock.calls[0][0].data.requirementFlags).toEqual(
       Prisma.DbNull
     )

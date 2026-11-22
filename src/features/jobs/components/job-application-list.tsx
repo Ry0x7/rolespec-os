@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Briefcase, Plus, SearchX } from "lucide-react"
 import { Button } from "@/shared/ui/button"
@@ -9,7 +10,16 @@ import { Select } from "@/shared/ui/select"
 import { EmptyState } from "@/shared/components/empty-state"
 import { Pagination } from "@/shared/ui/pagination"
 import { usePagedList } from "@/shared/hooks/use-paged-list"
-import type { SalaryCurrency } from "@/generated/prisma/enums"
+import { OpportunityFilterPanel } from "@/features/opportunity/components/opportunity-filter-panel"
+import {
+  DEFAULT_CRITERIA,
+  groupOpportunities,
+  parseFilterParams,
+  sortOpportunities,
+  writeFilterParams,
+  type FilterableOpportunity,
+  type OpportunityFilterCriteria,
+} from "@/features/opportunity/filters"
 import {
   buildStatusFilterOptions,
   CONFIDENCE_FILTER_OPTIONS,
@@ -39,12 +49,51 @@ import {
  */
 const BULK_DELETE_LIMIT = 200
 
+/**
+ * The two buckets a filter can move a row into, rendered as compact rows
+ * instead of full cards: the card is for a job you are acting on, not for one a
+ * filter set aside. Each row still links to the job so nothing is unreachable.
+ */
+function FilteredRows({
+  title,
+  description,
+  rows,
+}: {
+  title: string
+  description: string
+  rows: Array<{ application: JobApplicationCardData; reasons: string[] }>
+}) {
+  if (rows.length === 0) return null
+  return (
+    <details className="rounded-lg border border-border bg-card px-3 py-2">
+      <summary className="cursor-pointer text-sm font-medium text-foreground">
+        {title} ({rows.length})
+      </summary>
+      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      <ul className="mt-2 divide-y divide-border">
+        {rows.map(({ application, reasons }) => (
+          <li key={application.id} className="py-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <Link
+                href={`/jobs/${application.id}`}
+                className="text-sm font-medium text-foreground hover:underline"
+              >
+                {application.job.title || application.job.companyName}
+              </Link>
+              <span className="text-xs text-muted-foreground">
+                {application.job.companyName}
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">{reasons.join(" ")}</p>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
 interface JobApplicationListProps {
   applications: JobApplicationCardData[]
-  /** Pesos per dollar, fetched once on the server and handed to every card. */
-  usdPhpRate: number
-  /** The user's display currency for the salary equivalents line. */
-  preferredCurrency: SalaryCurrency
   /** Per-status totals across all of the user's applications. */
   statusCounts: StatusFilterCounts
   /** Preselected follow-up filter, read from the `filter` search param. */
@@ -57,8 +106,6 @@ interface JobApplicationListProps {
 
 export function JobApplicationList({
   applications,
-  usdPhpRate,
-  preferredCurrency,
   statusCounts,
   initialFollowUpFilter = "ALL",
   initialSort = "NEEDS_ACTION",
@@ -90,6 +137,75 @@ export function JobApplicationList({
   // of what it was given, so the cover-letter fields survive the round trip.
   const visibleApplications = filteredApplications as JobApplicationCardData[]
 
+  // The opportunity filters are read from the same URL the saved-job filters
+  // already use; `writeFilterParams` preserves `status`, `q`, `page` and the
+  // rest, so the two state sets never overwrite each other.
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [criteria, setCriteria] = useState<OpportunityFilterCriteria>(() =>
+    parseFilterParams(searchParams),
+  )
+
+  // A soft navigation into `/jobs?...` (back/forward, a deep link) keeps this
+  // component mounted. The hook above re-reads its own filters on such a
+  // change; the opportunity criteria have to do the same or the panel would
+  // keep describing the URL the user just left. Our own writes go through
+  // `history.replaceState`, which does not reach `useSearchParams`, so they
+  // never trigger this branch.
+  const observedOpportunityQuery = searchParams.toString()
+  const [lastOpportunityQuery, setLastOpportunityQuery] = useState(observedOpportunityQuery)
+  if (observedOpportunityQuery !== lastOpportunityQuery) {
+    setLastOpportunityQuery(observedOpportunityQuery)
+    const fromUrl = parseFilterParams(searchParams)
+    if (JSON.stringify(fromUrl) !== JSON.stringify(criteria)) setCriteria(fromUrl)
+  }
+
+  function commitCriteria(next: OpportunityFilterCriteria) {
+    setCriteria(next)
+    const params = writeFilterParams(new URLSearchParams(window.location.search), next)
+    // A narrower list may have fewer pages; start at the first one.
+    params.delete("page")
+    const qs = params.toString()
+    window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname)
+  }
+
+  // Grouping is what turns one list into three honest answers: worth looking at,
+  // not enough stated, and excluded with a reason. It never drops a row.
+  const opportunityView = useMemo(() => {
+    const byId = new Map(visibleApplications.map((application) => [application.id, application]))
+    const items: FilterableOpportunity[] = visibleApplications.map((application) => ({
+      id: application.id,
+      salary: application.job.salary,
+      workType: application.job.workType,
+      location: application.job.location,
+      // Saved jobs do not store an experience level; a filter on it is honest
+      // about not knowing rather than guessing from the title.
+      experience: null,
+      risk: application.job.riskLevel,
+      ageDays: application.job.ageDays,
+      value: application.opportunityValue ?? null,
+    }))
+    const grouped = groupOpportunities(items, criteria)
+
+    // The page's own order stays authoritative until the user actually picks an
+    // opportunity sort: "Needs action" is why someone opens Saved jobs, and a
+    // location filter should not quietly reorder the list underneath it.
+    const ordered =
+      criteria.sort !== DEFAULT_CRITERIA.sort
+        ? sortOpportunities(grouped.eligible, criteria.sort, criteria.currency)
+        : grouped.eligible
+
+    const applicationOf = (id: string) => byId.get(id)!
+    return {
+      eligible: ordered.map((item) => applicationOf(item.id)),
+      unknown: grouped.unknown.map((item) => applicationOf(item.id)),
+      excluded: grouped.excluded.map((entry) => ({
+        application: applicationOf(entry.item.id),
+        reasons: entry.reasons,
+      })),
+    }
+  }, [visibleApplications, criteria])
+
   // Twelve fills whole rows of the 1/2/3-column grid. Any filter or sort
   // change returns to page 1; a row leaving the list clamps the page.
   const filterKey = JSON.stringify([
@@ -101,9 +217,10 @@ export function JobApplicationList({
     verdictFilter,
     staleFilter,
     sort,
+    criteria,
   ])
   const { pageItems, page, pageCount, setPage, rangeStart, rangeEnd, total } =
-    usePagedList(visibleApplications, { pageSize: 12, resetKey: filterKey })
+    usePagedList(opportunityView.eligible, { pageSize: 12, resetKey: filterKey })
 
   const listRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -149,8 +266,6 @@ export function JobApplicationList({
 
   // Bring the top of the list back into view only when the user has scrolled
   // past it; a pager click near the top leaves the window where it is.
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
   // Deep-linkable page cursor: `?page=3` restores the same slice on reload or
   // back-navigation. Page 1 is the default and stays clean in the URL.
   useEffect(() => {
@@ -297,7 +412,7 @@ export function JobApplicationList({
             ))}
           </Select>
           <label htmlFor="job-sort" className="sr-only">
-            Sort
+            Saved job order
           </label>
           {/* Client-side, off the `urgency` the server already computed — the
               other controls filter the full list in the browser too. */}
@@ -337,6 +452,18 @@ export function JobApplicationList({
           <CreateJobDialog open={createOpen} onOpenChange={setCreateOpen} />
         </div>
       </div>
+
+      <OpportunityFilterPanel
+        criteria={criteria}
+        onChange={commitCriteria}
+        onReset={() => commitCriteria(DEFAULT_CRITERIA)}
+        storageKey="rolespec:opportunity-filters:jobs:v1"
+        counts={{
+          eligible: opportunityView.eligible.length,
+          unknown: opportunityView.unknown.length,
+          excluded: opportunityView.excluded.length,
+        }}
+      />
 
       {/* `top-16` keeps the bar clear of the h-14 sticky app header. */}
       {selectMode ? (
@@ -385,57 +512,79 @@ export function JobApplicationList({
         </div>
       ) : null}
 
-      {visibleApplications.length === 0 ? (
-        applications.length === 0 ? (
-          <EmptyState
-            icon={Briefcase}
-            title="No applications yet"
-            description="Track a role you are interested in and everything else — match, emails, interview prep — hangs off it."
-            action={
-              <Button onClick={() => setCreateOpen(true)}>
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Add your first application
-              </Button>
-            }
-          />
-        ) : (
-          <EmptyState
-            icon={SearchX}
-            title="No results"
-            description="Try adjusting your search, status, confidence, work mode, fit, follow-up, or stale filter."
-          />
-        )
+      {applications.length === 0 ? (
+        <EmptyState
+          icon={Briefcase}
+          title="No applications yet"
+          description="Track a role you are interested in and everything else — match, emails, interview prep — hangs off it."
+          action={
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Add your first application
+            </Button>
+          }
+        />
+      ) : visibleApplications.length === 0 ? (
+        <EmptyState
+          icon={SearchX}
+          title="No results"
+          description="Try adjusting your search, status, confidence, work mode, fit, follow-up, or stale filter."
+        />
       ) : (
-        <div ref={listRef} className="space-y-3">
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            Showing {rangeStart}–{rangeEnd} of {total}
-          </p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {pageItems.map((application) => (
-              <JobApplicationCard
-                key={application.id}
-                application={application}
-                usdPhpRate={usdPhpRate}
-                preferredCurrency={preferredCurrency}
-                today={today}
-                onPreview={setPreviewApplication}
-                selection={
-                  selectMode
-                    ? {
-                        checked: selectedIds.has(application.id),
-                        onCheckedChange: (checked) =>
-                          setSelected(application.id, checked),
-                      }
-                    : undefined
-                }
+        <div className="space-y-3">
+          {opportunityView.eligible.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+              No saved job passes these opportunity filters. The ones that were set
+              aside are listed below, with the reason.
+            </p>
+          ) : (
+            <div ref={listRef} className="space-y-3">
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                Showing {rangeStart}–{rangeEnd} of {total}
+              </p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {pageItems.map((application) => (
+                  <JobApplicationCard
+                    key={application.id}
+                    application={application}
+                    today={today}
+                    onPreview={setPreviewApplication}
+                    selection={
+                      selectMode
+                        ? {
+                            checked: selectedIds.has(application.id),
+                            onCheckedChange: (checked) =>
+                              setSelected(application.id, checked),
+                          }
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+              <Pagination
+                page={page}
+                pageCount={pageCount}
+                onPageChange={handlePageChange}
+                label="Application pages"
               />
-            ))}
-          </div>
-          <Pagination
-            page={page}
-            pageCount={pageCount}
-            onPageChange={handlePageChange}
-            label="Application pages"
+            </div>
+          )}
+
+          <FilteredRows
+            title="Needs more info"
+            description="These postings do not state enough for the current filters — unknown is not the same as passing."
+            rows={opportunityView.unknown.map((application) => ({
+              application,
+              // Unknown means the *filter* could not judge this posting, which
+              // is not the same as a low Opportunity Value score (that is shown
+              // on the card). Do not blame the number for the missing fact.
+              reasons: ["The posting does not state the facts this filter needs."],
+            }))}
+          />
+          <FilteredRows
+            title="Excluded"
+            description="Each of these was set aside by a filter or by your own minimum-pay and workload settings."
+            rows={opportunityView.excluded}
           />
         </div>
       )}

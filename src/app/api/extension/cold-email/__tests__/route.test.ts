@@ -120,6 +120,8 @@ describe("validation", () => {
     ["oversized about", { person: { name: "Dana", about: "x".repeat(5001) } }],
     ["oversized headline", { person: { name: "Dana", headline: "x".repeat(301) } }],
     ["bad profileUrl", { person: { name: "Dana", profileUrl: "not-a-url" } }],
+    ["javascript: profileUrl", { person: { name: "Dana", profileUrl: "javascript:alert(1)" } }],
+    ["data: profileUrl", { person: { name: "Dana", profileUrl: "data:text/html,x" } }],
     ["oversized instructions", { ...VALID_BODY, instructions: "x".repeat(1001) }],
     ["unknown messageType", { ...VALID_BODY, messageType: "carrier_pigeon" }],
     ["unknown tone", { ...VALID_BODY, tone: "sarcastic" }],

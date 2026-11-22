@@ -17,8 +17,9 @@ const job = {
   companyName: "Acme Corp",
   jobTitle: "Frontend Engineer",
   jobDescription: "Build things with TypeScript.",
-  salary: 120000,
-  salaryPeriod: "YEARLY",
+  // The posting's own pay line: a model judging "is this realistic?" needs the
+  // currency and the period, which a bare number cannot carry.
+  salaryText: "USD 120,000 per year",
   jobLink: "https://acme.example/jobs/1",
   contact: "talent@acme.example",
   location: "Remote",
@@ -61,7 +62,7 @@ describe("assessJobRiskAI", () => {
     expect(call.prompt).toContain("Frontend Engineer")
     expect(call.prompt).toContain("talent@acme.example")
     expect(call.prompt).toContain("https://acme.example/jobs/1")
-    expect(call.prompt).toContain("120000 YEARLY")
+    expect(call.prompt).toContain("USD 120,000 per year")
     expect(call.tracking).toEqual({
       feature: "jobs.risk",
       surface: "app",

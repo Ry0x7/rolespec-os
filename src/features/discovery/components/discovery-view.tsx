@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Fragment, memo, useCallback, useState, useTransition } from "react"
 import {
   AlertTriangle,
@@ -21,6 +21,18 @@ import { toast } from "sonner"
 import type { WorkType } from "@/generated/prisma/enums"
 import type { JobRequirementFlag } from "@/features/jobs/services/job-requirements.service"
 import type { AtsWatchlist } from "@/features/settings/schemas/preferences.schema"
+import { JobFeedbackControl } from "@/features/feedback/components/job-feedback-control"
+import { OpportunityFilterPanel } from "@/features/opportunity/components/opportunity-filter-panel"
+import {
+  DEFAULT_CRITERIA,
+  groupOpportunities,
+  parseFilterParams,
+  sortOpportunities,
+  writeFilterParams,
+  type FilterableOpportunity,
+  type OpportunityFilterCriteria,
+} from "@/features/opportunity/filters"
+import { parseStoredSalary } from "@/features/ranking/salary"
 import { Badge } from "@/shared/ui/badge"
 import { Button } from "@/shared/ui/button"
 import { Input } from "@/shared/ui/input"
@@ -50,6 +62,12 @@ import {
   POSTED_WITHIN_OPTIONS,
   type PostedWithin,
 } from "../lib/posted-within"
+import type { DiscoveryCoverage } from "../lib/coverage"
+import type { DiscoveryPresetView, PresetRoleOption } from "../presets/types"
+import { DiscoveryCoverageSummary } from "./discovery-coverage-summary"
+import { DiscoveryPresets } from "./discovery-presets"
+import { DiscoveryRoleOptIns } from "./discovery-role-opt-ins"
+import { OpportunityValueSummary } from "./opportunity-value-summary"
 import { QualificationSummary } from "./qualification-summary"
 import { WatchlistDialog } from "./watchlist-dialog"
 
@@ -74,6 +92,10 @@ interface Props {
    * this build recognises. Only used to say what the ranking is doing.
    */
   marketCountry: string | null
+  /** The caller's saved searches and their alert cadence. */
+  presets?: DiscoveryPresetView[]
+  /** Active target roles with their provenance, for explicit opt-ins. */
+  roleOptions?: PresetRoleOption[]
 }
 
 /** How a resolved market reads in the results header. */
@@ -86,6 +108,37 @@ type SavedMap = Record<string, string>
 
 function candidateKey(candidate: DiscoveryCandidate): string {
   return candidate.canonicalUrl || `${candidate.provider}:${candidate.externalId}`
+}
+
+/**
+ * One discovered posting, in the shared filter vocabulary.
+ *
+ * Discovery rows carry pay as text rather than structured fields, so the same
+ * server-side parser the ranking uses reads it here too. A sentence it cannot
+ * read stays `null` — the filter then says "unknown" instead of guessing.
+ */
+function toFilterable(candidate: DiscoveryCandidate): FilterableOpportunity {
+  const salary = parseStoredSalary({ salaryText: candidate.salaryText ?? null })
+  return {
+    id: candidateKey(candidate),
+    salary: {
+      min: salary?.min ?? null,
+      max: salary?.max ?? null,
+      currency: salary?.currency ?? null,
+      period: salary?.period ?? null,
+      termMonths: salary?.termMonths ?? null,
+    },
+    workType: candidate.workType ?? null,
+    location: candidate.location ?? null,
+    experience: null,
+    // The qualification already ran the same risk heuristics a saved job gets;
+    // null means the heuristics had nothing to score, not "safe".
+    risk: candidate.qualification.risk.level ?? null,
+    ageDays: candidate.postedAt
+      ? Math.max(0, Math.floor((Date.now() - new Date(candidate.postedAt).getTime()) / 86_400_000))
+      : null,
+    value: candidate.opportunityValue ?? null,
+  }
 }
 
 /**
@@ -148,6 +201,8 @@ interface RowProps {
   isSaving: boolean
   /** Precomputed by the parent so the memoized row compares on a boolean. */
   sponsorshipUnknown: boolean
+  /** Stable key the user's own feedback is stored under. */
+  feedbackKey?: string
   /** `open` sends the user to the saved job once the save lands. */
   onSave: (candidate: DiscoveryCandidate, options?: { open?: boolean }) => void
 }
@@ -167,6 +222,7 @@ const CandidateRow = memo(function CandidateRow({
   savedJobId,
   isSaving,
   sponsorshipUnknown,
+  feedbackKey,
   onSave,
 }: RowProps) {
   const workMode = candidate.workType ? WORK_MODE_CHIP[candidate.workType] : null
@@ -197,6 +253,14 @@ const CandidateRow = memo(function CandidateRow({
             <Badge variant="neutral" size="sm" title={candidate.qualification.marketFit.reason}>
               {candidate.qualification.marketFit.label}
             </Badge>
+            {candidate.salaryText && (
+              <span
+                className="max-w-[26ch] truncate text-xs text-muted-foreground"
+                title={candidate.salaryText}
+              >
+                {candidate.salaryText}
+              </span>
+            )}
             {candidate.postedAt && (
               <span className="text-xs text-muted-foreground">
                 Posted {formatDate(candidate.postedAt)}
@@ -262,6 +326,22 @@ const CandidateRow = memo(function CandidateRow({
         qualification={candidate.qualification}
         confidence={candidate.confidence}
       />
+
+      {candidate.opportunityValue ? (
+        <OpportunityValueSummary value={candidate.opportunityValue} />
+      ) : null}
+
+      {feedbackKey ? (
+        <JobFeedbackControl
+          postingKey={feedbackKey}
+          title={candidate.title}
+          companyName={candidate.companyName}
+          location={candidate.location ?? null}
+          url={candidate.url}
+          initialVerdict={candidate.feedback ?? null}
+          hint="Applies to your next ranking and saved-search run."
+        />
+      ) : null}
     </li>
   )
 })
@@ -357,13 +437,20 @@ export function DiscoveryView({
   atsWatchlist,
   requiresSponsorship,
   marketCountry,
+  presets = [],
+  roleOptions = [],
 }: Props) {
   const [isSearching, startSearch] = useTransition()
   const [editingWatchlist, setEditingWatchlist] = useState(false)
   const [hasRun, setHasRun] = useState(false)
   const [candidates, setCandidates] = useState<DiscoveryCandidate[]>([])
+  /** Postings the Opportunity Value settings excluded; shown, never dropped. */
+  const [excluded, setExcluded] = useState<DiscoveryCandidate[]>([])
   // How the run's sources behaved. Cleared implicitly by the next run.
   const [sources, setSources] = useState<DiscoverySourceReport[]>([])
+  /** Honest counts of what the last run could verify, remove, or read. */
+  const [coverage, setCoverage] = useState<DiscoveryCoverage | null>(null)
+  const [runningPresetId, setRunningPresetId] = useState<string | null>(null)
   const [saved, setSaved] = useState<SavedMap>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [showRuledOut, setShowRuledOut] = useState(false)
@@ -394,6 +481,43 @@ export function DiscoveryView({
   const [listing, setListing] = useState<(ListingSummary & { sourceUrl: string }) | null>(null)
 
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  // The URL is the filter's source of truth, so a shared link, a reload and
+  // Back all land on the same view. A change made in this tab is remembered
+  // against the signature it was made from, so the click is visible before
+  // `router.replace` has round-tripped; once the URL changes, the URL wins.
+  const searchSignature = searchParams.toString()
+  const [criteria, setCriteria] = useState<OpportunityFilterCriteria>(() =>
+    parseFilterParams(searchParams)
+  )
+  // A soft navigation to another `/discovery?...` (a link, Back/Forward) keeps
+  // this component mounted, so the URL can change under it. When the new URL is
+  // not what the current criteria serialise to, it did not come from the write
+  // below: re-read it. Adjusting during render, not in an effect, means the
+  // write effect never sees the new URL with the old state and writes the old
+  // filters back over it. Our own writes serialise to the same query, so they
+  // are a no-op here. Same pattern as `useJobFilters`.
+  const [lastObservedSignature, setLastObservedSignature] = useState(searchSignature)
+  if (searchSignature !== lastObservedSignature) {
+    setLastObservedSignature(searchSignature)
+    const fromUrl = parseFilterParams(new URLSearchParams(searchSignature))
+    // Compare meaning, not query-string order: Next may normalise the order of
+    // our own write, and a string comparison would then treat it as an external
+    // navigation and re-set state on every render.
+    if (JSON.stringify(fromUrl) !== JSON.stringify(criteria)) {
+      setCriteria(fromUrl)
+    }
+  }
+  const updateCriteria = useCallback(
+    (next: OpportunityFilterCriteria) => {
+      setCriteria(next)
+      const params = writeFilterParams(new URLSearchParams(searchSignature), next)
+      const query = params.toString()
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    },
+    [pathname, router, searchSignature]
+  )
 
   // Stable, so the memoized rows do not all re-render on every state change.
   // Declared above the empty-state return: it is a hook, so it cannot be
@@ -507,6 +631,33 @@ export function DiscoveryView({
     )
   }
 
+  function applyRunResult(
+    result: Exclude<Awaited<ReturnType<typeof runDiscovery>>, { error: string }>,
+    label?: string
+  ) {
+    setHasRun(true)
+    setCandidates(result.candidates)
+    setExcluded(result.excluded ?? [])
+    setExpandedGroups({})
+    setSources(result.sources ?? [])
+    setCoverage(result.coverage ?? null)
+    setSaved(
+      Object.fromEntries(
+        result.candidates
+          .filter((candidate) => candidate.savedJobId)
+          .map((candidate) => [candidateKey(candidate), candidate.savedJobId as string])
+      )
+    )
+
+    toast.success(
+      `${label ? `${label}: ` : ""}${
+        result.candidates.length === 1
+          ? "found 1 posting"
+          : `found ${result.candidates.length} postings`
+      }`
+    )
+  }
+
   const handleSearch = () => {
     startSearch(async () => {
       const result = await runDiscovery()
@@ -517,22 +668,26 @@ export function DiscoveryView({
         return
       }
 
-      setCandidates(result.candidates)
-      setExpandedGroups({})
-      setSources(result.sources ?? [])
-      setSaved(
-        Object.fromEntries(
-          result.candidates
-            .filter((candidate) => candidate.savedJobId)
-            .map((candidate) => [candidateKey(candidate), candidate.savedJobId as string])
-        )
-      )
+      applyRunResult(result)
+    })
+  }
 
-      toast.success(
-        result.candidates.length === 1
-          ? "Found 1 posting"
-          : `Found ${result.candidates.length} postings`
-      )
+  const handleRunPreset = (preset: DiscoveryPresetView) => {
+    setRunningPresetId(preset.id)
+    startSearch(async () => {
+      try {
+        const result = await runDiscovery({ presetId: preset.id })
+        if ("error" in result) {
+          toast.error(result.error)
+          return
+        }
+        applyRunResult(result, preset.name)
+        // The server recorded lastRunAt and acknowledged the alert; refresh the
+        // saved-search list without discarding the results held in this view.
+        router.refresh()
+      } finally {
+        setRunningPresetId(null)
+      }
     })
   }
 
@@ -547,7 +702,7 @@ export function DiscoveryView({
   // Sequential so toasts stay accurate and the board never gets a half-run
   // the user cannot see; each save reuses the same `saveDiscoveredJob` path.
   const handleSaveAllVisible = () => {
-    const unsaved = visible.filter((c) => !saved[candidateKey(c)])
+    const unsaved = eligibleCandidates.filter((c) => !saved[candidateKey(c)])
     if (unsaved.length === 0) return
     setIsSavingAll(true)
     void (async () => {
@@ -608,9 +763,48 @@ export function DiscoveryView({
   const undatedHiddenCount =
     postedWithin === "any" ? 0 : inMarket.filter((candidate) => !candidate.postedAt).length
 
+  // Compensation and Opportunity Value filter over the rows the view already
+  // decided to show: a filter never resurrects a ruled-out or hidden posting.
+  const byKey = new Map(visible.map((candidate) => [candidateKey(candidate), candidate]))
+  const filtered = groupOpportunities(visible.map(toFilterable), criteria)
+  const eligibleCandidates = sortOpportunities(filtered.eligible, criteria.sort, criteria.currency)
+    .map((entry) => byKey.get(entry.id))
+    .filter((candidate): candidate is DiscoveryCandidate => Boolean(candidate))
+  const unknownCandidates = filtered.unknown
+    .map((entry) => byKey.get(entry.id))
+    .filter((candidate): candidate is DiscoveryCandidate => Boolean(candidate))
+
+  // One excluded list: the server's settings-level exclusions and the ones this
+  // screen's filters just made. Each keeps its reason.
+  const seenExcluded = new Set<string>()
+  const excludedEntries = [
+    ...excluded.map((candidate) => ({
+      candidate,
+      reasons: (candidate.opportunityValue?.rejections ?? [])
+        .filter((rejection) => rejection.severity === "BLOCK")
+        .map((rejection) => rejection.message),
+    })),
+    ...filtered.excluded.map((entry) => ({
+      candidate: byKey.get(entry.item.id) ?? null,
+      reasons: entry.reasons,
+    })),
+  ].filter((entry): entry is { candidate: DiscoveryCandidate; reasons: string[] } => {
+    if (!entry.candidate) return false
+    const key = candidateKey(entry.candidate)
+    if (seenExcluded.has(key)) return false
+    seenExcluded.add(key)
+    return true
+  })
+
+  const filterCounts = {
+    eligible: eligibleCandidates.length,
+    unknown: unknownCandidates.length,
+    excluded: excludedEntries.length,
+  }
+
   // Grouping is the last step, after every filter, so a variant that a filter
   // removed is never folded back in and the counts above are unaffected.
-  const groups = groupCandidatesByRole(visible)
+  const groups = groupCandidatesByRole(eligibleCandidates)
   // How much the fold actually hid, counted over the rows on screen. The
   // posting count in the title is over every candidate, so the two never mix.
   const foldedVariantCount = groups.reduce((total, group) => total + group.variants.length, 0)
@@ -667,6 +861,7 @@ export function DiscoveryView({
                 </Link>
               </p>
             )}
+            <DiscoveryRoleOptIns roles={roleOptions} />
           </div>
           <Button onClick={handleSearch} loading={isSearching}>
             {isSearching ? null : <Search className="h-4 w-4" aria-hidden="true" />}
@@ -711,12 +906,75 @@ export function DiscoveryView({
         </CardContent>
       </Card>
 
+      <DiscoveryPresets
+        presets={presets}
+        roles={roleOptions}
+        onRun={handleRunPreset}
+        runningPresetId={runningPresetId}
+        disabled={isSearching || isAdding}
+      />
+
+      {candidates.length > 0 && (
+        <OpportunityFilterPanel
+          criteria={criteria}
+          onChange={updateCriteria}
+          onReset={() => updateCriteria(DEFAULT_CRITERIA)}
+          storageKey="rolespec:opportunity-filters:discovery:v1"
+          counts={filterCounts}
+          disabled={isAdding}
+        />
+      )}
+
       {hasRun && candidates.length === 0 && (
         <EmptyState
           icon={Telescope}
           title="No postings came back"
           description="The sources had nothing for these roles right now. Try again later, or adjust your target roles."
         />
+      )}
+
+      {excludedEntries.length > 0 && (
+        <Card data-testid="excluded-postings">
+          <CardHeader>
+            <CardTitle>
+              {excludedEntries.length === 1
+                ? "1 posting excluded"
+                : `${excludedEntries.length} postings excluded`}
+            </CardTitle>
+            <CardDescription>
+              These state pay or terms you asked to filter out, or fail a filter you
+              set. They stay listed so you can see exactly what was hidden and why.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-3">
+              {excludedEntries.map(({ candidate, reasons }) => (
+                <li key={candidateKey(candidate)} className="space-y-1 border-b border-border pb-2 last:border-0 last:pb-0">
+                  <p className="text-sm font-medium">
+                    {candidate.companyName} — {candidate.title}
+                  </p>
+                  <ul className="space-y-0.5">
+                    {reasons.map((reason) => (
+                      <li key={reason} className="text-xs text-red-400">
+                        {reason}
+                      </li>
+                    ))}
+                  </ul>
+                  {candidate.url ? (
+                    <a
+                      href={candidate.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-brand-400 underline-offset-4 hover:underline"
+                    >
+                      View posting
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
       {candidates.length > 0 && (
@@ -752,6 +1010,7 @@ export function DiscoveryView({
               </p>
             )}
             <SourceSummary sources={sources} />
+            {coverage ? <DiscoveryCoverageSummary coverage={coverage} /> : null}
           </CardHeader>
           <CardContent className="space-y-3">
             {listing && (
@@ -828,7 +1087,7 @@ export function DiscoveryView({
                   Hide saved ({savedCount})
                 </label>
               )}
-              {visible.some((c) => !saved[candidateKey(c)]) && (
+              {eligibleCandidates.some((c) => !saved[candidateKey(c)]) && (
                 <Button
                   size="sm"
                   variant="secondary"
@@ -836,7 +1095,7 @@ export function DiscoveryView({
                   loading={isSavingAll}
                   disabled={isSavingAll}
                 >
-                  {isSavingAll ? "Saving…" : `Save all visible (${visible.filter((c) => !saved[candidateKey(c)]).length})`}
+                  {isSavingAll ? "Saving…" : `Save all visible (${eligibleCandidates.filter((c) => !saved[candidateKey(c)]).length})`}
                 </Button>
               )}
             </div>
@@ -863,6 +1122,46 @@ export function DiscoveryView({
                   : `Show ${ruledOutCount} ruled out`}
               </button>
             )}
+            {groups.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No posting passes every filter. {unknownCandidates.length} need more
+                info and {excludedEntries.length} are excluded — both are listed on
+                this page, unchanged.
+              </p>
+            )}
+            {unknownCandidates.length > 0 && (
+              <section
+                aria-labelledby="discovery-unknown-heading"
+                className="space-y-2 rounded-md border border-border p-3"
+              >
+                <h3 id="discovery-unknown-heading" className="text-sm font-medium">
+                  Needs more info ({unknownCandidates.length})
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  These postings do not state enough for your filters to judge them.
+                  Nothing was assumed.
+                </p>
+                <ul className="space-y-3">
+                  {unknownCandidates.map((candidate) => {
+                    const key = candidateKey(candidate)
+                    return (
+                      <CandidateRow
+                        key={key}
+                        candidate={candidate}
+                        savedJobId={saved[key]}
+                        isSaving={savingKey === key}
+                        sponsorshipUnknown={isSponsorshipUnknown(
+                          candidate,
+                          requiresSponsorship
+                        )}
+                        feedbackKey={candidate.feedbackKey}
+                        onSave={handleSave}
+                      />
+                    )
+                  })}
+                </ul>
+              </section>
+            )}
             <ul className="max-h-[min(60vh,520px)] space-y-3 overflow-y-auto overscroll-contain pr-1">
               {groups.map((group) => {
                 const key = candidateKey(group.primary)
@@ -878,6 +1177,7 @@ export function DiscoveryView({
                         group.primary,
                         requiresSponsorship
                       )}
+                      feedbackKey={group.primary.feedbackKey}
                       onSave={handleSave}
                     />
                     {group.variants.length > 0 && (
@@ -917,6 +1217,7 @@ export function DiscoveryView({
                                     variant,
                                     requiresSponsorship
                                   )}
+                                  feedbackKey={variant.feedbackKey}
                                   onSave={handleSave}
                                 />
                               )

@@ -1,3 +1,9 @@
+import {
+  applyFeedbackAdjustment,
+  feedbackAdjustment,
+} from "@/features/feedback/adjustment"
+import type { FeedbackAdjustment } from "@/features/feedback/types"
+
 import { buildBm25Index, bm25Score, rankDocuments, tokenize } from "../bm25"
 import { evaluateFitFactors, scoreFitFactors } from "../fit-factors"
 import type {
@@ -55,7 +61,8 @@ function documentText(posting: RankingPosting): string {
 function explain(
   factors: readonly FitFactor[],
   lexicalScore: number | null,
-  lexicalPercent: number
+  lexicalPercent: number,
+  feedback: FeedbackAdjustment | null
 ): string[] {
   const lines: string[] = []
   if (lexicalScore === null) {
@@ -75,6 +82,15 @@ function explain(
   }
   for (const factor of factors) {
     if (factor.state === "UNKNOWN") lines.push(`${factor.label}: ${factor.reason}`)
+  }
+  if (feedback) {
+    lines.push(
+      `${feedback.label} ${
+        feedback.points === 0
+          ? "The score is unchanged."
+          : `(${feedback.points > 0 ? "+" : ""}${feedback.points} points, applied after the factual score.)`
+      }`
+    )
   }
   return lines
 }
@@ -137,11 +153,16 @@ export function rankJobPool(input: {
         : 0
     const factors = evaluateFitFactors(posting, profile, now)
     const fit = scoreFitFactors(factors)
-    const composite = Math.round(
+    const baseComposite = Math.round(
       100 *
         (lexicalWeight * (lexicalPercent / 100) +
           (1 - lexicalWeight) * (fit.score / 100))
     )
+    // Explicit user feedback is the only score input that comes from the user
+    // rather than from the posting/profile. It is applied last, capped, and
+    // reported on the entry; no other ranking rule reads it.
+    const feedback = feedbackAdjustment(posting.feedback)
+    const composite = applyFeedbackAdjustment(baseComposite, feedback)
     return {
       posting,
       inputIndex,
@@ -149,6 +170,7 @@ export function rankJobPool(input: {
       lexicalPercent,
       factors,
       fit,
+      feedback,
       composite,
     }
   })
@@ -170,7 +192,13 @@ export function rankJobPool(input: {
     fitScore: entry.fit.score,
     coverage: Number(entry.fit.coverage.toFixed(2)),
     factors: entry.factors,
-    explanation: explain(entry.factors, entry.lexicalScore, entry.lexicalPercent),
+    explanation: explain(
+      entry.factors,
+      entry.lexicalScore,
+      entry.lexicalPercent,
+      entry.feedback
+    ),
+    ...(entry.feedback ? { feedback: entry.feedback } : {}),
   }))
 
   const excluded: RankingExclusion[] = []
@@ -199,6 +227,9 @@ export function rankJobPool(input: {
       minScore,
       lexicalWeight,
       fitWeight: Number((1 - lexicalWeight).toFixed(2)),
+      ...(scored.some((entry) => entry.feedback)
+        ? { feedbackAdjustedCount: scored.filter((entry) => entry.feedback).length }
+        : {}),
     },
     entries: visible,
     excluded,

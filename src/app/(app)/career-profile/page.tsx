@@ -5,6 +5,8 @@ import { PageShell } from "@/shared/components/page-shell"
 import { buttonVariants } from "@/shared/ui/button"
 import { cn } from "@/shared/lib/utils"
 import { CapabilitiesCard } from "@/features/career-profile/components/capabilities-card"
+import { CareerPathExplorer } from "@/features/career-path/components/career-path-explorer"
+import { buildCareerPath } from "@/features/career-path/engine"
 import { ContactsForm } from "@/features/career-profile/components/contacts-form"
 import { EvidenceCard } from "@/features/career-profile/components/evidence-card"
 import { ImportLinkedinCard } from "@/features/career-profile/components/import-linkedin-card"
@@ -22,6 +24,7 @@ import {
   summarizeSectionCompleteness,
 } from "@/features/career-profile/lib/section-completeness"
 import { loadCareerProfile } from "@/features/career-profile/services/career-profile.service"
+import { serializeMoney } from "@/shared/lib/money/money"
 import { listImportableResumes } from "@/features/career-profile/services/import-resume.service"
 import { listIntakeRuns } from "@/features/intake/services/intake-run.service"
 
@@ -61,6 +64,38 @@ export default async function CareerProfilePage({
 
   const familyNameById = new Map(profile.roleFamilies.map((f) => [f.id, f.name]))
   const evidenceTitleById = new Map(profile.evidence.map((e) => [e.id, e.title]))
+  // Career Path Intelligence is deterministic and read-only: it measures the
+  // same confirmed facts the cards below edit, and only the explicit approval
+  // action can write a target role. It is computed here so the client receives
+  // plain, serialisable results rather than Prisma rows.
+  const careerPath = buildCareerPath({
+    experienceLevel: profile.experienceLevel,
+    locations: profile.locations,
+    workAuthorization: profile.workAuthorization,
+    requiresSponsorship: profile.requiresSponsorship,
+    targetRoleTitles: profile.targetRoles.map((role) => role.title),
+    capabilities: profile.capabilities.map((capability) => ({
+      id: capability.id,
+      name: capability.name,
+      confirmed: capability.confirmed,
+      selfAssessment: capability.selfAssessment,
+      links: capability.evidenceLinks.map((link) => ({
+        id: link.id,
+        evidenceId: link.evidenceId,
+        depth: link.depth,
+        hasMeasuredOutcome: link.hasMeasuredOutcome,
+        lastUsedAt: link.lastUsedAt,
+      })),
+    })),
+    evidence: profile.evidence.map((item) => ({
+      id: item.id,
+      title: item.title,
+      kind: item.kind,
+      status: item.status,
+      outcome: item.outcome,
+      sourceUrl: evidenceSourceUrl(item.metadata),
+    })),
+  })
 
   const sectionItems = computeSectionCompleteness({
     contactFullName: profile.contactFullName,
@@ -95,8 +130,8 @@ export default async function CareerProfilePage({
             workModes: profile.workModes,
             workAuthorization: profile.workAuthorization,
             requiresSponsorship: profile.requiresSponsorship,
-            salaryMin: profile.salaryMin,
-            salaryMax: profile.salaryMax,
+            salaryMin: serializeMoney(profile.salaryMin),
+            salaryMax: serializeMoney(profile.salaryMax),
             salaryPeriod: profile.salaryPeriod,
             salaryCurrency: profile.salaryCurrency,
             careerGoals: profile.careerGoals,
@@ -149,6 +184,7 @@ export default async function CareerProfilePage({
         { id: "preferences", label: "Work preferences" },
         { id: "evidence", label: "Work history" },
         { id: "capabilities", label: "Skills" },
+        { id: "career-paths", label: "Career paths" },
         { id: "profile-backup", label: "Backup" },
       ]}>
 
@@ -246,8 +282,8 @@ export default async function CareerProfilePage({
             workModes: profile.workModes,
             workAuthorization: profile.workAuthorization,
             requiresSponsorship: profile.requiresSponsorship,
-            salaryMin: profile.salaryMin,
-            salaryMax: profile.salaryMax,
+            salaryMin: serializeMoney(profile.salaryMin),
+            salaryMax: serializeMoney(profile.salaryMax),
             salaryPeriod: profile.salaryPeriod,
             salaryCurrency: profile.salaryCurrency,
             careerGoals: profile.careerGoals,
@@ -303,6 +339,12 @@ export default async function CareerProfilePage({
               lastUsedAt: link.lastUsedAt,
             })),
           }))}
+        />
+      </div>
+      <div id="career-paths" className="scroll-mt-28">
+        <CareerPathExplorer
+          result={careerPath}
+          approvedTitles={profile.targetRoles.map((role) => role.title)}
         />
       </div>
       <div id="profile-backup"><ProfileDataTransfer evidence={profile.evidence} capabilities={profile.capabilities} /></div>

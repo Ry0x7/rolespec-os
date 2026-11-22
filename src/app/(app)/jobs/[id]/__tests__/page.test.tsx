@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { isValidElement, type ReactElement, type ReactNode } from "react"
 
-const { mockAuth, mockPrisma, mockRedirect, mockNotFound, mockGetUsdPhpRate } = vi.hoisted(
+const { mockAuth, mockPrisma, mockRedirect, mockNotFound, mockLoadDisplayRates } = vi.hoisted(
   () => ({
     mockAuth: vi.fn(),
     mockPrisma: {
@@ -17,14 +17,14 @@ const { mockAuth, mockPrisma, mockRedirect, mockNotFound, mockGetUsdPhpRate } = 
     },
     mockRedirect: vi.fn(),
     mockNotFound: vi.fn(),
-    mockGetUsdPhpRate: vi.fn(),
+    mockLoadDisplayRates: vi.fn(),
   }),
 )
 
 vi.mock("@/features/auth/config", () => ({ auth: mockAuth }))
 vi.mock("@/shared/lib/prisma", () => ({ prisma: mockPrisma }))
 vi.mock("next/navigation", () => ({ redirect: mockRedirect, notFound: mockNotFound }))
-vi.mock("@/shared/lib/fx", () => ({ getUsdPhpRate: mockGetUsdPhpRate }))
+vi.mock("@/shared/lib/money/rates", () => ({ loadDisplayRates: mockLoadDisplayRates }))
 // The page frames "today" off the timezone cookie, which needs a request scope.
 // Given an instant, it frames it on a UTC+8 calendar, as the real helper does
 // with a `tz-offset=-480` cookie.
@@ -58,7 +58,7 @@ beforeEach(() => {
   mockRedirect.mockImplementation((url: string) => {
     throw new Error(`REDIRECT:${url}`)
   })
-  mockGetUsdPhpRate.mockResolvedValue(56)
+  mockLoadDisplayRates.mockResolvedValue({ rates: null, failure: null })
   mockPrisma.user.findUnique.mockResolvedValue({ preferences: null })
   mockPrisma.resume.findMany.mockResolvedValue([])
   mockPrisma.careerRoleFamily.findMany.mockResolvedValue([])
@@ -111,9 +111,14 @@ const job = {
   location: "SENTINEL_LOCATION",
   jobType: "CONTRACT",
   workType: "HYBRID",
-  salary: 133_711,
-  salaryPeriod: "MONTHLY",
+  salaryMin: 133_711,
+  salaryMax: 133_711,
   salaryCurrency: "PHP",
+  salaryPeriod: "MONTHLY",
+  salaryTermMonths: null,
+  salaryText: null,
+  salaryAnnualMin: null,
+  salaryAnnualMax: null,
   description: "SENTINEL_DESCRIPTION",
   deadline: new Date("2031-03-04T00:00:00.000Z"),
   riskLevel: "HIGH",
@@ -170,9 +175,16 @@ describe("job detail page job-relation mapping", () => {
       jobTitle: job.title,
       status: applicationLevel.status,
       location: job.location,
-      salary: job.salary,
-      salaryPeriod: job.salaryPeriod,
+      // The flat object is form-shaped, so the figures are serialized strings:
+      // two decimal places of a float would not survive the round trip.
+      salaryMin: "133711",
+      salaryMax: "133711",
       salaryCurrency: job.salaryCurrency,
+      salaryPeriod: job.salaryPeriod,
+      salaryTermMonths: job.salaryTermMonths,
+      salaryText: job.salaryText,
+      salaryAnnualMin: job.salaryAnnualMin,
+      salaryAnnualMax: job.salaryAnnualMax,
       dateApplied: applicationLevel.dateApplied,
       deadline: job.deadline,
       interviewDate: applicationLevel.interviewDate,
@@ -243,9 +255,14 @@ describe("job detail page job-relation mapping", () => {
         location: null,
         jobType: null,
         workType: null,
-        salary: null,
+        salaryMin: null,
+        salaryMax: null,
+        salaryCurrency: null,
         salaryPeriod: null,
-        salaryCurrency: "USD",
+        salaryTermMonths: null,
+        salaryText: null,
+        salaryAnnualMin: null,
+        salaryAnnualMax: null,
         description: null,
         deadline: null,
         riskLevel: null,
@@ -271,9 +288,14 @@ describe("job detail page job-relation mapping", () => {
       jobTitle: "",
       status: applicationLevel.status,
       location: null,
-      salary: null,
+      salaryMin: null,
+      salaryMax: null,
+      salaryCurrency: null,
       salaryPeriod: null,
-      salaryCurrency: "USD",
+      salaryTermMonths: null,
+      salaryText: null,
+      salaryAnnualMin: null,
+      salaryAnnualMax: null,
       dateApplied: applicationLevel.dateApplied,
       deadline: null,
       interviewDate: applicationLevel.interviewDate,

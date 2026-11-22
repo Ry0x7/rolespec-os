@@ -2,7 +2,7 @@ import type { ExperienceLevel } from "@/generated/prisma/enums"
 
 import { classifyMarketFit } from "@/features/discovery/services/market-fit.service"
 import { JOB_REQUIREMENT_FLAGS } from "@/features/jobs/services/job-requirements.service"
-import { hasComparableAnnualRange, parseSalary } from "./salary"
+import { hasComparableAnnualRange, parseStoredSalary, salaryReasonLabel } from "./salary"
 import type {
   FitFactor,
   FitFactorId,
@@ -221,11 +221,13 @@ function workModeFactor(posting: RankingPosting, profile: RankingProfile): FitFa
 }
 
 function salaryFactor(posting: RankingPosting, profile: RankingProfile): FitFactor {
-  const postingSalary = parseSalary({
+  const postingSalary = parseStoredSalary({
+    salaryMin: posting.salaryMin,
+    salaryMax: posting.salaryMax,
     salaryText: posting.salaryText,
-    salary: posting.salary,
-    currency: posting.salaryCurrency,
-    period: posting.salaryPeriod,
+    salaryCurrency: posting.salaryCurrency,
+    salaryPeriod: posting.salaryPeriod,
+    salaryTermMonths: posting.salaryTermMonths,
   })
   if (!postingSalary || postingSalary.min === null) {
     return factor("SALARY", "UNKNOWN", "The posting does not state pay.")
@@ -234,23 +236,20 @@ function salaryFactor(posting: RankingPosting, profile: RankingProfile): FitFact
     return factor(
       "SALARY",
       "UNKNOWN",
-      "The posting's currency or pay period could not be read, so it cannot be compared."
+      salaryReasonLabel(postingSalary.reason) ??
+        "The posting's currency or pay period could not be read, so it cannot be compared."
     )
   }
 
-  const profileSalary = parseSalary({
-    salary: profile.salaryMin ?? undefined,
-    currency: profile.salaryCurrency,
-    period: profile.salaryPeriod,
+  // Both bounds come from the profile's own range. No second normalization
+  // pass and no derived ceiling: the reading already annualized both ends.
+  const profileSalary = parseStoredSalary({
+    salaryMin: profile.salaryMin,
+    salaryMax: profile.salaryMax,
+    salaryCurrency: profile.salaryCurrency,
+    salaryPeriod: profile.salaryPeriod,
   })
-  // The upper bound is part of the profile preference, not a second posting.
-  const profileMax =
-    profile.salaryMax ?? profile.salaryMin ?? null
-  if (
-    profileSalary === null ||
-    !hasComparableAnnualRange(profileSalary) ||
-    profileMax === null
-  ) {
+  if (!profileSalary || !hasComparableAnnualRange(profileSalary)) {
     return factor("SALARY", "UNKNOWN", "Your profile does not state a comparable salary range.")
   }
   if (postingSalary.currency !== profileSalary.currency) {
@@ -261,40 +260,16 @@ function salaryFactor(posting: RankingPosting, profile: RankingProfile): FitFact
     )
   }
 
-  const preferredMin = profileSalary.annualMin
-  const preferredMax = annualizeProfileMax(profileMax, profileSalary)
-  if (preferredMax === null) {
-    return factor("SALARY", "UNKNOWN", "Your salary ceiling could not be normalized.")
-  }
-  if (postingSalary.annualMax < preferredMin) {
-    return factor(
-      "SALARY",
-      "MISMATCH",
-      "The posting's pay is below the minimum you set.",
-      [posting.salaryText ?? ""]
-    )
+  const evidence = posting.salaryText?.trim() ? [posting.salaryText.trim()] : []
+  if (postingSalary.annualMax.lt(profileSalary.annualMin)) {
+    return factor("SALARY", "MISMATCH", "The posting's pay is below the minimum you set.", evidence)
   }
   return factor(
     "SALARY",
     "MATCH",
     "The posting's pay overlaps the range you set.",
-    [posting.salaryText ?? ""]
+    evidence
   )
-}
-
-function annualizeProfileMax(
-  max: number,
-  normalized: { annualMin: number; annualMax: number; min: number | null; max: number | null }
-): number | null {
-  // The profile bounds are in one currency/period; normalize the ceiling with
-  // the same annualization the floor already went through.
-  if (normalized.min === null || normalized.max === null) return null
-  if (normalized.max === normalized.min) {
-    // A single value: derive the multiplier from the annual floor.
-    return normalized.annualMin === 0 ? null : Math.round((normalized.annualMin / normalized.min) * max)
-  }
-  const multiplier = normalized.annualMax / normalized.max
-  return Math.round(max * multiplier)
 }
 
 function authorizationFactor(posting: RankingPosting, profile: RankingProfile): FitFactor {

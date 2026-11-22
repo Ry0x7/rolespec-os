@@ -2,11 +2,28 @@
 
 For current frontend coverage and release limitations, see [FRONTEND_QA.md](FRONTEND_QA.md).
 The measurements below predate the consolidated v2.0.0 frontend baseline; installer evidence
-explicitly names the version that was tested. For the current frontend pass,
-including the 349-file/5,240-test run, see [FRONTEND_QA.md](FRONTEND_QA.md).
+explicitly names the version that was tested.
 
-Audited: 2026-11-12. Workspace: RoleSpec OS on Windows 11 x64, Node 24.18.0,
-Next.js 16.4.2, PostgreSQL 17 on loopback. This pass added real provider and
+## Current release audit (23 November 2026)
+
+A release-blocking pass ran against the production build (`2746e7b` plus the
+uncommitted audit worktree changes) with an isolated PostgreSQL database.
+Current gates: TypeScript, ESLint `src scripts`, 374 files / 5,582 tests,
+production build (exit 0, 10 warnings), Prisma validation, a fresh-database
+deployment of all 78 migrations (`migrate status` up to date), extension 21 files
+/ 318 tests plus build, `cargo check` and `cargo test` (18 passed), and a
+dependency audit with 0 vulnerabilities. Browser
+evidence: 175/175 local Chromium checks across six drivers, rerun against the
+final rebuilt server, including 320–1920px, dark/light, six accents, 200% zoom, reduced
+motion, keyboard/focus, onboarding, filters/presets, salary conversion, an
+injected FX outage, ranking and ATS/tracking surfaces. The full PASS/FAIL matrix
+and remaining blockers are in [FRONTEND_QA.md](FRONTEND_QA.md#release-audit--23-november-2026).
+
+Still **NOT TESTED**: a clean Windows install/in-place upgrade, live employer ATS
+fill/submission, screen-reader or non-Chromium certification, and load/soak.
+
+Historical pass: 2026-11-12. Workspace: RoleSpec OS on Windows 11 x64, Node
+24.18.0, Next.js 16.4.2, PostgreSQL 17 on loopback. It added real provider and
 browser evidence; it did not install the rebuilt desktop package or submit an
 application.
 
@@ -27,12 +44,12 @@ A green unit suite is not treated as proof of a live external integration.
 | TypeScript | VERIFIED | `npx tsc --noEmit` exit 0 after the terminal-guard fix |
 | Focused workflow tests | VERIFIED | `workflow-engine.test.ts`, 15 tests, exit 0; includes the terminal-run guard |
 | ESLint | VERIFIED | `npx eslint src --max-warnings=0` exit 0 |
-| Root tests | VERIFIED | 332 files, 5,107 tests, exit 0 |
+| Root tests | VERIFIED | Current: 374 files, 5,582 tests, exit 0. Historical pass: 332 files, 5,107 tests |
 | Extension tests | VERIFIED | 21 files, 318 tests, exit 0 |
 | Extension build | VERIFIED | Vite build, exit 0; sidepanel and background bundles emitted |
 | Production build | VERIFIED | `npm run build`, exit 0; all routes compiled |
 | Prisma schema | VERIFIED | `npx prisma validate` exit 0; expected `SetNull` warnings only |
-| Migrations | VERIFIED | `npx prisma migrate deploy` applied; `migrate status` up to date |
+| Migrations | VERIFIED | Fresh disposable database: `npx prisma migrate deploy` applied all 78 migrations and preserved the legacy audit/license tables; `migrate status` up to date |
 | Rust desktop shell | VERIFIED (compile/tests) | `cargo check` exit 0; `cargo test` 18 passed |
 | Desktop resource staging | VERIFIED | fresh `npm run desktop:build` produced a 174.0 MB app bundle, Node 88.2 MB and Prisma CLI 210.8 MB |
 | Windows NSIS installer | VERIFIED (artifact only) | `RoleSpec_1.0.5_x64-setup.exe`, 104.94 MiB, SHA-256 `6B8879A7…0285AA09`, version 1.0.5, CompanyName Chryypt, signature `NotSigned` |

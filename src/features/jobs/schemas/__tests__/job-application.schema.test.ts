@@ -7,21 +7,36 @@ function parse(entries: Record<string, string>) {
   return updateJobApplicationSchema.safeParse(Object.fromEntries(fd))
 }
 
-/** Mirrors the expression in updateJobApplication. */
+/** Mirrors the salary expressions in `updateJobApplication`. */
 function prismaData(parsed: Record<string, unknown>) {
-  const { jobType, workType, salary, salaryPeriod, salaryCurrency } = parsed as {
+  const {
+    jobType,
+    workType,
+    salaryMin,
+    salaryMax,
+    salaryPeriod,
+    salaryCurrency,
+    salaryTermMonths,
+    salaryText,
+  } = parsed as {
     jobType?: string
     workType?: string
-    salary?: number | ""
+    salaryMin?: number | ""
+    salaryMax?: number | ""
     salaryPeriod?: string
     salaryCurrency?: string
+    salaryTermMonths?: number
+    salaryText?: string
   }
   return {
     ...(jobType !== undefined ? { jobType: jobType || null } : {}),
     ...(workType !== undefined ? { workType: workType || null } : {}),
-    ...(salary !== undefined ? { salary: salary === "" ? null : salary } : {}),
+    ...(salaryMin !== undefined ? { salaryMin: salaryMin === "" ? null : salaryMin } : {}),
+    ...(salaryMax !== undefined ? { salaryMax: salaryMax === "" ? null : salaryMax } : {}),
+    ...(salaryCurrency !== undefined ? { salaryCurrency: salaryCurrency || null } : {}),
     ...(salaryPeriod !== undefined ? { salaryPeriod: salaryPeriod || null } : {}),
-    ...(salaryCurrency ? { salaryCurrency } : {}),
+    ...(salaryTermMonths !== undefined ? { salaryTermMonths } : {}),
+    ...(salaryText !== undefined ? { salaryText: salaryText || null } : {}),
   }
 }
 
@@ -58,22 +73,35 @@ describe("updateJobApplicationSchema clearing", () => {
     expect(parse({ workType: "WFH" }).success).toBe(false)
   })
 
-  it("salary empty string maps to null", () => {
-    const r = parse({ salary: "" })
+  it("an emptied pay box is a clear, not a zero", () => {
+    const r = parse({ salaryMin: "", salaryMax: "" })
     expect(r.success).toBe(true)
-    expect(prismaData(r.success ? r.data : {})).toEqual({ salary: null })
+    expect(prismaData(r.success ? r.data : {})).toEqual({ salaryMin: null, salaryMax: null })
   })
 
-  it("salary number maps to int", () => {
-    const r = parse({ salary: "85000" })
-    expect(prismaData(r.success ? r.data : {})).toEqual({ salary: 85000 })
+  it("a typed amount keeps its decimals", () => {
+    const r = parse({ salaryMin: "85000.50", salaryMax: "95000" })
+    expect(prismaData(r.success ? r.data : {})).toEqual({
+      salaryMin: 85000.5,
+      salaryMax: 95000,
+    })
   })
 
-  it("salary rejects zero / negative / non-numeric", () => {
-    expect(parse({ salary: "0" }).success).toBe(false)
-    expect(parse({ salary: "-5" }).success).toBe(false)
-    expect(parse({ salary: "abc" }).success).toBe(false)
-    expect(parse({ salary: "1.5" }).success).toBe(false)
+  it("rejects negative, non-numeric and out-of-column amounts", () => {
+    expect(parse({ salaryMin: "-5" }).success).toBe(false)
+    expect(parse({ salaryMin: "abc" }).success).toBe(false)
+    expect(parse({ salaryMin: "1000000000000" }).success).toBe(false)
+  })
+
+  it("rejects an inverted range", () => {
+    const r = parse({ salaryMin: "120000", salaryMax: "90000" })
+    expect(r.success).toBe(false)
+  })
+
+  it("a contract total needs a term", () => {
+    expect(parse({ salaryPeriod: "CONTRACT" }).success).toBe(false)
+    const ok = parse({ salaryPeriod: "CONTRACT", salaryTermMonths: "6" })
+    expect(ok.success).toBe(true)
   })
 
   it("salaryPeriod real value maps through", () => {
@@ -88,8 +116,11 @@ describe("updateJobApplicationSchema clearing", () => {
     expect(prismaData(r.success ? r.data : {})).toEqual({ salaryPeriod: null })
   })
 
-  it("salaryPeriod garbage rejected", () => {
-    expect(parse({ salaryPeriod: "WEEKLY" }).success).toBe(false)
+  it("every supported period is accepted", () => {
+    for (const period of ["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "YEARLY"]) {
+      expect(parse({ salaryPeriod: period }).success).toBe(true)
+    }
+    expect(parse({ salaryPeriod: "FORTNIGHTLY" }).success).toBe(false)
   })
 
   it("salaryCurrency real value maps through", () => {
@@ -98,18 +129,19 @@ describe("updateJobApplicationSchema clearing", () => {
     expect(prismaData(r.success ? r.data : {})).toEqual({ salaryCurrency: "PHP" })
   })
 
-  it("salaryCurrency empty string is no change, not a clear", () => {
+  it("salaryCurrency empty string clears an unknown currency", () => {
     const r = parse({ salaryCurrency: "" })
     expect(r.success).toBe(true)
-    expect(prismaData(r.success ? r.data : {})).toEqual({})
+    expect(prismaData(r.success ? r.data : {})).toEqual({ salaryCurrency: null })
   })
 
   it("salaryCurrency garbage rejected", () => {
-    expect(parse({ salaryCurrency: "EUR" }).success).toBe(false)
+    expect(parse({ salaryCurrency: "XYZ" }).success).toBe(false)
   })
 
   it("absent fields produce no prisma keys", () => {
     const r = parse({ companyName: "Acme" })
+    expect(r.success).toBe(true)
     expect(prismaData(r.success ? r.data : {})).toEqual({})
   })
 
@@ -123,10 +155,10 @@ describe("updateJobApplicationSchema clearing", () => {
     const c2 = createJobApplicationSchema.safeParse({
       companyName: "A",
       jobTitle: "B",
-      salary: "",
+      salaryMin: "",
     })
     expect(c2.success).toBe(true)
-    expect(c2.success && c2.data.salary).toBeUndefined()
+    expect(c2.success && c2.data.salaryMin).toBeUndefined()
   })
 
   it("create path accepts a salaryPeriod and rejects an unknown one", () => {
@@ -141,7 +173,7 @@ describe("updateJobApplicationSchema clearing", () => {
     const bad = createJobApplicationSchema.safeParse({
       companyName: "A",
       jobTitle: "B",
-      salaryPeriod: "WEEKLY",
+      salaryPeriod: "FORTNIGHTLY",
     })
     expect(bad.success).toBe(false)
   })
@@ -163,19 +195,21 @@ describe("updateJobApplicationSchema clearing", () => {
     expect(bad.success).toBe(false)
   })
 
-  it("create path accepts a salaryCurrency and rejects an unknown one", () => {
-    const ok = createJobApplicationSchema.safeParse({
-      companyName: "A",
-      jobTitle: "B",
-      salaryCurrency: "PHP",
-    })
-    expect(ok.success).toBe(true)
-    expect(ok.success && ok.data.salaryCurrency).toBe("PHP")
+  it("create path accepts every ISO currency and rejects an unknown one", () => {
+    for (const code of ["PHP", "EUR", "GBP", "AUD", "CAD", "SGD", "JPY", "INR", "AED", "SAR", "NZD", "CHF"]) {
+      const ok = createJobApplicationSchema.safeParse({
+        companyName: "A",
+        jobTitle: "B",
+        salaryCurrency: code,
+        salaryMin: "1000",
+      })
+      expect(ok.success, code).toBe(true)
+    }
 
     const bad = createJobApplicationSchema.safeParse({
       companyName: "A",
       jobTitle: "B",
-      salaryCurrency: "EUR",
+      salaryCurrency: "XYZ",
     })
     expect(bad.success).toBe(false)
   })

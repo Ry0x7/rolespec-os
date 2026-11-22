@@ -11,6 +11,7 @@ import {
   WorkType,
 } from "@/generated/prisma/enums"
 import type { OpportunityConfidence } from "@/features/discovery/services/opportunity-confidence.service"
+import type { SerializedOpportunityValue } from "@/features/opportunity/serialize"
 import type { QualificationVerdict } from "@/features/discovery/services/qualify.service"
 import { STATUS_OPTIONS } from "../components/job-form-options"
 import {
@@ -35,6 +36,8 @@ import {
 } from "../services/job-sort.service"
 import { isStaleJob } from "../services/job-staleness.service"
 import { rememberJobsListHref } from "../lib/jobs-list-href"
+import type { DecimalLike } from "@/shared/lib/money/money"
+import type { SalaryDisplay } from "@/shared/lib/money/salary-display"
 
 /**
  * The posting itself, in `Job` vocabulary. The relation is optional in the
@@ -45,9 +48,39 @@ export interface JobApplicationRowJob {
   companyName: string
   title: string
   location: string | null
-  salary: number | null
+  /** Stored pay, in the posting's own currency and period. Null when unstated. */
+  salaryMin: DecimalLike | null
+  salaryMax: DecimalLike | null
+  salaryCurrency: SalaryCurrency | null
   salaryPeriod: SalaryPeriod | null
-  salaryCurrency: SalaryCurrency
+  salaryTermMonths: number | null
+  /** The posting's own words, kept for provenance and shown when unparsed. */
+  salaryText: string | null
+  /**
+   * Pay as the server decided to word it: the posting's figure, the annual
+   * equivalent in the reader's currency and the rate date it came from. The
+   * card renders these strings rather than converting again in the browser.
+   */
+  salaryDisplay: SalaryDisplay
+  /**
+   * The same stored pay as exact decimal strings, for the list's opportunity
+   * filters. Kept separate from `salaryMin`/`salaryMax` (which are Decimal
+   * instances read by the card) so the filter never does float arithmetic on
+   * money and never has to know Prisma's wire types.
+   */
+  salary: {
+    min: string | null
+    max: string | null
+    currency: SalaryCurrency | null
+    period: SalaryPeriod | null
+    termMonths: number | null
+  }
+  /**
+   * Whole calendar days since the posting was published (or created, when it
+   * states no date), counted against the user's day on the server. Null when
+   * neither date exists; never guessed from the browser's clock.
+   */
+  ageDays: number | null
   deadline: Date | null
   url: string | null
   description: string | null
@@ -88,6 +121,11 @@ export interface JobApplicationRow {
   verdict: QualificationVerdict | null
   /** "Is this posting worth my time?", separate from whether it fits the user. */
   confidence: OpportunityConfidence
+  /**
+   * The Opportunity Value, scored on the server. Optional because older fixtures
+   * and payloads predate it; absent means "not scored", never "worthless".
+   */
+  opportunityValue?: SerializedOpportunityValue | null
   /** One line: where the posting came from and how old it is. */
   provenance: string
   /** The one thing to do next, decided against the user's own calendar day. */

@@ -17,10 +17,13 @@ import { getJobsDashboardStats } from "@/features/jobs/services/dashboard-stats.
 import { getDashboardAttention } from "@/features/jobs/services/dashboard-attention.service"
 import { assertAiConfigUsable, getEffectiveAiConfigForUser } from "@/shared/lib/ai-provider"
 import { PageShell } from "@/shared/components/page-shell"
+import { serializeMoney } from "@/shared/lib/money/money"
 import { getUserDayStart, getUserTzOffsetMinutes } from "@/shared/lib/user-day"
 import { OpportunityLeaderboard } from "@/features/ranking/components/opportunity-leaderboard"
 import { AttentionOverview } from "@/features/dashboard/components/attention-inbox"
 import { parsePreferences } from "@/features/settings/schemas/preferences.schema"
+import { savedJobFeedbackKey } from "@/features/feedback/posting-key"
+import type { FeedbackMap } from "@/features/feedback/types"
 
 /** True when an AI call would pass its own preflight right now. */
 async function hasUsableAiConfig(userId: string): Promise<boolean> {
@@ -56,6 +59,7 @@ export default async function DashboardPage() {
     jobStats,
     attention,
     userSettings,
+    feedbackRows,
   ] = await Promise.all([
       // The exact inverse of `needsSetup` on /career-profile, so the checkmark
       // and that page's guided-setup redirect can never disagree. The old
@@ -98,6 +102,10 @@ export default async function DashboardPage() {
       prisma.user.findUnique({
         where: { id: session.user.id },
         select: { preferences: true },
+      }),
+      prisma.jobFeedback.findMany({
+        where: { userId: session.user.id },
+        select: { postingKey: true, verdict: true },
       }),
     ])
 
@@ -150,9 +158,72 @@ export default async function DashboardPage() {
 
   const showAiKeyBanner = shouldShowAiKeyBanner({ hasUsableKey: aiUsable })
 
-  const opportunityJobs = await prisma.jobApplication.findMany({
+  const opportunityApplications = await prisma.jobApplication.findMany({
     where: { userId: session.user.id },
-    select: { id: true, jobId: true, status: true, job: { select: { title: true, companyName: true, location: true, workType: true } } },
+    select: {
+      id: true,
+      jobId: true,
+      status: true,        job: {
+          select: {
+            title: true,
+            canonicalUrl: true,
+            companyName: true,
+            location: true,
+          workType: true,
+          riskLevel: true,
+          postedAt: true,
+          salaryMin: true,
+          salaryMax: true,
+          salaryCurrency: true,
+          salaryPeriod: true,
+          salaryTermMonths: true,
+        },
+      },
+    },
+  })
+
+  const feedbackByKey: FeedbackMap = Object.fromEntries(
+    feedbackRows.map((row) => [row.postingKey, row.verdict])
+  )
+
+  // The leaderboard filters read pay from the saved posting. Serialise the
+  // Decimal and Date before they cross into the client component; a posting
+  // that genuinely has no pay keeps `salary: null` and becomes "needs more
+  // info" under a pay filter rather than being guessed at.
+  const opportunityJobs = opportunityApplications.map((application) => {
+    const feedbackKey = savedJobFeedbackKey({
+      id: application.jobId,
+      canonicalUrl: application.job.canonicalUrl,
+    })
+    return {
+      id: application.id,
+      jobId: application.jobId,
+      status: application.status,
+      job: {
+        title: application.job.title,
+        companyName: application.job.companyName,
+        location: application.job.location,
+        workType: application.job.workType,
+        // Only the transport-safe shape: no Prisma Decimal and no Date may leak
+        // into the client payload.
+        salary:
+          application.job.salaryMin !== null ||
+          application.job.salaryMax !== null ||
+          application.job.salaryCurrency !== null
+            ? {
+                min: serializeMoney(application.job.salaryMin),
+                max: serializeMoney(application.job.salaryMax),
+                currency: application.job.salaryCurrency,
+                period: application.job.salaryPeriod,
+                termMonths: application.job.salaryTermMonths,
+              }
+            : null,
+        risk: application.job.riskLevel,
+        postedAt: application.job.postedAt?.toISOString() ?? null,
+      },
+      feedbackKey: feedbackKey ?? undefined,
+      feedback: feedbackKey ? (feedbackByKey[feedbackKey] ?? null) : null,
+    }
   })
 
   return (

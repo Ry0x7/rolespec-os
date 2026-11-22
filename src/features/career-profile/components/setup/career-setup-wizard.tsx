@@ -22,12 +22,13 @@ import {
   deleteTargetRole,
   updateCareerPreferences,
 } from "../../actions/career-profile.actions"
+import { currencyOptions } from "@/shared/lib/money/currencies"
+import { PAY_PERIOD_SELECT_LABELS } from "@/shared/lib/money/money"
 import {
   EVIDENCE_KIND_LABELS,
   EVIDENCE_KIND_ORDER,
   EXPERIENCE_LEVEL_LABELS,
   isLegacyWorkAuthorization,
-  SALARY_PERIOD_LABELS,
   WORK_AUTHORIZATION_OPTIONS,
   WORK_MODE_LABELS,
   summarizeCapabilitiesAdded,
@@ -42,8 +43,9 @@ import type { CareerPreferencesValues } from "../../types"
 
 const WORK_MODE_VALUES = ["REMOTE", "HYBRID", "ONSITE"] as const
 const EXPERIENCE_LEVEL_VALUES = ["JUNIOR", "MID", "SENIOR", "LEAD", "EXECUTIVE"] as const
-const SALARY_PERIOD_VALUES = ["HOURLY", "MONTHLY", "YEARLY"] as const
-const SALARY_CURRENCY_VALUES = ["USD", "PHP"] as const
+/** A contract total has no length on the profile, so it is not offered here. */
+const SALARY_PERIOD_VALUES = ["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "YEARLY"] as const
+const SALARY_CURRENCY_OPTIONS = currencyOptions()
 
 /** Blurbs under each experience option — plain language, not job titles. */
 const EXPERIENCE_LEVEL_HINTS: Record<(typeof EXPERIENCE_LEVEL_VALUES)[number], string> = {
@@ -106,10 +108,10 @@ function toDraft(values: CareerPreferencesValues): PreferencesDraft {
     workAuthorization: values.workAuthorization ?? "",
     requiresSponsorship:
       values.requiresSponsorship === null ? "" : values.requiresSponsorship ? "yes" : "no",
-    salaryMin: values.salaryMin === null ? "" : String(values.salaryMin),
-    salaryMax: values.salaryMax === null ? "" : String(values.salaryMax),
+    salaryMin: values.salaryMin ?? "",
+    salaryMax: values.salaryMax ?? "",
     salaryPeriod: values.salaryPeriod ?? "",
-    salaryCurrency: values.salaryCurrency,
+    salaryCurrency: values.salaryCurrency ?? "",
     careerGoals: values.careerGoals ?? "",
   }
 }
@@ -584,8 +586,10 @@ export function CareerSetupWizard({
                     <Label htmlFor="setup-salary-min">Minimum</Label>
                     <Input
                       id="setup-salary-min"
-                      type="number"
-                      min={1}
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      placeholder="e.g. 45000"
                       value={draft.salaryMin}
                       disabled={isPending}
                       onChange={(e) => updateDraft("salaryMin", e.target.value)}
@@ -595,8 +599,10 @@ export function CareerSetupWizard({
                     <Label htmlFor="setup-salary-max">Maximum</Label>
                     <Input
                       id="setup-salary-max"
-                      type="number"
-                      min={1}
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      placeholder="optional"
                       value={draft.salaryMax}
                       disabled={isPending}
                       onChange={(e) => updateDraft("salaryMax", e.target.value)}
@@ -613,7 +619,7 @@ export function CareerSetupWizard({
                       <option value="">— not set —</option>
                       {SALARY_PERIOD_VALUES.map((period) => (
                         <option key={period} value={period}>
-                          {SALARY_PERIOD_LABELS[period]}
+                          {PAY_PERIOD_SELECT_LABELS[period]}
                         </option>
                       ))}
                     </Select>
@@ -626,9 +632,10 @@ export function CareerSetupWizard({
                       disabled={isPending}
                       onChange={(e) => updateDraft("salaryCurrency", e.target.value)}
                     >
-                      {SALARY_CURRENCY_VALUES.map((currency) => (
-                        <option key={currency} value={currency}>
-                          {currency}
+                      <option value="">— not set —</option>
+                      {SALARY_CURRENCY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </Select>

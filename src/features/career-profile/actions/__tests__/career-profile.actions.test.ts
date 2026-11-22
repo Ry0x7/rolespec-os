@@ -655,19 +655,22 @@ describe("updateCareerPreferences", () => {
 
     const call = mocks.careerProfile.update.mock.calls[0][0]
     expect(call.where).toEqual({ id: OWN_PROFILE })
-    expect(call.data).toEqual({
+    // The two money columns are compared by value below; the rest must match exactly.
+    const { salaryMin, salaryMax, ...rest } = call.data
+    expect(rest).toEqual({
       experienceLevel: "SENIOR",
       locations: ["Manila, PH", "Remote — APAC"],
       openToRelocation: true,
       workModes: ["REMOTE", "HYBRID"],
       workAuthorization: null,
       requiresSponsorship: false,
-      salaryMin: 1000,
-      salaryMax: 2000,
       salaryPeriod: "MONTHLY",
       salaryCurrency: "PHP",
       careerGoals: "Staff engineer",
     })
+    // Money is stored as a `Decimal`, never as a float; only its value matters here.
+    expect(salaryMin.toString()).toBe("1000")
+    expect(salaryMax.toString()).toBe("2000")
   })
 
   it("drops an unknown work mode rather than persisting it", async () => {

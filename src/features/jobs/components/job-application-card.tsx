@@ -9,25 +9,22 @@ import { Button, buttonVariants } from "@/shared/ui/button"
 import { Card } from "@/shared/ui/card"
 import { cn } from "@/shared/lib/utils"
 import { calendarDaysBetween, formatCalendarDate } from "@/shared/lib/dates"
-import type { SalaryCurrency } from "@/generated/prisma/enums"
+import { serializeMoney } from "@/shared/lib/money/money"
 import { OpportunityConfidenceBadge } from "@/features/discovery/components/opportunity-confidence-badge"
 import { VerdictBadge } from "@/features/discovery/components/verdict-badge"
 import type { JobApplicationRow } from "../hooks/use-job-filters"
 import type { NextStepTone } from "../services/application-next-step.service"
 import type { JobFormApplication } from "./job-form-application"
-import {
-  JOB_TYPE_LABELS,
-  WORK_TYPE_LABELS,
-  formatSalary,
-  formatSalaryEquivalents,
-  salaryEquivalentsHint,
-} from "./job-form-options"
+import { JOB_TYPE_LABELS, WORK_TYPE_LABELS } from "./job-form-options"
 import { DeleteJobDialog } from "./delete-job-dialog"
 import { EditJobDialog } from "./edit-job-dialog"
 import { isTerminalStatus } from "../services/outcome.service"
 import { isStaleJob, STALE_AFTER_DAYS } from "../services/job-staleness.service"
 import { QuickActionButtons } from "./quick-action-buttons"
 import { RequirementBadges } from "./requirement-badges"
+import { OpportunityValueBadge } from "./opportunity-value-card"
+import { JobFeedbackControl } from "@/features/feedback/components/job-feedback-control"
+import type { FeedbackVerdict } from "@/features/feedback/types"
 import { RiskBadge } from "./risk-badge"
 import { StatusBadge } from "./status-badge"
 
@@ -45,13 +42,18 @@ const NEXT_STEP_TONE_CLASS: Record<NextStepTone, string> = {
   urgent: "text-error font-medium",
   soon: "text-warning",
   neutral: "text-muted-foreground",
-  done: "text-muted-foreground/70",
+  done: "text-muted-foreground",
 }
 
 /** The one cover letter a card links to, plus how many exist in total. */
 export interface JobApplicationCardData extends JobApplicationRow {
   coverLetters: { id: string; updatedAt: Date }[]
   _count: { coverLetters: number }
+  /** Stable key for the caller's own feedback; absent when no URL/id exists. */
+  feedbackKey?: string
+  /** The saved Job id, so the feedback row can link to it when one exists. */
+  feedbackJobId?: string
+  feedback?: FeedbackVerdict | null
 }
 
 /**
@@ -92,10 +94,12 @@ export function confidenceReasonText(
 
 interface JobApplicationCardProps {
   application: JobApplicationCardData
-  /** Pesos per dollar, resolved server side so every card shares one lookup. */
-  usdPhpRate: number
-  /** The user's display currency for the salary equivalents line. */
-  preferredCurrency: SalaryCurrency
+  /**
+   * Pay is worded on the server (`describeSalary`) and handed down as
+   * `job.salaryDisplay`, so the card cannot print a converted figure without
+   * the rate date that qualifies it — or convert twice and disagree with the
+   * job detail page about the same posting.
+   */
   /** The user's calendar day (UTC midnight), resolved on the server page. */
   today: Date
   /** Present only in the list's select mode: draws a checkbox in the header. */
@@ -109,8 +113,6 @@ interface JobApplicationCardProps {
 
 export const JobApplicationCard = memo(function JobApplicationCard({
   application,
-  usdPhpRate,
-  preferredCurrency,
   today,
   selection,
   onPreview,
@@ -120,20 +122,17 @@ export const JobApplicationCard = memo(function JobApplicationCard({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const prefetchDetail = () => router.prefetch(`/jobs/${application.id}`)
 
-  // Null when the salary is already in the user's display currency, in which
-  // case the muted line is skipped entirely rather than rendered empty.
   const { job } = application
 
-  const salaryEquivalents =
-    job.salary !== null
-      ? formatSalaryEquivalents(
-          job.salary,
-          job.salaryPeriod,
-          job.salaryCurrency,
-          usdPhpRate,
-          preferredCurrency
-        )
-      : null
+  // Three separate facts, never collapsed: what the posting pays, the annual
+  // equivalent in the reader's currency, and how fresh that rate is.
+  const salary = job.salaryDisplay
+
+  const salaryLine = salary.primary
+  const salaryEquivalents = salary.equivalent
+  const salaryEquivalentsNotice = salary.equivalent
+    ? salary.equivalentNotice
+    : null
 
   const coverLetterCount = application._count.coverLetters
   const mostRecentCoverLetter = application.coverLetters[0]
@@ -183,9 +182,11 @@ export const JobApplicationCard = memo(function JobApplicationCard({
     jobTitle: job.title,
     status: application.status,
     location: job.location,
-    salary: job.salary,
-    salaryPeriod: job.salaryPeriod,
+    salaryMin: serializeMoney(job.salaryMin),
+    salaryMax: serializeMoney(job.salaryMax),
     salaryCurrency: job.salaryCurrency,
+    salaryPeriod: job.salaryPeriod,
+    salaryTermMonths: job.salaryTermMonths,
     dateApplied: application.dateApplied,
     deadline: job.deadline,
     interviewDate: application.interviewDate,
@@ -287,7 +288,7 @@ export const JobApplicationCard = memo(function JobApplicationCard({
                 {coverLetterCount > 1 ? (
                   <span
                     aria-hidden="true"
-                    className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-medium leading-none text-white"
+                    className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-700 px-1 text-[10px] font-medium leading-none text-white"
                   >
                     {coverLetterCount}
                   </span>
@@ -328,6 +329,25 @@ export const JobApplicationCard = memo(function JobApplicationCard({
           {/* Fit first, then whether the posting itself is worth the time —
               the same order and wording Discover and the dashboard use. */}
           {application.verdict ? <VerdictBadge verdict={application.verdict} /> : null}
+          {/* Pay, workload and friction in one number — the triage signal the fit
+              badge cannot give. Full breakdown lives on the job page. */}
+          {application.opportunityValue ? (
+            <OpportunityValueBadge value={application.opportunityValue} />
+          ) : null}
+          {application.feedbackKey ? (
+            <span className="relative z-10">
+              <JobFeedbackControl
+                postingKey={application.feedbackKey}
+                jobId={application.feedbackJobId}
+                title={job.title}
+                companyName={job.companyName}
+                location={job.location}
+                url={job.url}
+                initialVerdict={application.feedback ?? null}
+                hint="Not application status · affects the next ranking."
+              />
+            </span>
+          ) : null}
           <OpportunityConfidenceBadge
             level={application.confidence.level}
             summary={application.confidence.summary}
@@ -346,17 +366,15 @@ export const JobApplicationCard = memo(function JobApplicationCard({
           {job.location ? (
             <span className="truncate">{job.location}</span>
           ) : null}
-          {job.salary !== null ? (
+          {salaryLine ? (
             <>
               {job.location ? <span aria-hidden="true">&middot;</span> : null}
-              <span className="tabular-nums">
-                {formatSalary(job.salary, job.salaryPeriod, job.salaryCurrency)}
-              </span>
+              <span className="tabular-nums">{salaryLine}</span>
             </>
           ) : null}
           {jobTypeLabel ? (
             <>
-              {job.location || job.salary !== null ? (
+              {job.location || salaryLine ? (
                 <span aria-hidden="true">&middot;</span>
               ) : null}
               <span>{jobTypeLabel}</span>
@@ -364,7 +382,7 @@ export const JobApplicationCard = memo(function JobApplicationCard({
           ) : null}
           {workTypeLabel ? (
             <>
-              {job.location || job.salary !== null || jobTypeLabel ? (
+              {job.location || salaryLine || jobTypeLabel ? (
                 <span aria-hidden="true">&middot;</span>
               ) : null}
               <span>{workTypeLabel}</span>
@@ -373,16 +391,28 @@ export const JobApplicationCard = memo(function JobApplicationCard({
           {salaryEquivalents ? (
             // `w-full` breaks the equivalents onto their own line inside the
             // same wrapping row, so it inherits the row's gap rather than the
-            // much larger card gap.
+            // much larger card gap. The rate date is part of the same line:
+            // an approximate figure with no provenance is a number from nowhere.
             <span
               className="w-full tabular-nums text-muted-foreground/80"
-              title={salaryEquivalentsHint(
-                usdPhpRate,
-                job.salaryCurrency,
-                preferredCurrency
-              )}
+              data-testid="salary-equivalent"
             >
-              {salaryEquivalents}
+              ≈ {salaryEquivalents}
+              {salaryEquivalentsNotice ? (
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {salaryEquivalentsNotice}
+                </span>
+              ) : null}
+            </span>
+          ) : salary.equivalentNotice ? (
+            <span className="w-full text-muted-foreground/80" data-testid="salary-equivalent-unavailable">
+              {salary.equivalentNotice}
+            </span>
+          ) : null}
+          {salary.caveat ? (
+            <span className="w-full text-muted-foreground/80" data-testid="salary-caveat">
+              {salary.caveat}
             </span>
           ) : null}
           {/*

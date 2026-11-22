@@ -18,9 +18,17 @@ export interface JobFormApplication {
   jobTitle: string
   status: ApplicationStatus
   location: string | null
-  salary: number | null
+  /**
+   * Pay as the form holds it: two bounds in the posting's own currency and
+   * period, plus a contract term when the figure is a contract total. Strings
+   * because they arrive from `FormData` and must reach Prisma without a float
+   * round trip.
+   */
+  salaryMin: string | null
+  salaryMax: string | null
+  salaryCurrency: SalaryCurrency | null
   salaryPeriod: SalaryPeriod | null
-  salaryCurrency: SalaryCurrency
+  salaryTermMonths: number | null
   dateApplied: Date | null
   deadline: Date | null
   interviewDate: Date | null

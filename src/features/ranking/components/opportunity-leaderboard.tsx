@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -12,6 +13,26 @@ import {
   Sparkles,
   XCircle,
 } from "lucide-react"
+import type {
+  ExperienceLevel,
+  JobFeedbackVerdict,
+  JobRiskLevel,
+  SalaryPeriod,
+  WorkType,
+} from "@/generated/prisma/enums"
+import type { CurrencyCode } from "@/shared/lib/money/currencies"
+import { JobFeedbackControl } from "@/features/feedback/components/job-feedback-control"
+import { FEEDBACK_LABELS } from "@/features/feedback/types"
+import { OpportunityFilterPanel } from "@/features/opportunity/components/opportunity-filter-panel"
+import {
+  DEFAULT_CRITERIA,
+  groupOpportunities,
+  hasActiveCriteria,
+  parseFilterParams,
+  sortOpportunities,
+  writeFilterParams,
+  type FilterableOpportunity,
+} from "@/features/opportunity/filters"
 import type { FitFactor, FitFactorState, RankedEntry, RankingResult } from "../types"
 import type { RankingSnapshotView } from "../services/ranking-snapshot.service"
 import { apiRequest } from "@/shared/lib/api-client"
@@ -28,7 +49,26 @@ export interface OpportunityIdentity {
   id: string
   jobId: string
   status: string
-  job: { title: string; companyName: string; location: string | null; workType: string | null }
+  /** Stable key for the caller's own feedback; absent when no key exists. */
+  feedbackKey?: string
+  feedback?: JobFeedbackVerdict | null
+  job: {
+    title: string
+    companyName: string
+    location: string | null
+    workType: string | null
+    /** Present only when the caller selected it; absent means "not stated". */
+    salary?: {
+      min: string | null
+      max: string | null
+      currency: CurrencyCode | null
+      period: SalaryPeriod | null
+      termMonths?: number | null
+    } | null
+    experience?: ExperienceLevel | null
+    risk?: JobRiskLevel | null
+    postedAt?: string | Date | null
+  }
 }
 
 type RankingResponse = RankingResult & { reranked: boolean; warnings: string[]; poolSize: number; snapshotId: string | null }
@@ -76,6 +116,42 @@ const AI_VERDICT = {
   NonNullable<RankedEntry["ai"]>["verdict"],
   { label: string; variant: NonNullable<BadgeProps["variant"]> }
 >
+
+function asWorkType(value: string | null | undefined): WorkType | null {
+  return value === "REMOTE" || value === "HYBRID" || value === "ONSITE" ? value : null
+}
+
+function ageInDays(value: string | Date | null | undefined): number | null {
+  if (!value) return null
+  const time = value instanceof Date ? value.getTime() : new Date(value).getTime()
+  if (!Number.isFinite(time)) return null
+  return Math.max(0, Math.floor((Date.now() - time) / 86_400_000))
+}
+
+/**
+ * The leaderboard has no Opportunity Value, so `value` stays null: the filter
+ * never invents a score to sort by. Facts it does not have (pay, experience,
+ * risk, age) stay null and surface as "needs more info" when filtered on.
+ */
+function toFilterable(entry: RankedEntry, job: OpportunityIdentity["job"] | undefined): FilterableOpportunity {
+  const salary = job?.salary ?? null
+  return {
+    id: entry.postingId,
+    salary: {
+      min: salary?.min ?? null,
+      max: salary?.max ?? null,
+      currency: salary?.currency ?? null,
+      period: salary?.period ?? null,
+      termMonths: salary?.termMonths ?? null,
+    },
+    workType: asWorkType(job?.workType),
+    location: job?.location ?? null,
+    experience: job?.experience ?? null,
+    risk: job?.risk ?? null,
+    ageDays: ageInDays(job?.postedAt),
+    value: null,
+  }
+}
 
 function coverageState(coverage: number) {
   const pct = Math.round(coverage * 100)
@@ -211,7 +287,7 @@ export function MatchExplanation({ entry }: { entry: RankedEntry }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Overall fit
+            Ranking score
           </p>
           <p className="mt-1 flex items-baseline gap-1">
             <span className="font-mono text-3xl font-bold tabular-nums">
@@ -231,8 +307,24 @@ export function MatchExplanation({ entry }: { entry: RankedEntry }) {
         value={entry.score}
         className="border border-input"
         color={entry.score >= 70 ? "success" : "brand"}
-        label={`Overall match: ${entry.score} out of 100`}
+        label={`Ranking score: ${entry.score} out of 100`}
       />
+
+      {entry.feedback ? (
+        <div className="flex flex-wrap items-start gap-2 rounded-md border border-brand-500/20 bg-brand-500/5 px-3 py-2 text-xs">
+          <Badge variant="brand" size="sm">
+            Your feedback · {FEEDBACK_LABELS[entry.feedback.verdict]}
+          </Badge>
+          <p className="min-w-0 flex-1 leading-relaxed text-muted-foreground">
+            {entry.feedback.label}{" "}
+            {entry.feedback.points === 0
+              ? "No points were added or removed."
+              : `This is an explicit adjustment of ${
+                  entry.feedback.points > 0 ? "+" : ""
+                }${entry.feedback.points} applied after the factual score.`}
+          </p>
+        </div>
+      ) : null}
 
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <Metric label="Profile fit" value={entry.fitScore} suffix="/100" />
@@ -350,6 +442,48 @@ export function OpportunityLeaderboard({ jobs }: { jobs: OpportunityIdentity[] }
   const result = latest ?? stored?.result
   const identity = new Map(jobs.map(job => [job.jobId, job]))
 
+  // The URL is the persisted filter state: a dashboard link can reopen the same
+  // shortlist. The panel also remembers the last view in localStorage.
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const searchSignature = searchParams.toString()
+  const [criteria, setCriteria] = useState(() => parseFilterParams(searchParams))
+  // A link, Back or Forward can change the query while this stays mounted. Re-read
+  // it during render so the debounced write below cannot put the stale filters
+  // back over the new URL. Same pattern as Discovery and the jobs list.
+  const [lastObservedSignature, setLastObservedSignature] = useState(searchSignature)
+  if (searchSignature !== lastObservedSignature) {
+    setLastObservedSignature(searchSignature)
+    const fromUrl = parseFilterParams(new URLSearchParams(searchSignature))
+    if (JSON.stringify(fromUrl) !== JSON.stringify(criteria)) setCriteria(fromUrl)
+  }
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const next = writeFilterParams(new URLSearchParams(searchParams.toString()), criteria)
+      const query = next.toString()
+      if (query !== searchParams.toString()) {
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+      }
+    }, 250)
+    return () => window.clearTimeout(handle)
+  }, [criteria, pathname, router, searchParams])
+
+  const entries = result?.entries ?? []
+  const entriesById = new Map(entries.map(entry => [entry.postingId, entry]))
+  const grouping = groupOpportunities(
+    entries.map(entry => toFilterable(entry, identity.get(entry.postingId)?.job)),
+    criteria
+  )
+  const eligibleEntries = sortOpportunities(grouping.eligible, criteria.sort, criteria.currency).flatMap(
+    item => {
+      const entry = entriesById.get(item.id)
+      return entry ? [entry] : []
+    }
+  )
+  const filtered = hasActiveCriteria(criteria)
+
   async function rank(event: React.FormEvent) {
     event.preventDefault()
     setBusy(true); setError(null); setShowAllEntries(false)
@@ -362,10 +496,10 @@ export function OpportunityLeaderboard({ jobs }: { jobs: OpportunityIdentity[] }
 
   const visibleEntries = result
     ? showAllEntries
-      ? result.entries
-      : result.entries.slice(0, initialVisibleEntries)
+      ? eligibleEntries
+      : eligibleEntries.slice(0, initialVisibleEntries)
     : []
-  const hiddenEntryCount = (result?.entries.length ?? 0) - visibleEntries.length
+  const hiddenEntryCount = eligibleEntries.length - visibleEntries.length
 
   return <section id="opportunities" aria-labelledby="opportunity-heading" className="scroll-mt-24 space-y-5 rounded-lg border border-border bg-card p-4 sm:p-6">
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -391,20 +525,48 @@ export function OpportunityLeaderboard({ jobs }: { jobs: OpportunityIdentity[] }
         <label className="flex min-h-11 items-center gap-2 text-sm"><input className="h-4 w-4 accent-[var(--color-brand-700)]" type="checkbox" checked={rerank} onChange={e => setRerank(e.target.checked)} />Use AI to reorder shortlist</label>
       </div>
     </form>
+    <OpportunityFilterPanel
+      criteria={criteria}
+      onChange={setCriteria}
+      onReset={() => setCriteria({ ...DEFAULT_CRITERIA })}
+      storageKey="rolespec:opportunity-filters:ranking:v1"
+      counts={
+        result
+          ? {
+              eligible: grouping.eligible.length,
+              unknown: grouping.unknown.length,
+              excluded: grouping.excluded.length,
+            }
+          : undefined
+      }
+      disabled={resource.loading || busy}
+    />
+    {(criteria.minPay !== null || criteria.requireKnownPay) && (
+      <p className="text-xs text-muted-foreground">
+        Pay filters read the pay recorded on the saved posting. A posting that never recorded pay is
+        listed under “Needs more info”; currencies are never converted to force a comparison.
+      </p>
+    )}
     <ResourceState {...resource} retry={() => void resource.reload()} hasData={Boolean(result)} />
     {error && <p role="alert" className="text-sm text-error">{error} Your previous ranking is preserved. Use the ranking button to retry.</p>}
     {latest?.warnings.map((warning, i) => <p role="status" key={i} className="text-sm text-warning">{warning}</p>)}
     {latest && !latest.snapshotId && <p role="status" className="text-sm text-warning">Ranking calculated, but the snapshot could not be saved. Refreshing the page will show the last saved ranking.</p>}
     {!result && !resource.loading && !resource.error && <div className="space-y-3 py-5"><h3 className="font-medium">{jobs.length ? "Choose what deserves your attention" : "Your shortlist starts with a saved job"}</h3><p className="max-w-prose text-sm text-muted-foreground">{jobs.length ? "Run a ranking when you’re ready. Scores and explanations appear only after the backend has evaluated your saved postings." : "Discover a posting or add a job manually. Nothing is ranked until you ask."}</p><Link className="text-sm text-brand-400 underline underline-offset-4" href="/jobs">Open your job list</Link></div>}
     {result && <>
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><time dateTime={result.snapshot.rankedAt}>Ranked {new Date(result.snapshot.rankedAt).toLocaleString()}</time><span>· {latest?.poolSize ?? stored?.poolSize ?? result.snapshot.corpusSize} saved postings</span>          <span>· {showAllEntries || result.entries.length <= initialVisibleEntries ? `all ${result.entries.length} ranked` : `top ${visibleEntries.length} of ${result.entries.length}`}</span><Badge variant="neutral">{(latest?.reranked ?? stored?.reranked) ? "AI reordered" : "Deterministic"}</Badge></div>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><time dateTime={result.snapshot.rankedAt}>Ranked {new Date(result.snapshot.rankedAt).toLocaleString()}</time><span>· {latest?.poolSize ?? stored?.poolSize ?? result.snapshot.corpusSize} saved postings</span>          <span>· {showAllEntries || eligibleEntries.length <= initialVisibleEntries ? `all ${eligibleEntries.length} ranked` : `top ${visibleEntries.length} of ${eligibleEntries.length}`}</span><Badge variant="neutral">{(latest?.reranked ?? stored?.reranked) ? "AI reordered" : "Deterministic"}</Badge></div>
       {result.entries.length === 0 && <p className="py-4 text-sm text-muted-foreground">No jobs meet these filters. Lower the minimum score or review all saved jobs.</p>}
+      {result.entries.length > 0 && filtered && eligibleEntries.length === 0 && (
+        <p role="status" className="py-4 text-sm text-muted-foreground">
+          No ranked role matches these filters. The postings that need more information, or were
+          excluded, are listed below with the reason.
+        </p>
+      )}
       <ol className="divide-y divide-border">{visibleEntries.map(entry => {
         const job = identity.get(entry.postingId)
         const coverage = coverageState(entry.coverage)
         return <li key={entry.postingId} className="py-3 first:pt-0 sm:py-4">
           <div className="flex items-start gap-3 sm:gap-5"><span className="w-6 shrink-0 pt-0.5 font-mono text-sm tabular-nums text-muted-foreground" aria-label={`Rank ${entry.rank}`}>{entry.rank}</span>
-            <div className="min-w-0 flex-1"><h3 className="break-words font-semibold">{job ? <Link href={`/jobs/${job.id}#decide`} className="underline-offset-4 hover:underline">{job.job.title}</Link> : "Posting unavailable in current job list"}</h3><p className="mt-1 text-sm text-muted-foreground">{job ? [job.job.companyName, job.job.location, job.job.workType?.replaceAll("_", " ")].filter(Boolean).join(" · ") : "Open Jobs to review the current saved postings."}</p><p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs tabular-nums sm:hidden"><Badge variant="brand" size="sm">{entry.score}/100</Badge><Badge variant={coverage.variant} size="sm">{coverage.pct}% evidence</Badge>{job && <Link className="text-brand-400 underline underline-offset-4" href={`/jobs/${job.id}#preparation`}>Apply</Link>}</p></div>
+            <div className="min-w-0 flex-1"><h3 className="break-words font-semibold">{job ? <Link href={`/jobs/${job.id}#decide`} className="underline-offset-4 hover:underline">{job.job.title}</Link> : "Posting unavailable in current job list"}</h3><p className="mt-1 text-sm text-muted-foreground">{job ? [job.job.companyName, job.job.location, job.job.workType?.replaceAll("_", " ")].filter(Boolean).join(" · ") : "Open Jobs to review the current saved postings."}</p>{job?.feedbackKey ? <div className="mt-2"><JobFeedbackControl postingKey={job.feedbackKey} jobId={job.jobId} title={job.job.title} companyName={job.job.companyName} location={job.job.location} initialVerdict={job.feedback ?? null} hint="Re-rank to apply." /></div> : null}<p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs tabular-nums sm:hidden"><Badge variant="brand" size="sm">{entry.score}/100</Badge><Badge variant={coverage.variant} size="sm">{coverage.pct}% evidence</Badge>{job && <Link className="text-brand-400 underline underline-offset-4" href={`/jobs/${job.id}#preparation`}>Apply</Link>}</p></div>
             <div className="hidden shrink-0 text-right sm:block"><span className="text-xl font-semibold tabular-nums">{entry.score}</span><span className="text-xs text-muted-foreground"> /100</span><p className="text-xs text-muted-foreground">{coverage.pct}% evidence</p></div>
             {job && <Link href={`/jobs/${job.id}#preparation`} aria-label={`Apply to ${job.job.title} at ${job.job.companyName} with the agent`} className="hidden min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"><ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link>}
           </div>
@@ -429,10 +591,59 @@ export function OpportunityLeaderboard({ jobs }: { jobs: OpportunityIdentity[] }
           aria-expanded={false}
           className="min-h-11 w-full rounded-md border border-border px-3 text-sm font-medium text-brand-400 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Show all {result.entries.length} ranked roles
+          Show all {eligibleEntries.length} ranked roles
         </button>
       )}
-      {showAllEntries && result.entries.length > initialVisibleEntries && (
+      {grouping.unknown.length > 0 && (
+        <details className="border-t border-border pt-4 text-sm">
+          <summary className="min-h-8 cursor-pointer text-muted-foreground">
+            Needs more info · {grouping.unknown.length} posting{grouping.unknown.length === 1 ? "" : "s"}{" "}
+            {grouping.unknown.length === 1 ? "does" : "do"} not state what these filters need
+          </summary>
+          <ul className="mt-3 space-y-2">
+            {grouping.unknown.map(item => {
+              const job = identity.get(item.id)
+              return (
+                <li key={item.id}>
+                  {job ? (
+                    <Link className="underline underline-offset-4" href={`/jobs/${job.id}`}>
+                      {job.job.companyName} — {job.job.title}
+                    </Link>
+                  ) : (
+                    "Saved posting"
+                  )}
+                  <span className="text-muted-foreground"> · not enough stated facts to apply your filters</span>
+                </li>
+              )
+            })}
+          </ul>
+        </details>
+      )}
+      {grouping.excluded.length > 0 && (
+        <details className="border-t border-border pt-4 text-sm">
+          <summary className="min-h-8 cursor-pointer text-muted-foreground">
+            Excluded by your filters · {grouping.excluded.length}
+          </summary>
+          <ul className="mt-3 space-y-2">
+            {grouping.excluded.map(({ item, reasons }) => {
+              const job = identity.get(item.id)
+              return (
+                <li key={item.id}>
+                  {job ? (
+                    <Link className="underline underline-offset-4" href={`/jobs/${job.id}`}>
+                      {job.job.companyName} — {job.job.title}
+                    </Link>
+                  ) : (
+                    "Saved posting"
+                  )}
+                  <span className="text-muted-foreground"> · {reasons.join(" ")}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </details>
+      )}
+      {showAllEntries && eligibleEntries.length > initialVisibleEntries && (
         <button
           type="button"
           onClick={() => setShowAllEntries(false)}

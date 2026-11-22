@@ -1,4 +1,5 @@
 import "dotenv/config"
+import { salaryColumnsFrom } from "@/features/jobs/services/job-record.service"
 import { prisma } from "@/shared/lib/prisma"
 
 const SEED_OWNER_EMAIL = "owner@rolespec.local"
@@ -564,9 +565,15 @@ async function main() {
         location: item.location,
         jobType: item.jobType,
         workType: item.workType,
-        salary: item.salary,
-        salaryPeriod: item.salaryPeriod,
-        salaryCurrency: item.salaryCurrency,
+        // A seeded posting states its pay, so it is written exactly as a manual
+        // entry would be: a range, a currency, a period and its provenance.
+        ...salaryColumnsFrom({
+          salaryMin: item.salary,
+          salaryMax: item.salary,
+          salaryCurrency: item.salaryCurrency,
+          salaryPeriod: item.salaryPeriod,
+          salaryText: `${item.salaryCurrency} ${item.salary.toLocaleString("en-US")} per year`,
+        }),
         url: item.url,
         description: item.description,
         source: "MANUAL",

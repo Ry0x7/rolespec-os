@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { ApplicationStatus } from "@/generated/prisma/enums"
+import { ApplicationStatus, SalaryCurrency, SalaryPeriod } from "@/generated/prisma/enums"
 import { logActivityEvent, resolveApiUserId } from "@/features/auth/api-auth"
 import { createJobApplicationWithJob } from "@/features/jobs/services/job-record.service"
+import { serializeMoney } from "@/shared/lib/money/money"
 import { canonicalizeUrl } from "@/features/discovery/services/normalize.service"
 import { prisma } from "@/shared/lib/prisma"
 
@@ -21,6 +22,12 @@ const createSchema = z.object({
   status: z.nativeEnum(ApplicationStatus).default("INTERESTED"),
   jobLink: z.string().max(2000).optional().or(z.literal("")),
   notes: z.string().max(10000).optional().or(z.literal("")),
+  salaryMin: z.coerce.number().nonnegative().max(999_999_999_999.99).optional(),
+  salaryMax: z.coerce.number().nonnegative().max(999_999_999_999.99).optional(),
+  salaryCurrency: z.nativeEnum(SalaryCurrency).optional(),
+  salaryPeriod: z.nativeEnum(SalaryPeriod).optional(),
+  salaryTermMonths: z.coerce.number().int().min(1).max(120).optional(),
+  salaryText: z.string().trim().max(500).optional(),
 })
 
 export async function GET(req: Request) {
@@ -49,7 +56,9 @@ export async function GET(req: Request) {
       job: {
         select: {
           id: true, companyName: true, title: true, url: true, location: true,
-          salary: true, salaryPeriod: true, jobType: true, workType: true,
+          salaryMin: true, salaryMax: true, salaryCurrency: true, salaryPeriod: true,
+          salaryAnnualMin: true, salaryAnnualMax: true,
+          jobType: true, workType: true,
         },
       },
     },
@@ -57,8 +66,20 @@ export async function GET(req: Request) {
   const hasMore = applications.length > parsed.data.limit
   const page = hasMore ? applications.slice(0, parsed.data.limit) : applications
   const nextCursor = hasMore ? page[page.length - 1]?.id ?? null : null
+  // Pay is a Decimal pair: serialize it, or the JSON carries a Decimal object
+  // instead of the figure the client expects.
+  const wire = page.map((application) => ({
+    ...application,
+    job: {
+      ...application.job,
+      salaryMin: serializeMoney(application.job.salaryMin),
+      salaryMax: serializeMoney(application.job.salaryMax),
+      salaryAnnualMin: serializeMoney(application.job.salaryAnnualMin),
+      salaryAnnualMax: serializeMoney(application.job.salaryAnnualMax),
+    },
+  }))
   return NextResponse.json(
-    { applications: page, hasMore, nextCursor },
+    { applications: wire, hasMore, nextCursor },
     { headers: { "Cache-Control": "private, max-age=10, s-maxage=0" } }
   )
 }
@@ -85,6 +106,12 @@ export async function POST(req: Request) {
     jobLink: parsed.data.jobLink || null,
     ...(canonicalUrl ? { canonicalUrl } : {}),
     notes: parsed.data.notes || null,
+    salaryMin: parsed.data.salaryMin ?? null,
+    salaryMax: parsed.data.salaryMax ?? null,
+    salaryCurrency: parsed.data.salaryCurrency ?? null,
+    salaryPeriod: parsed.data.salaryPeriod ?? null,
+    salaryTermMonths: parsed.data.salaryTermMonths ?? null,
+    salaryText: parsed.data.salaryText ?? null,
     ...(parsed.data.status === "APPLIED" ? { dateApplied: new Date() } : {}),
   })
 

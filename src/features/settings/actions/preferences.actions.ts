@@ -31,16 +31,23 @@ export async function updatePreferences(input: UpdatePreferencesInput) {
       where: { id: session.user.id },
       select: { preferences: true },
     })
+    const stored = parsePreferences(user?.preferences)
 
     await prisma.user.update({
       where: { id: session.user.id },
       data: {
         preferences: {
-          ...parsePreferences(user?.preferences),
+          ...stored,
           dailyApplicationGoal: parsed.data.dailyApplicationGoal,
           defaultAiInstructions: parsed.data.defaultAiInstructions,
           emailNotifications: parsed.data.emailNotifications,
           preferredCurrency: parsed.data.preferredCurrency,
+          // A caller that does not own the policy (quick toggles, older clients)
+          // must preserve it, not receive the schema default for an omitted key.
+          opportunityValue:
+            input.opportunityValue === undefined
+              ? stored.opportunityValue
+              : parsed.data.opportunityValue,
         },
       },
       select: { id: true },

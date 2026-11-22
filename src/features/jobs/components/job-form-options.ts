@@ -5,6 +5,18 @@ import {
   SalaryPeriod,
   WorkType,
 } from "@/generated/prisma/enums"
+import Decimal from "decimal.js"
+
+import {
+  CURRENCY_REGISTRY,
+  SUPPORTED_CURRENCIES,
+  currencyOptions,
+} from "@/shared/lib/money/currencies"
+import {
+  PAY_PERIOD_SELECT_LABELS,
+  formatSalaryRange,
+} from "@/shared/lib/money/money"
+import { payCalendar } from "@/shared/lib/money/pay-calendar"
 
 /** Status order mirrors the pipeline, so the dropdowns read top-to-bottom. */
 export const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
@@ -40,139 +52,60 @@ export const WORK_TYPE_OPTIONS: { value: WorkType; label: string }[] = (
   Object.keys(WORK_TYPE_LABELS) as WorkType[]
 ).map((value) => ({ value, label: WORK_TYPE_LABELS[value] }))
 
-export const SALARY_PERIOD_LABELS: Record<SalaryPeriod, string> = {
-  HOURLY: "Hourly",
-  MONTHLY: "Monthly",
-  YEARLY: "Yearly",
-}
+export const SALARY_PERIOD_LABELS: Record<SalaryPeriod, string> = PAY_PERIOD_SELECT_LABELS
 
 export const SALARY_PERIOD_OPTIONS: { value: SalaryPeriod; label: string }[] = (
   Object.keys(SALARY_PERIOD_LABELS) as SalaryPeriod[]
 ).map((value) => ({ value, label: SALARY_PERIOD_LABELS[value] }))
 
-/** Suffix per period; rows saved before the field existed read as yearly. */
-const SALARY_PERIOD_SUFFIXES: Record<SalaryPeriod, string> = {
-  HOURLY: "hour",
-  MONTHLY: "month",
-  YEARLY: "year",
-}
+/** Symbol per currency, straight from the ISO 4217 registry. */
+export const SALARY_CURRENCY_SYMBOLS: Record<SalaryCurrency, string> = Object.fromEntries(
+  SUPPORTED_CURRENCIES.map((code) => [code, CURRENCY_REGISTRY[code].symbol])
+) as Record<SalaryCurrency, string>
 
-export const SALARY_CURRENCY_SYMBOLS: Record<SalaryCurrency, string> = {
-  USD: "$",
-  PHP: "₱",
-}
+export const SALARY_CURRENCY_OPTIONS: { value: SalaryCurrency; label: string }[] =
+  currencyOptions()
 
-export const SALARY_CURRENCY_OPTIONS: { value: SalaryCurrency; label: string }[] = (
-  Object.keys(SALARY_CURRENCY_SYMBOLS) as SalaryCurrency[]
-).map((value) => ({ value, label: value }))
-
-/** Full-time hours in a year (40 × 52) — the usual hourly→yearly convention. */
-const HOURS_PER_YEAR = 2080
-
-const MONTHS_PER_YEAR = 12
-
-/** The stored amount expressed per year. Rows with no period read as yearly. */
+/**
+ * The amount expressed per year, through the configured working calendar.
+ * Rows with no period read as yearly (the historical default). Returns `null` for
+ * a contract total, whose annual value depends on a term this call does not have.
+ */
 export function annualizeSalary(
-  salary: number,
+  salary: Decimal | string | number | null | undefined,
   period: SalaryPeriod | null | undefined
-): number {
+): Decimal | null {
+  if (salary === null || salary === undefined) return null
+  let amount: Decimal
+  try {
+    amount = salary instanceof Decimal ? salary : new Decimal(String(salary))
+  } catch {
+    return null
+  }
+  if (!amount.isFinite()) return null
+
+  const calendar = payCalendar()
   switch (period) {
     case SalaryPeriod.HOURLY:
-      return salary * HOURS_PER_YEAR
+      return amount.mul(calendar.hoursPerYear)
+    case SalaryPeriod.DAILY:
+      return amount.mul(calendar.daysPerYear)
+    case SalaryPeriod.WEEKLY:
+      return amount.mul(calendar.weeksPerYear)
     case SalaryPeriod.MONTHLY:
-      return salary * MONTHS_PER_YEAR
+      return amount.mul(calendar.monthsPerYear)
+    case SalaryPeriod.CONTRACT:
+      return null
     default:
-      return salary
+      return amount
   }
 }
 
-/** Converts between the two supported currencies; same-currency is a no-op. */
-export function convertSalary(
-  amount: number,
-  from: SalaryCurrency,
-  to: SalaryCurrency,
-  usdPhpRate: number
-): number {
-  if (from === to) return amount
-  return from === SalaryCurrency.USD ? amount * usdPhpRate : amount / usdPhpRate
-}
-
-/** e.g. `$85,000 / year`. */
+/** `$85,000 – $95,000 per year`. */
 export function formatSalary(
   salary: number,
   period: SalaryPeriod | null | undefined,
-  currency: SalaryCurrency | null | undefined = SalaryCurrency.USD
+  currency: SalaryCurrency
 ): string {
-  const symbol = SALARY_CURRENCY_SYMBOLS[currency ?? SalaryCurrency.USD]
-  return `${symbol}${salary.toLocaleString()} / ${SALARY_PERIOD_SUFFIXES[period ?? SalaryPeriod.YEARLY]}`
-}
-
-/** Rows saved before the currency field existed read as USD. */
-function enteredCurrency(
-  currency: SalaryCurrency | null | undefined
-): SalaryCurrency {
-  return currency ?? SalaryCurrency.USD
-}
-
-/**
- * Explains the muted `≈` line, which otherwise reads as an unexplained number:
- * it is a yearly figure, and it is approximate.
- *
- * The rate sentence is only appended when an FX conversion actually happened.
- * A same-currency line is pure annualisation, and quoting a peso-per-dollar
- * rate next to a figure that was never converted is simply wrong.
- */
-export function salaryEquivalentsHint(
-  usdPhpRate: number,
-  currency: SalaryCurrency | null | undefined,
-  preferredCurrency: SalaryCurrency
-): string {
-  if (enteredCurrency(currency) === preferredCurrency) {
-    return "Approximate yearly equivalent"
-  }
-  return `Approximate yearly equivalent, converted at ₱${usdPhpRate.toFixed(2)} per US$1`
-}
-
-/**
- * The muted second line under a salary: the yearly equivalent in the stored
- * currency (omitted when the stored figure is already yearly, since it would
- * just repeat the line above) followed by the yearly figure in the user's
- * preferred display currency — e.g. `≈ ₱960,000 / year · $16,552 / year`.
- *
- * When the salary was entered in the preferred currency there is nothing to
- * convert, so only the annualised figure is left — `≈ ₱960,000 / year`. That
- * still earns its place for an hourly or monthly salary, so it is kept; a
- * stored yearly figure would only repeat the line above, so that returns
- * `null` and the caller drops the line entirely.
- */
-export function formatSalaryEquivalents(
-  salary: number,
-  period: SalaryPeriod | null | undefined,
-  currency: SalaryCurrency | null | undefined,
-  usdPhpRate: number,
-  preferredCurrency: SalaryCurrency
-): string | null {
-  const from = enteredCurrency(currency)
-  const to = preferredCurrency
-  const annual = annualizeSalary(salary, period)
-  const storedYearly = (period ?? SalaryPeriod.YEARLY) === SalaryPeriod.YEARLY
-
-  if (from === to) {
-    if (storedYearly) return null
-    return `≈ ${formatSalary(Math.round(annual), SalaryPeriod.YEARLY, from)}`
-  }
-
-  const parts: string[] = []
-  if (!storedYearly) {
-    parts.push(formatSalary(Math.round(annual), SalaryPeriod.YEARLY, from))
-  }
-  parts.push(
-    formatSalary(
-      Math.round(convertSalary(annual, from, to, usdPhpRate)),
-      SalaryPeriod.YEARLY,
-      to
-    )
-  )
-
-  return `≈ ${parts.join(" · ")}`
+  return formatSalaryRange(salary, salary, currency, period) ?? ""
 }
