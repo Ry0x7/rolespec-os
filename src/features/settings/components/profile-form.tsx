@@ -16,6 +16,21 @@ type ProfileFormProps = {
   image: string
 }
 
+/**
+ * A previewable avatar URL. Only a parsed http(s) URL is returned, so a pasted
+ * `javascript:`/`data:` value cannot become the image source, and the raw text
+ * field is never handed to the DOM as a URL.
+ */
+function safeImageSrc(raw: string): string | null {
+  if (!isHttpUrl(raw)) return null
+  try {
+    const url = new URL(raw.trim())
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
 export function ProfileForm({ name, email, image }: ProfileFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -23,7 +38,8 @@ export function ProfileForm({ name, email, image }: ProfileFormProps) {
   const [imageValue, setImageValue] = useState(image)
   const [imageFailed, setImageFailed] = useState(false)
 
-  const showPreview = isHttpUrl(imageValue.trim()) && !imageFailed
+  const imageSrc = safeImageSrc(imageValue)
+  const showPreview = imageSrc !== null && !imageFailed
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -47,7 +63,7 @@ export function ProfileForm({ name, email, image }: ProfileFormProps) {
             {showPreview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={imageValue}
+                src={imageSrc ?? undefined}
                 alt="Avatar preview"
                 className="h-full w-full object-cover"
                 onError={() => setImageFailed(true)}

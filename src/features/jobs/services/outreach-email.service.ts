@@ -216,19 +216,24 @@ OUTPUT: Return ONLY valid JSON matching the schema, with "subject" as an empty s
  * rule set, so switching tone can never quietly drop a rule (the character cap,
  * the empty subject, the grounding in the resume).
  */
-const SYSTEM_PROMPTS: Record<
-  OutreachMessageType,
-  // The two LinkedIn builders take no name: a connection note and a DM carry no
-  // sign-off block, because LinkedIn already shows the recipient who is asking.
-  (toneLine: string, candidateName: string | null) => string
-> = {
-  cold_email: buildColdEmailSystemPrompt,
-  connection_note: buildConnectionNoteSystemPrompt,
-  linkedin_dm: buildLinkedInDmSystemPrompt,
+function systemPromptFor(
+  messageType: OutreachMessageType,
+  toneLine: string,
+  candidateName: string | null
+): string {
+  switch (messageType) {
+    case "connection_note":
+      return buildConnectionNoteSystemPrompt(toneLine)
+    case "linkedin_dm":
+      return buildLinkedInDmSystemPrompt(toneLine, candidateName)
+    case "cold_email":
+    default:
+      return buildColdEmailSystemPrompt(toneLine, candidateName)
+  }
 }
 
 /**
- * Which message types end with a sign-off at all. Sits beside `SYSTEM_PROMPTS`
+ * Which message types end with a sign-off at all. Sits beside `systemPromptFor`
  * on purpose: the entry here has to move whenever the prompt above it changes
  * its mind about how a message ends.
  */
@@ -296,7 +301,8 @@ export async function generateOutreachEmailAI(input: {
 
   const { object } = await generateObjectTracked({
     schema: outreachEmailSchema,
-    system: SYSTEM_PROMPTS[messageType](
+    system: systemPromptFor(
+      messageType,
       resolveToneLine(messageType, tone),
       input.candidateName ?? null
     ),

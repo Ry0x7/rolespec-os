@@ -104,6 +104,31 @@ const ASHBY_BOARD_HOST = "jobs.ashbyhq.com"
 /** `{slug}.bamboohr.com` — the slug is the subdomain, not a path segment. */
 const BAMBOOHR_HOST = /^([a-z0-9][a-z0-9-]*)\.bamboohr\.com$/
 
+/** The only hosts the ATS JSON API may call. Workday adds a validated tenant subdomain. */
+const ATS_API_HOSTS = new Set([
+  "boards-api.greenhouse.io",
+  "api.lever.co",
+  "api.ashbyhq.com",
+])
+const WORKDAY_API_HOST = /^[a-z0-9][a-z0-9-]*\.wd\d+\.myworkdayjobs\.com$/
+
+/**
+ * Rebuilds one ATS API URL from an allowlist. The callers already build these
+ * from fixed providers and validated ids; this is the check that makes that
+ * invariant local to the function that actually opens the socket.
+ */
+function assertAtsApiUrl(raw: string): string {
+  const url = new URL(raw)
+  if (url.protocol !== "https:" || url.username || url.password) {
+    throw new Error("Invalid ATS API URL")
+  }
+  const host = url.hostname.toLowerCase()
+  if (!ATS_API_HOSTS.has(host) && !WORKDAY_API_HOST.test(host) && !BAMBOOHR_HOST.test(host)) {
+    throw new Error("Invalid ATS API host")
+  }
+  return url.toString()
+}
+
 const NUMERIC_ID = /^\d+$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -211,7 +236,8 @@ export const MAX_ATS_RESPONSE_BYTES = 8 * 1024 * 1024
  * One JSON GET against a fixed ATS host. Returns null for anything that is not
  * a parsed, in-budget success — the caller treats every null the same way.
  */
-async function getAtsJson(url: string, signal: AbortSignal): Promise<unknown | null> {
+async function getAtsJson(rawUrl: string, signal: AbortSignal): Promise<unknown | null> {
+  const url = assertAtsApiUrl(rawUrl)
   const response = await fetch(url, {
     signal: AbortSignal.any([signal, AbortSignal.timeout(ATS_API_TIMEOUT_MS)]),
     cache: "no-store",

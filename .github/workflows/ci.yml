@@ -13,6 +13,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only for every job. The build, test and audit steps only need the
+# checked-out tree; no job writes to the repository.
+permissions:
+  contents: read
+
 env:
   # `npm run build` runs `prisma generate` first, and the generated client is
   # gitignored, so every job that touches TypeScript needs it. No database is

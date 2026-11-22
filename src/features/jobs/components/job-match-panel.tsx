@@ -120,9 +120,16 @@ export function JobMatchPanel({
   )
   /**
    * The resume editor prefills its ATS job description from `?jobId`, so the
-   * hand-off only needs the selected resume plus this job.
+   * hand-off only needs the selected resume plus this job. Resolve the id
+   * against the server-provided options first: a `<select>` value is DOM text,
+   * and only an id that came from the options list may reach the URL helper.
    */
-  const editorHref = resumeId ? resumeEditorHref(resumeId, jobApplicationId) : null
+  const selectedResume = resumeId
+    ? resumeOptions.find((option) => option.id === resumeId)
+    : undefined
+  const editorHref = selectedResume
+    ? resumeEditorHref(selectedResume.id, jobApplicationId)
+    : null
 
   function handleAnalyze() {
     if (!resumeId) return

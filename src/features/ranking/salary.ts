@@ -127,7 +127,7 @@ const PAY_WORDS = /\b(?:salary|pay|compensation|wage|rate|stipend|package)\b/i
  */
 const AMOUNT_PATTERN = /(\d{1,3}(?:[ ,]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*([kK])?/g
 
-const SEGMENT_SPLIT = /\s*(?:;|\||•|·|\n|\r)\s*/
+const SEGMENT_SPLIT = /[;|•·\n\r]/
 
 function normalizeCurrency(value: unknown): CurrencyCode | null {
   return typeof value === "string" && isCurrencyCode(value) ? value : null
@@ -202,8 +202,9 @@ function readText(text: string): TextReading {
   const periods: SalaryPeriod[] = []
   let inverted = false
 
-  for (const segment of text.split(SEGMENT_SPLIT)) {
-    if (!segment.trim()) continue
+  for (const rawSegment of text.split(SEGMENT_SPLIT)) {
+    const segment = rawSegment.trim()
+    if (!segment) continue
     const segmentCurrencies = currenciesIn(segment)
     const segmentPeriods = periodsIn(segment)
     const looksLikePay =

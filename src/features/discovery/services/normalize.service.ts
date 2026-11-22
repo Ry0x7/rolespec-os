@@ -45,7 +45,8 @@ export function stripHtml(value: string): string {
   return decodeHtmlEntities(
     value
       .replace(/<!--[\s\S]*?-->/g, " ")
-      .replace(/<(?:script|style)\b[\s\S]*?<\/(?:script|style)>/gi, " ")
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, " ")
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<\/(?:p|div|li|h[1-6]|section|article|tr)>/gi, "\n")
       .replace(/<[^>]*>/g, " ")

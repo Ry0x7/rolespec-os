@@ -88,32 +88,42 @@ function normalize(value: string): string {
   return value.replace(/\s+/g, " ").trim().toLowerCase()
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  "#39": "'",
+}
+
 function decodeEntities(value: string): string {
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => {
-      const code = Number.parseInt(hex, 16)
-      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ""
-    })
-    .replace(/&#(\d+);/g, (_, dec: string) => {
-      const code = Number.parseInt(dec, 10)
-      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ""
-    })
+  // Single pass: decoding `&amp;lt;` to `&lt;` is correct, but doing it in
+  // chained replacements would then decode that to `<` and recreate markup.
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi, (match, entity: string) => {
+    const key = entity.toLowerCase()
+    const named = NAMED_ENTITIES[key]
+    if (named !== undefined) return named
+    if (key.startsWith("#")) {
+      const hex = key[1] === "x"
+      const code = Number.parseInt(key.slice(hex ? 2 : 1), hex ? 16 : 10)
+      return Number.isFinite(code) && code > 0 && code <= 0x10ffff
+        ? String.fromCodePoint(code)
+        : ""
+    }
+    return match
+  })
 }
 
 /** Turns a fetched HTML page into the text facts are checked against. */
 export function htmlToReadableText(html: string): string {
   return decodeEntities(
     html
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-      .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
-      .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, " ")
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, " ")
+      .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, " ")
+      .replace(/<svg\b[^>]*>[\s\S]*?<\/svg\s*>/gi, " ")
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<\/(p|div|section|article|h[1-6]|li|tr|td|th)>/gi, "\n")
       .replace(/<[^>]+>/g, " ")

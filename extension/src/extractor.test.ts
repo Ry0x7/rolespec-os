@@ -30,6 +30,25 @@ describe("extractJobPosting", () => {
     expect(job.jobLink).toBeUndefined()
   })
 
+  it("strips whitespace-closed script blocks and does not double-unescape entities", () => {
+    const description =
+      "<p>Safe text</p><script>steal()<\/script ><p>&amp;lt;b&amp;gt;literal&amp;lt;/b&amp;gt;</p>"
+    const job = extractJobPosting(
+      parse(
+        `<html><head><script type="application/ld+json">${JSON.stringify({
+          "@type": "JobPosting",
+          title: "Engineer",
+          description,
+        }).replace(/<\//g, "<\\/")}</script></head><body></body></html>`
+      )
+    )
+
+    expect(job.jobDescription).toContain("Safe text")
+    expect(job.jobDescription).not.toContain("steal")
+    expect(job.jobDescription).toContain("&lt;b&gt;literal&lt;/b&gt;")
+    expect(job.jobDescription).not.toContain("<")
+  })
+
   it("finds a JobPosting nested in an @graph inside an array", () => {
     const job = extractJobPosting(parse(graphJsonLd))
 

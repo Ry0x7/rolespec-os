@@ -16,6 +16,22 @@ const PDF_MIME = "application/pdf"
 const log = logger("export/store")
 
 /**
+ * One path segment in an export location. Resume ids and batch ids are opaque
+ * database/application values, never user-authored paths; this is the guard
+ * that keeps a malformed id from escaping `EXPORT_STORAGE_DIR` or the
+ * `/api/exports/` URL namespace.
+ */
+const SAFE_EXPORT_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
+
+function assertSafeExportSegment(value: string, label: string): string {
+  const segment = path.basename(value)
+  if (segment !== value || !SAFE_EXPORT_SEGMENT.test(segment)) {
+    throw new Error(`Invalid export ${label}`)
+  }
+  return segment
+}
+
+/**
  * An export holds the resume's full contents: name, email, phone and work
  * history. The privacy model is therefore authorization, not obscurity —
  * whichever backend stores the bytes:
@@ -56,11 +72,15 @@ interface UploadResult {
  * describes both. Must keep matching the route's SAFE_FILENAME pattern.
  */
 function exportFilename(template: string, format: "pdf"): string {
-  return `${template.toLowerCase()}-${randomBytes(9).toString("base64url")}.${format}`
+  const safeTemplate = template
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  return `${safeTemplate || "export"}-${randomBytes(9).toString("base64url")}.${format}`
 }
 
 function downloadUrl(resumeId: string, batch: string, filename: string): string {
-  return `/api/exports/${resumeId}/${batch}/${filename}`
+  return `/api/exports/${encodeURIComponent(resumeId)}/${encodeURIComponent(batch)}/${encodeURIComponent(filename)}`
 }
 
 /**
@@ -73,15 +93,17 @@ function storeViaBlob(
   batch: string,
   exports: Array<{ template: string; pdfBuffer: Buffer }>
 ): Array<Promise<UploadResult>> {
+  const safeResumeId = assertSafeExportSegment(resumeId, "resume id")
+  const safeBatch = assertSafeExportSegment(batch, "batch id")
   return exports.map(({ template, pdfBuffer }) => {
     const filename = exportFilename(template, "pdf")
-    return put(`exports/${resumeId}/${batch}/${filename}`, pdfBuffer, {
+    return put(`exports/${safeResumeId}/${safeBatch}/${filename}`, pdfBuffer, {
       ...BLOB_UPLOAD_OPTIONS,
       contentType: PDF_MIME,
     }).then(() => ({
       template,
       format: "pdf" as const,
-      url: downloadUrl(resumeId, batch, filename),
+      url: downloadUrl(safeResumeId, safeBatch, filename),
     }))
   })
 }
@@ -97,7 +119,11 @@ function storeOnDisk(
   batch: string,
   exports: Array<{ template: string; pdfBuffer: Buffer }>
 ): Array<Promise<UploadResult>> {
-  const dir = path.join(exportStorageDir(), resumeId, batch)
+  const safeResumeId = assertSafeExportSegment(resumeId, "resume id")
+  const safeBatch = assertSafeExportSegment(batch, "batch id")
+  const root = path.resolve(exportStorageDir())
+  const dir = path.join(root, path.basename(safeResumeId), path.basename(safeBatch))
+  if (!dir.startsWith(root + path.sep)) throw new Error("Invalid export path")
   const ready = mkdir(dir, { recursive: true })
 
   const writeOne = async (
@@ -107,8 +133,8 @@ function storeOnDisk(
   ): Promise<UploadResult> => {
     await ready
     const filename = exportFilename(template, format)
-    await writeFile(path.join(dir, filename), buffer)
-    return { template, format, url: downloadUrl(resumeId, batch, filename) }
+    await writeFile(path.join(dir, path.basename(filename)), buffer)
+    return { template, format, url: downloadUrl(safeResumeId, safeBatch, filename) }
   }
 
   return exports.map(({ template, pdfBuffer }) => writeOne(template, "pdf", pdfBuffer))
@@ -153,13 +179,15 @@ export async function storeAllTemplateExports(
   exports: Array<{ template: string; pdfBuffer: Buffer }>
 ): Promise<Record<string, TemplateExportUrls>> {
   const results: Record<string, TemplateExportUrls> = {}
+  const safeResumeId = assertSafeExportSegment(resumeId, "resume id")
   const batch = `${Date.now()}-${randomUUID().slice(0, 8)}`
+  const safeBatch = assertSafeExportSegment(batch, "batch id")
 
   // Checked per call (not at module scope) so a token added at runtime — or
   // removed in tests — takes effect without a restart.
   const uploads = process.env.BLOB_READ_WRITE_TOKEN
-    ? storeViaBlob(resumeId, batch, exports)
-    : storeOnDisk(resumeId, batch, exports)
+    ? storeViaBlob(safeResumeId, safeBatch, exports)
+    : storeOnDisk(safeResumeId, safeBatch, exports)
 
   const uploaded = await Promise.all(uploads)
 
@@ -205,9 +233,15 @@ export async function deleteExportFilesForResumes(resumeIds: string[]): Promise<
   if (resumeIds.length === 0) return
 
   for (const resumeId of resumeIds) {
+    const safeResumeId = path.basename(resumeId)
+    if (safeResumeId !== resumeId || !SAFE_EXPORT_SEGMENT.test(safeResumeId)) {
+      log.warn("Skipping export cleanup for an invalid resume id")
+      continue
+    }
+
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       try {
-        await deleteBlobsForResume(resumeId)
+        await deleteBlobsForResume(safeResumeId)
       } catch (error) {
         log.warn("Failed to delete blob exports for resume", {
           resumeId,
@@ -217,10 +251,10 @@ export async function deleteExportFilesForResumes(resumeIds: string[]): Promise<
     }
 
     try {
-      await rm(path.join(exportStorageDir(), resumeId), { recursive: true, force: true })
+      await rm(path.join(exportStorageDir(), path.basename(safeResumeId)), { recursive: true, force: true })
     } catch (error) {
       log.warn("Failed to delete on-disk exports for resume", {
-        resumeId,
+        resumeId: safeResumeId,
         error: error instanceof Error ? error.message : String(error),
       })
     }

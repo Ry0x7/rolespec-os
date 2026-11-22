@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto"
+import { createHash, createHmac, randomBytes } from "node:crypto"
 
 import { logger } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
@@ -26,6 +26,9 @@ import { prisma } from "@/shared/lib/prisma"
 /** Prefix on every raw token, so a leaked string is recognisable as ours. */
 export const API_TOKEN_PREFIX = "rspec_"
 
+/** Marks a keyed hash, so a legacy bare digest can still be recognised. */
+const TOKEN_HASH_VERSION = "v2:"
+
 const log = logger("api-token")
 
 /**
@@ -45,7 +48,28 @@ export function generateApiToken(): string {
   return `${API_TOKEN_PREFIX}${randomBytes(32).toString("base64url")}`
 }
 
+function tokenHashKey(): string {
+  const secret = process.env.AUTH_SECRET
+  if (!secret) throw new Error("AUTH_SECRET is required to hash API tokens")
+  return secret
+}
+
+/**
+ * Keyed SHA-256 for a high-entropy bearer token. The token is 32 bytes of
+ * CSPRNG output, so a slow password KDF would only add latency to every
+ * extension request. The key matters: a database leak alone no longer gives an
+ * attacker a verifier, because `AUTH_SECRET` lives outside the database.
+ */
 export function hashApiToken(rawToken: string): string {
+  const digest = createHmac("sha256", tokenHashKey()).update(rawToken).digest("hex")
+  return `${TOKEN_HASH_VERSION}${digest}`
+}
+
+/**
+ * The pre-v2 bare digest. Kept only so tokens minted before this change keep
+ * working without a forced reconnect; verification upgrades them in place.
+ */
+function legacyHashApiToken(rawToken: string): string {
   return createHash("sha256").update(rawToken).digest("hex")
 }
 
@@ -252,16 +276,35 @@ export async function revokeApiTokensByName(userId: string, name: string): Promi
  */
 export async function verifyApiToken(rawToken: string): Promise<string | null> {
   if (rawToken && rawToken.startsWith(API_TOKEN_PREFIX) && rawToken.length > API_TOKEN_PREFIX.length) {
-    const row = await prisma.apiToken.findUnique({
-      where: { tokenHash: hashApiToken(rawToken) },
-      select: {
-        id: true,
-        userId: true,
-        revokedAt: true,
-        expiresAt: true,
-        user: { select: { status: true } },
-      },
+    const select = {
+      id: true,
+      userId: true,
+      revokedAt: true,
+      expiresAt: true,
+      user: { select: { status: true } },
+    } as const
+    const currentHash = hashApiToken(rawToken)
+    let row = await prisma.apiToken.findUnique({
+      where: { tokenHash: currentHash },
+      select,
     })
+
+    // Tokens minted before the keyed hash still have a bare SHA-256 digest.
+    // Accept one once, then move it to the current format so the fallback can
+    // be removed in a later release.
+    if (!row) {
+      row = await prisma.apiToken.findUnique({
+        where: { tokenHash: legacyHashApiToken(rawToken) },
+        select,
+      })
+      if (row) {
+        void prisma.apiToken
+          .update({ where: { id: row.id }, data: { tokenHash: currentHash } })
+          .catch((err: unknown) => {
+            log.warn("Failed to upgrade a legacy API token hash", { err })
+          })
+      }
+    }
 
     if (row && !row.revokedAt) {
       if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
