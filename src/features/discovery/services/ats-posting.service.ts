@@ -238,6 +238,8 @@ export const MAX_ATS_RESPONSE_BYTES = 8 * 1024 * 1024
  */
 async function getAtsJson(rawUrl: string, signal: AbortSignal): Promise<unknown | null> {
   const url = assertAtsApiUrl(rawUrl)
+  // assertAtsApiUrl accepts only the fixed ATS hosts, a validated Workday
+  // tenant, or a BambooHR board subdomain.
   const response = await fetch(url, {
     signal: AbortSignal.any([signal, AbortSignal.timeout(ATS_API_TIMEOUT_MS)]),
     cache: "no-store",

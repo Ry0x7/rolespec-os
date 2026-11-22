@@ -281,8 +281,16 @@ function normalizeTerm(value: string): string {
 
 /** Strip punctuation that is sentence structure rather than part of the name. */
 function trimTokenEdges(token: string): string {
-  // A leading `.` is kept (`.NET`); a trailing one never is.
-  return token.replace(/[-/.]+$/, "").replace(/^[-/]+/, "")
+  // A leading `.` is kept (`.NET`); a trailing one never is. Character walks
+  // rather than anchored regexes: the input is user text and a long run of
+  // punctuation must stay linear.
+  let start = 0
+  let end = token.length
+  while (start < end && (token[start] === "-" || token[start] === "/")) start += 1
+  while (end > start && (token[end - 1] === "-" || token[end - 1] === "/" || token[end - 1] === ".")) {
+    end -= 1
+  }
+  return token.slice(start, end)
 }
 
 /**

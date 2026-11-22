@@ -318,6 +318,9 @@ function requestOnce(
       fn()
     }
 
+    // safeLookup resolves the host and rejects the request unless every returned
+    // address is public; the socket connects to the validated address, so a
+    // second DNS answer cannot change the target.
     const req = transport(
       target.url,
       {
