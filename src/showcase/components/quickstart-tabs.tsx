@@ -93,7 +93,7 @@ export function QuickstartTabs() {
         </div>
 
         <div className="mb-6 flex justify-center">
-          <div className="tab-strip max-w-full rounded-full border p-1" role="tablist" aria-label="Install methods" style={{ borderColor: "var(--border-soft)", background: "var(--background)" }}>
+          <div className="tab-strip tab-strip--wrap max-w-full justify-center rounded-2xl border p-1 sm:rounded-full" role="tablist" aria-label="Install methods" style={{ borderColor: "var(--border-soft)", background: "var(--background)" }}>
             {TABS.map((tab, i) => (
               <button
                 key={tab.key}
