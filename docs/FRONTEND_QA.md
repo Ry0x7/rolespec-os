@@ -6,8 +6,9 @@ database on loopback. It is a **conditional local beta assessment**, not
 unrestricted production certification: the Windows installer was not installed
 and no application was submitted to an employer.
 
-Tested tree: `2746e7b` plus the uncommitted audit worktree changes. There is no
-new commit SHA for those changes; do not cite the worktree as a tagged release.
+Tested tree: `4b1faad` (release candidate). Browser evidence was collected on the
+same source tree before the final migration guard and documentation commit; the
+fresh-migration check was rerun after the guard.
 
 ## Release audit — 23 November 2026
 

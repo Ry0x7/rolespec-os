@@ -6,8 +6,8 @@ explicitly names the version that was tested.
 
 ## Current release audit (23 November 2026)
 
-A release-blocking pass ran against the production build (`2746e7b` plus the
-uncommitted audit worktree changes) with an isolated PostgreSQL database.
+A release-blocking pass ran against the production build (`4b1faad`) with an
+isolated PostgreSQL database.
 Current gates: TypeScript, ESLint `src scripts`, 374 files / 5,582 tests,
 production build (exit 0, 10 warnings), Prisma validation, a fresh-database
 deployment of all 78 migrations (`migrate status` up to date), extension 21 files
