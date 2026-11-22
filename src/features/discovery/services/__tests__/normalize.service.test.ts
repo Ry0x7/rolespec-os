@@ -195,8 +195,9 @@ describe("stripHtml", () => {
     expect(stripHtml("<script>alert(1)</script>Real text")).toBe("Real text")
   })
 
-  it("drops script bodies whose closing tag contains whitespace", () => {
+  it("drops script bodies whose closing tag contains whitespace and junk", () => {
     expect(stripHtml("<script>alert(1)</script >Real text")).toBe("Real text")
+    expect(stripHtml("<script>alert(1)</script\t\n bar>Real text")).toBe("Real text")
     expect(stripHtml("<style>.x{}</style >Real text")).toBe("Real text")
   })
 })

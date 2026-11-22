@@ -16,4 +16,9 @@ describe("resumeEditorHref", () => {
   it("encodes the job id", () => {
     expect(resumeEditorHref("resume-1", "a b&c")).toBe("/resumes/resume-1?jobId=a%20b%26c")
   })
+
+  it("refuses a resume id that could escape the editor route", () => {
+    expect(() => resumeEditorHref("../settings")).toThrow("Invalid resume id")
+    expect(() => resumeEditorHref("javascript:alert(1)")).toThrow("Invalid resume id")
+  })
 })

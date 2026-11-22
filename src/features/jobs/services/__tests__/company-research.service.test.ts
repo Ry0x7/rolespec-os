@@ -105,8 +105,8 @@ describe("htmlToReadableText", () => {
     expect(text).not.toContain("<h2>")
   })
 
-  it("drops script blocks whose closing tag contains whitespace", () => {
-    const text = htmlToReadableText("<script >steal()</script ><p>Safe text</p>")
+  it("drops script blocks whose closing tag contains whitespace and junk", () => {
+    const text = htmlToReadableText("<script >steal()</script\t\n bar><p>Safe text</p>")
 
     expect(text).toContain("Safe text")
     expect(text).not.toContain("steal")
