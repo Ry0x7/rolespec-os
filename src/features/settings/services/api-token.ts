@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes } from "node:crypto"
+import { createHash, pbkdf2Sync, randomBytes } from "node:crypto"
 
 import { logger } from "@/shared/lib/logger"
 import { prisma } from "@/shared/lib/prisma"
@@ -26,8 +26,11 @@ import { prisma } from "@/shared/lib/prisma"
 /** Prefix on every raw token, so a leaked string is recognisable as ours. */
 export const API_TOKEN_PREFIX = "rspec_"
 
-/** Marks a keyed hash, so a legacy bare digest can still be recognised. */
-const TOKEN_HASH_VERSION = "v2:"
+/** Marks a slow password hash, so a legacy bare digest can still be recognised. */
+const TOKEN_HASH_VERSION = "v3:"
+
+/** PBKDF2 work factor for a bearer credential; deliberately not on a hot loop. */
+const TOKEN_HASH_ITERATIONS = 210_000
 
 const log = logger("api-token")
 
@@ -55,13 +58,18 @@ function tokenHashKey(): string {
 }
 
 /**
- * Keyed SHA-256 for a high-entropy bearer token. The token is 32 bytes of
- * CSPRNG output, so a slow password KDF would only add latency to every
- * extension request. The key matters: a database leak alone no longer gives an
- * attacker a verifier, because `AUTH_SECRET` lives outside the database.
+ * PBKDF2-SHA-256 for a bearer token. The token is high-entropy, but a database
+ * leak should still not hand over a cheap offline verifier; `AUTH_SECRET` also
+ * peppers the hash and lives outside the database.
  */
 export function hashApiToken(rawToken: string): string {
-  const digest = createHmac("sha256", tokenHashKey()).update(rawToken).digest("hex")
+  const digest = pbkdf2Sync(
+    rawToken,
+    tokenHashKey(),
+    TOKEN_HASH_ITERATIONS,
+    32,
+    "sha256"
+  ).toString("hex")
   return `${TOKEN_HASH_VERSION}${digest}`
 }
 

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { createHash, createHmac } from "node:crypto"
+import { createHash, pbkdf2Sync } from "node:crypto"
 
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
@@ -69,11 +69,15 @@ describe("token generation", () => {
     expect(a).not.toBe(b)
   })
 
-  it("hashes with a versioned HMAC-SHA-256 keyed by AUTH_SECRET", () => {
+  it("hashes with versioned PBKDF2-SHA-256 keyed by AUTH_SECRET", () => {
     const hash = hashApiToken("rspec_abc")
-    const expected = `v2:${createHmac("sha256", process.env.AUTH_SECRET!)
-      .update("rspec_abc")
-      .digest("hex")}`
+    const expected = `v3:${pbkdf2Sync(
+      "rspec_abc",
+      process.env.AUTH_SECRET!,
+      210_000,
+      32,
+      "sha256"
+    ).toString("hex")}`
 
     expect(hash).toBe(expected)
     expect(hash).not.toBe(createHash("sha256").update("rspec_abc").digest("hex"))

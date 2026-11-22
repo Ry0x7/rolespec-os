@@ -64,8 +64,8 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
       })
 
     const withBreaks = decodeEntities(value)
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, " ")
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, " ")
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, " ")
       .replace(/<!--[\s\S]*?-->/g, " ")
       .replace(/<\s*(br|\/p|\/li|\/div|\/h[1-6]|\/tr)\s*\/?\s*>/gi, "\n")
       .replace(/<[^>]*>/g, "")
