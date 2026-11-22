@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { createHash } from "node:crypto"
+import { createHash, pbkdf2Sync } from "node:crypto"
 
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
@@ -46,6 +46,9 @@ const SUMMARY = {
 
 const HOUR = 60 * 60 * 1000
 
+// The HMAC key is deployment configuration, not a per-test value.
+process.env.AUTH_SECRET = "test-api-token-hash-secret"
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockPrisma.apiToken.create.mockResolvedValue(SUMMARY)
@@ -66,10 +69,18 @@ describe("token generation", () => {
     expect(a).not.toBe(b)
   })
 
-  it("hashes with SHA-256 hex", () => {
-    expect(hashApiToken("rspec_abc")).toBe(
-      createHash("sha256").update("rspec_abc").digest("hex")
-    )
+  it("hashes with versioned PBKDF2-SHA-256 keyed by AUTH_SECRET", () => {
+    const hash = hashApiToken("rspec_abc")
+    const expected = `v3:${pbkdf2Sync(
+      "rspec_abc",
+      process.env.AUTH_SECRET!,
+      210_000,
+      32,
+      "sha256"
+    ).toString("hex")}`
+
+    expect(hash).toBe(expected)
+    expect(hash).not.toBe(createHash("sha256").update("rspec_abc").digest("hex"))
   })
 })
 

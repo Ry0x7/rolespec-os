@@ -1,3 +1,6 @@
+import { lookup as dnsLookup } from "node:dns/promises"
+
+import { isPublicIpAddress } from "@/features/career-profile/services/web-presence.service"
 import { logger } from "@/shared/lib/logger"
 import { normalizeUrl } from "@/shared/lib/url"
 
@@ -102,6 +105,27 @@ function fail(reason: PostingFetchFailureReason): PostingFetchFailure {
  * fetched. Closing that needs a resolve-then-pin fetch, which needs a
  * dependency or a custom agent; it is out of scope here.
  */
+/**
+ * The hostname guard above is pure and synchronous; this is the resolver half.
+ * A name that passes the string checks but resolves to loopback, RFC1918,
+ * link-local or another reserved address is refused before the request is
+ * made. Redirects go through the same check on every hop.
+ *
+ * The lookup is a pre-flight, not a pin: a hostile resolver could still answer
+ * differently for the fetch that follows. Closing that last gap needs a custom
+ * transport that connects to the validated address (the portfolio scanner has
+ * one); this path keeps the guard bounded and fails closed for the ranges that
+ * matter in practice.
+ */
+async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
+  try {
+    const addresses = await dnsLookup(hostname, { all: true, verbatim: true })
+    return addresses.length > 0 && addresses.every((entry) => isPublicIpAddress(entry.address))
+  } catch {
+    return false
+  }
+}
+
 function isBlockedHost(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/\.$/, "")
   if (!host) return true
@@ -784,6 +808,11 @@ export async function fetchFollowingGuardedRedirects(
   let current = start
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    if (!(await resolvesToPublicAddress(current.hostname))) {
+      log.warn("Add by URL: host resolved to a non-public address", { host: current.hostname })
+      return fail("blocked-host")
+    }
+
     let response: Response
     try {
       response = await fetch(current, {

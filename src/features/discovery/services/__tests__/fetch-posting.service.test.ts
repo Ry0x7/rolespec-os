@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
+// The SSRF pre-flight resolves the host before the mocked fetch runs. Every
+// host used in this file is a public example; return a public literal for it.
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
+}))
+
 import {
   MAX_POSTING_BYTES,
   fetchPostingFromUrl,

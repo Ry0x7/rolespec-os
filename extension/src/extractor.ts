@@ -40,17 +40,31 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
 
   const stripHtml = (value: unknown): string | undefined => {
     if (typeof value !== "string") return undefined
-    const withBreaks = value
-      .replace(/<\s*(br|\/p|\/li|\/div|\/h[1-6]|\/tr)\s*\/?\s*>/gi, "\n")
-      .replace(/<[^>]*>/g, "")
-    const decoded = withBreaks
-      .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&")
-      .replace(/&lt;/gi, "<")
-      .replace(/&gt;/gi, ">")
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'")
-    const collapsed = decoded
+
+    // Parse as an inert document and read textContent. This decodes entities
+    // exactly once and cannot leave markup behind, so a nested `&amp;lt;` or a
+    // malformed `<script` cannot be reinterpreted as HTML.
+    let plain = ""
+    try {
+      const parsed = new DOMParser().parseFromString(value, "text/html")
+      for (const node of Array.from(parsed.querySelectorAll("script, style, noscript, svg"))) {
+        node.remove()
+      }
+      // Keep block-level readability without rendering the HTML.
+      for (const node of Array.from(
+        parsed.querySelectorAll("br, p, div, li, h1, h2, h3, h4, h5, h6, tr")
+      )) {
+        node.append("\n")
+      }
+      plain = parsed.body?.textContent ?? ""
+    } catch {
+      // A parser failure means no safe text is available; do not fall back to
+      // the raw HTML string.
+      plain = ""
+    }
+
+    const collapsed = plain
+      .replace(/\r/g, "\n")
       .split("\n")
       .map((line) => line.replace(/[ \t ]+/g, " ").trim())
       .join("\n")

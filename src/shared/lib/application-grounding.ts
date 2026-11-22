@@ -55,7 +55,7 @@ const ACRONYM = /^[A-Z][A-Z0-9]{1,7}$/
 const INTERNAL_CAPITAL = /^[A-Za-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/
 
 /** Punctuated technology names: Node.js, C++, C#, ASP.NET, .NET. */
-const PUNCTUATED_TECH = /^\.?[A-Za-z][A-Za-z0-9]*(?:[.+#][A-Za-z0-9+#]*)+$/
+const PUNCTUATED_TECH = /^\.?[A-Za-z][A-Za-z0-9]*(?:[.+#][A-Za-z0-9+#]{0,23})+$/
 
 /** Plain proper-noun shape: Java, Kafka, Docker, Terraform, Excel, Spanish. */
 const CAPITALIZED = /^[A-Z][a-z][A-Za-z0-9]*$/

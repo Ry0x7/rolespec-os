@@ -66,6 +66,13 @@ describe("storeAllTemplateExports", () => {
     delete process.env.BLOB_READ_WRITE_TOKEN
   })
 
+  it("refuses a resume id that could escape the export directory", async () => {
+    await expect(storeAllTemplateExports("../settings", exportsFor(["Modern"]))).rejects.toThrow(
+      "Invalid export resume id"
+    )
+    expect(mockPut).not.toHaveBeenCalled()
+  })
+
   it("uploads the pdf with resumeId, lowercased template, extension and content type", async () => {
     await storeAllTemplateExports("resume-1", exportsFor(["Modern"]))
 

@@ -104,6 +104,22 @@ describe("htmlToReadableText", () => {
     expect(text).not.toContain("steal")
     expect(text).not.toContain("<h2>")
   })
+
+  it("drops script blocks whose closing tag contains whitespace and junk", () => {
+    const text = htmlToReadableText("<script >steal()</script\t\n bar><p>Safe text</p>")
+
+    expect(text).toContain("Safe text")
+    expect(text).not.toContain("steal")
+  })
+
+  it("does not double-unescape entity-encoded markup", () => {
+    const text = htmlToReadableText(
+      "<p>&amp;lt;b&amp;gt;literal&amp;lt;/b&amp;gt;</p>"
+    )
+
+    expect(text).toContain("&lt;b&gt;literal&lt;/b&gt;")
+    expect(text).not.toContain("<b>")
+  })
 })
 
 describe("markdownToReadableText", () => {

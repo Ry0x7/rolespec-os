@@ -30,8 +30,12 @@ export function rateLinkedInHeuristic(rawText: string): ProfileRatingData {
     lower,
     /\b(typescript|python|react|sql|aws|docker|kubernetes|figma|excel|salesforce|seo|node)\b/g
   )
+  // Match a LinkedIn host with a boundary rather than a bare substring: a
+  // value like `evil.example/linkedin.com` is not a LinkedIn profile.
+  const linkedInLink =
+    /(?:^|[\s(])(?:https?:\/\/)?(?:[a-z0-9-]+\.)*linkedin\.com(?:[/?#\s)]|$)/i.test(text)
   const contactHits =
-    (lower.includes("@") ? 1 : 0) + (lower.includes("linkedin.com") ? 1 : 0) + (lower.includes("github") ? 1 : 0)
+    (lower.includes("@") ? 1 : 0) + (linkedInLink ? 1 : 0) + (lower.includes("github") ? 1 : 0)
 
   const headline = clamp(35 + hasHeadline * 30 + Math.min(25, words / 40))
   const about = clamp(30 + Math.min(50, words / 12) + (words > 80 ? 10 : 0))

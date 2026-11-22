@@ -4,8 +4,12 @@
  * prefilled from it and the header offers the way back to it. Plain string
  * helper so server and client components share it.
  */
+const SAFE_RESUME_ID = /^[A-Za-z0-9_-]+$/
+
 export function resumeEditorHref(resumeId: string, jobId?: string | null): string {
+  if (!SAFE_RESUME_ID.test(resumeId)) throw new Error("Invalid resume id")
+  const id = encodeURIComponent(resumeId)
   return jobId
-    ? `/resumes/${resumeId}?jobId=${encodeURIComponent(jobId)}`
-    : `/resumes/${resumeId}`
+    ? `/resumes/${id}?jobId=${encodeURIComponent(jobId)}`
+    : `/resumes/${id}`
 }

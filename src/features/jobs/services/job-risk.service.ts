@@ -116,7 +116,7 @@ const NO_EXPERIENCE =
 
 /** "earn $500 per day from home" and friends. */
 const EARN_PER_PERIOD =
-  /\b(?:earn|make|get\s+paid)\s+(?:up\s+to\s+)?[$€£]?\s?[\d,]{3,}\s*(?:usd|dollars?)?\s*(?:per|a|\/)\s*(?:day|week)\b/
+  /\b(?:earn|make|get\s+paid)\s+(?:up\s+to\s+)?[$€£]?\s{0,2}\d[\d,]{2,}(?:\s+(?:usd|dollars?))?\s*(?:per|a|\/)\s*(?:day|week)\b/
 
 const GRAND_CLAIMS: Array<{ re: RegExp; label: string }> = [
   { re: /\bunlimited\s+(?:earning|income|earnings|potential)\b/, label: "unlimited earnings" },
@@ -232,7 +232,7 @@ const IMPERSONATION_SUFFIX =
   /^(?:careers?|hr|jobs?|recruit(?:ing|ment)?|hiring|talent|apply|team|official|support|group|inc|llc|corp|global|intl)$/
 
 /** Any email address in the text, used to read the domain the recruiter writes from. */
-const ANY_EMAIL = /[a-z0-9._%+-]+@([a-z0-9.-]+\.[a-z]{2,})/g
+const ANY_EMAIL = /[a-z0-9._%+-]{1,64}@((?:[a-z0-9-]{1,63}\.)+[a-z]{2,24})/g
 
 /**
  * Salary above which "no experience required" stops being plausible, per

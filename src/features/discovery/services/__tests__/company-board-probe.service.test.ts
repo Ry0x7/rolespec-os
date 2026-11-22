@@ -146,9 +146,9 @@ describe("probeBoards", () => {
 
     await probeBoards(["acme"], signal())
 
-    const urls = fetchMock.mock.calls.map((call) => String(call[0]))
-    expect(urls.some((url) => url.includes("myworkdayjobs.com"))).toBe(false)
-    expect(urls).toHaveLength(5)
+    const hosts = fetchMock.mock.calls.map((call) => new URL(String(call[0])).hostname)
+    expect(hosts.some((host) => host.endsWith(".myworkdayjobs.com"))).toBe(false)
+    expect(hosts).toHaveLength(5)
   })
 
   it("counts a Lever board's bare array and an Ashby board's listed jobs", async () => {

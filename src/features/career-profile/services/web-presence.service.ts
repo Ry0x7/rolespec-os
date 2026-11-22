@@ -722,10 +722,10 @@ const GENERIC_HEADINGS =
 export function extractPortfolioPage(html: string, rawUrl: string): PortfolioScan {
   const base = new URL(rawUrl)
   const cleaned = html
-    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, " ")
-    .replace(/<svg\b[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\b[^>]*>/gi, " ")
+    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg\b[^>]*>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, " ")
 
   const titleTag = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(cleaned)
