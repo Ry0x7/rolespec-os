@@ -41,39 +41,30 @@ export function extractJobPosting(doc: Document = document): Partial<ClippedJob>
   const stripHtml = (value: unknown): string | undefined => {
     if (typeof value !== "string") return undefined
 
-    // One pass over the entities: chaining `&amp;` then `&lt;` replacements
-    // lets `&amp;lt;` become `<` (double-unescaping) and is exactly what an
-    // injected posting can use to smuggle markup through the plain-text field.
-    const decodeEntities = (input: string): string =>
-      input.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
-        const key = entity.toLowerCase()
-        if (key === "nbsp") return " "
-        if (key === "amp") return "&"
-        if (key === "lt") return "<"
-        if (key === "gt") return ">"
-        if (key === "quot") return '"'
-        if (key === "apos" || key === "#39") return "'"
-        if (key.startsWith("#")) {
-          const hex = key[1] === "x"
-          const code = Number.parseInt(key.slice(hex ? 2 : 1), hex ? 16 : 10)
-          return Number.isFinite(code) && code > 0 && code <= 0x10ffff
-            ? String.fromCodePoint(code)
-            : ""
-        }
-        return match
-      })
+    // Parse as an inert document and read textContent. This decodes entities
+    // exactly once and cannot leave markup behind, so a nested `&amp;lt;` or a
+    // malformed `<script` cannot be reinterpreted as HTML.
+    let plain = ""
+    try {
+      const parsed = new DOMParser().parseFromString(value, "text/html")
+      for (const node of Array.from(parsed.querySelectorAll("script, style, noscript, svg"))) {
+        node.remove()
+      }
+      // Keep block-level readability without rendering the HTML.
+      for (const node of Array.from(
+        parsed.querySelectorAll("br, p, div, li, h1, h2, h3, h4, h5, h6, tr")
+      )) {
+        node.append("\n")
+      }
+      plain = parsed.body?.textContent ?? ""
+    } catch {
+      // A parser failure means no safe text is available; do not fall back to
+      // the raw HTML string.
+      plain = ""
+    }
 
-    const withBreaks = decodeEntities(value)
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, " ")
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, " ")
-      .replace(/<!--[\s\S]*?-->/g, " ")
-      .replace(/<\s*(br|\/p|\/li|\/div|\/h[1-6]|\/tr)\s*\/?\s*>/gi, "\n")
-      .replace(/<[^>]*>/g, "")
-      // Plain text, never HTML: removing every remaining `<` guarantees a
-      // malformed or entity-encoded tag cannot leave `<script` in the field.
-      .replace(/</g, " ")
-
-    const collapsed = withBreaks
+    const collapsed = plain
+      .replace(/\r/g, "\n")
       .split("\n")
       .map((line) => line.replace(/[ \t ]+/g, " ").trim())
       .join("\n")
