@@ -815,6 +815,8 @@ export async function fetchFollowingGuardedRedirects(
 
     let response: Response
     try {
+      // The host was resolved and checked above, and every redirect hop
+      // repeats the same public-address check.
       response = await fetch(current, {
         signal,
         cache: "no-store",

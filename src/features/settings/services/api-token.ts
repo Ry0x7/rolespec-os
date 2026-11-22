@@ -78,6 +78,9 @@ export function hashApiToken(rawToken: string): string {
  * working without a forced reconnect; verification upgrades them in place.
  */
 function legacyHashApiToken(rawToken: string): string {
+  // Verifies only a pre-v3 hash once, then upgrades it to PBKDF2. The raw token
+  // is 256 bits of CSPRNG output, so this is a compatibility path, not the
+  // credential-hashing scheme.
   return createHash("sha256").update(rawToken).digest("hex")
 }
 
