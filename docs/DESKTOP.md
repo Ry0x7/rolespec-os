@@ -43,8 +43,9 @@ The remainder of this guide is for building, operating and releasing the desktop
 
 This is the runtime bundled by the Windows installer. It runs the same standalone server against a
 private PostgreSQL 17 cluster, so no Docker, no user-installed PostgreSQL and no `.env` file is
-needed once staged. It is Windows x64 only. Tag builds produce unsigned installers and publish
-them directly; no signing step is required.
+needed once staged. Windows x64 is the released platform; macOS builds are experimental and
+CI-only (see [macOS](#macos-experimental-ci-only)). Tag builds produce unsigned installers and
+publish them directly; no signing step is required.
 
 **Prerequisites**
 - **Windows 10/11 x64** with WebView2 (present on Windows 11 and updated Windows 10)
@@ -89,7 +90,7 @@ Shell checks: `npm run desktop:check`, `npm run desktop:test`.
 The app icon, installer icon and installer wizard images (`icons/`) are generated from
 `scripts/desktop/generate-icons.mjs`. Regenerate them after changing the design with
 `npm run desktop:icons`; it renders the SVG through the playwright DevDependency and rewrites
-`icon.svg`, `icon.png`, `icon.ico`, `header.bmp` and `sidebar.bmp` in place.
+`icon.svg`, `icon.png`, `icon.ico`, `icon.icns`, `header.bmp` and `sidebar.bmp` in place.
 
 To produce the (unsigned) NSIS installer locally, after `npm run desktop:build`:
 
@@ -158,5 +159,39 @@ build, and accept the prompt. Both builds must be signed with the same key as th
   Unset it (or set `ROLESPEC_MANAGED_DB=1`) to use the managed local cluster.
 - To start over, close RoleSpec and move `%LOCALAPPDATA%\RoleSpecData` aside. That discards the
   database, exports and the encryption keys for any stored AI credentials; there is no undo.
+
+## macOS (experimental, CI only)
+
+The `Desktop` workflow also builds a macOS app bundle and DMG on a `macos-14` arm64 runner and
+smoke-tests the built disk image with `scripts/desktop/smoke-dmg.sh`. The script mounts the DMG
+read-only, copies `RoleSpec.app` to `~/Applications`, checks `CFBundleShortVersionString`, launches
+the app against its managed database, polls `/api/health` and `/onboarding`, quits it, then removes
+the bundle and confirms `~/.local/share/RoleSpecData` survives — the macOS equivalent of the
+Windows install/uninstall test.
+
+**This build is not released.** Without an Apple Developer ID the bundle is unsigned, so
+Gatekeeper blocks a downloaded copy, and the updater manifest has no `darwin` entry, so it could
+not self-update either. The workflow therefore uploads the DMG as the `rolespec-macos-arm64`
+artifact only. Publishing macOS builds needs Developer ID signing, notarization and a darwin
+updater entry; none of that is configured.
+
+To build it locally on macOS:
+
+```bash
+npm ci
+npm run desktop:postgres   # universal macOS PostgreSQL 17 (~1.4 GB extracted)
+npm run desktop:build
+cd desktop/src-tauri
+npx @tauri-apps/cli@^2 build --bundles app,dmg
+bash ../../scripts/desktop/smoke-dmg.sh "$(ls target/release/bundle/dmg/*.dmg | head -n 1)"
+```
+
+`desktop/src-tauri/tauri.macos.conf.json` switches the bundle targets to `app` and `dmg`, uses
+`icon.icns` and sets a macOS 12 minimum; the Windows config is untouched. The macOS data root is
+`~/.local/share/RoleSpecData`.
+
+Known gap: crash containment is Windows-only. The shell's kill-on-close job object has no Unix
+counterpart, so a force-quit on macOS can leave the bundled server and PostgreSQL running; quit
+the app normally. The CI smoke test cleans up any such process itself.
 
 ---
