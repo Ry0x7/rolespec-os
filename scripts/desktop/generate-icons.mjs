@@ -2,14 +2,18 @@
 /**
  * Generates the desktop icon set and NSIS installer images.
  *
- * The single source of truth is the SVG built below: a pixel-block "R" on a
- * purple gradient squircle with an amber terminal-cursor block, matching the
- * project's pixel-art banner aesthetic. Run with: npm run desktop:icons
+ * The single source of truth is the SVG built below: the product's hand-drawn
+ * "R" monogram (the same stroke geometry as the in-app LogoMark) in white on a
+ * vivid brand-blue squircle. The mark is stroke-based rather than pixel-block,
+ * so it stays crisp at 16px in the taskbar and matches the app's Apple-blue
+ * design system instead of the retired purple pixel-art banner. Run with:
+ * npm run desktop:icons
  *
  * Outputs (desktop/src-tauri/icons/):
  *   icon.svg     - vector source of the mark
- *   icon.png     - 512px master raster (transparent)
- *   icon.ico     - 7-size ICO (16/24/32/48/64/128/256, PNG-compressed)
+ *   icon.png     - 512px master raster (transparent outside the squircle)
+ *   icon.ico     - 9-size ICO (16/20/24/32/40/48/64/128/256, PNG-compressed)
+ *   icon.icns    - macOS app icon (16-1024 incl. Retina variants)
  *   sidebar.bmp  - 164x314 installer welcome/finish image
  *   header.bmp   - 150x57 installer page header image (also used for uninstall)
  *
@@ -30,108 +34,109 @@ const iconsDir = path.resolve(here, "..", "..", "desktop", "src-tauri", "icons")
 // The mark
 // ---------------------------------------------------------------------------
 
-const R_GRID = [
-  ".XXXX.",
-  "XX..XX",
-  "XX..XX",
-  "XXXXX.",
-  "XX.X..",
-  "XX..XX",
-  "XX..XX",
+// 24x24 stroke geometry shared with src/features/marketing/components/logo-mark.tsx.
+// Keeping one geometry means the taskbar icon, installer art and in-app sidebar
+// logo all show the same hand-drawn "R".
+const MARK_PATHS = [
+  "M7 19.5v-15h5.5a3.75 3.75 0 0 1 0 7.5H7",
+  "M12.5 12 17.5 19.5",
 ]
+const MARK_STROKE = 2.7
+const FONT = "'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif"
 
 const BRAND = {
-  bgTop: "#8b5cf6",
-  bgBottom: "#4c1d95",
-  ink: "#f5f3ff",
-  cursor: "#fcd34d",
-  edge: "rgba(255,255,255,0.22)",
+  top: "#4F9BFF",
+  mid: "#1447E6",
+  bottom: "#193CB8",
+  deep: "#162456",
+  ink: "#FFFFFF",
 }
 
-function markBody(size) {
-  const cell = size * 0.098
-  const gap = size * 0.02
-  const columns = R_GRID[0].length
-  const rows = R_GRID.length
-  const gridW = columns * cell - gap
-  const gridH = rows * cell - gap
-  const x0 = (size - gridW) / 2
-  const y0 = size * 0.14
-
-  const blocks = []
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < columns; c++) {
-      if (R_GRID[r][c] !== "X") continue
-      const x = x0 + c * (cell + gap)
-      const y = y0 + r * (cell + gap)
-      blocks.push(
-        `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}" rx="${(cell * 0.14).toFixed(2)}" fill="${BRAND.ink}"/>`,
-      )
-    }
-  }
-  const cursor = size * 0.06
-  const cx = x0 + (columns - 1) * (cell + gap) + cell - cursor
-  const cy = y0 + gridH + size * 0.03
-  return `${blocks.join("\n  ")}
-  <rect x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" width="${cursor.toFixed(2)}" height="${cursor.toFixed(2)}" rx="${(cursor * 0.18).toFixed(2)}" fill="${BRAND.cursor}"/>`
+function markPaths() {
+  return MARK_PATHS.map((d) => `<path d="${d}"/>`).join("")
 }
 
-function iconSvg(size) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${BRAND.bgTop}"/>
-      <stop offset="1" stop-color="${BRAND.bgBottom}"/>
-    </linearGradient>
-  </defs>
-  <rect width="${size}" height="${size}" rx="${(size * 0.225).toFixed(1)}" fill="url(#bg)"/>
-  <rect x="2" y="2" width="${size - 4}" height="${size - 4}" rx="${(size * 0.22).toFixed(1)}" fill="none" stroke="${BRAND.edge}" stroke-width="${(size * 0.008).toFixed(2)}"/>
-  ${markBody(size)}
-</svg>`
+/** Mark geometry on its own 24-unit grid, for composing into a larger SVG. */
+function markAt(x, y, box) {
+  return `<svg x="${x}" y="${y}" width="${box}" height="${box}" viewBox="0 0 24 24" fill="none" stroke="${BRAND.ink}" stroke-width="${MARK_STROKE}" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(-0.12 0)">${markPaths()}</g>
+  </svg>`
 }
 
 const GRADIENT_DEFS = `<defs>
-  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="${BRAND.bgTop}"/>
-    <stop offset="1" stop-color="${BRAND.bgBottom}"/>
+  <linearGradient id="bg" x1="0" y1="0" x2="0.55" y2="1">
+    <stop offset="0" stop-color="${BRAND.top}"/>
+    <stop offset="0.55" stop-color="${BRAND.mid}"/>
+    <stop offset="1" stop-color="${BRAND.bottom}"/>
   </linearGradient>
+  <radialGradient id="glow" cx="0.22" cy="0.08" r="0.85">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.24"/>
+    <stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0.05"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </radialGradient>
 </defs>`
 
+function iconSvg(size) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}">
+  ${GRADIENT_DEFS}
+  <rect width="${size}" height="${size}" rx="${(size * 0.2225).toFixed(2)}" fill="url(#bg)"/>
+  <rect width="${size}" height="${size}" rx="${(size * 0.2225).toFixed(2)}" fill="url(#glow)"/>
+  <rect x="${(size * 0.006).toFixed(2)}" y="${(size * 0.006).toFixed(2)}" width="${(size * 0.988).toFixed(2)}" height="${(size * 0.988).toFixed(2)}" rx="${(size * 0.219).toFixed(2)}" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="${(size * 0.0055).toFixed(2)}"/>
+  ${markAt(0, 0, size)}
+</svg>`
+}
+
 function sidebarSvg(width, height) {
-  const markPx = width * 0.46
-  const nameY = height * 0.56
-  const markInner = markBody(512).replace(/\n/g, "\n      ")
+  const markBox = width * 0.58
+  const markX = (width - markBox) / 2
+  const markY = height * 0.085
+  const markCenter = markY + markBox / 2
+  const nameY = height * 0.55
+  const features = [
+    "Local-first workspace",
+    "No account required",
+    "Your data stays on-device",
+  ]
+  const featureRows = features
+    .map((label, index) => {
+      const y = nameY + 44 + index * 15
+      return `<g>
+    <circle cx="${(width / 2 - 46).toFixed(1)}" cy="${(y - 2.2).toFixed(1)}" r="1.6" fill="rgba(255,255,255,0.7)"/>
+    <text x="${(width / 2 - 38).toFixed(1)}" y="${y.toFixed(1)}" fill="rgba(255,255,255,0.86)" font-family="${FONT}" font-size="7.4">${label}</text>
+  </g>`
+    })
+    .join("\n  ")
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
   ${GRADIENT_DEFS}
+  <defs>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
   <rect width="${width}" height="${height}" fill="url(#bg)"/>
-  <g transform="translate(0, ${height * 0.12})">
-    <svg x="${(width - markPx) / 2}" y="0" width="${markPx}" height="${markPx}" viewBox="0 0 512 512">
-      <rect width="512" height="512" rx="115" fill="${BRAND.bgBottom}" opacity="0.35"/>
-      <rect x="4" y="4" width="504" height="504" rx="113" fill="none" stroke="${BRAND.edge}" stroke-width="4"/>
-      ${markInner}
-    </svg>
+  <g opacity="0.06" fill="none" stroke="#FFFFFF" stroke-width="${MARK_STROKE}" stroke-linecap="round" stroke-linejoin="round">
+    <svg x="${(width * 0.34).toFixed(1)}" y="${(height * 0.6).toFixed(1)}" width="${(width * 1.15).toFixed(1)}" height="${(width * 1.15).toFixed(1)}" viewBox="0 0 24 24">${markPaths()}</svg>
   </g>
-  <text x="${width / 2}" y="${nameY}" text-anchor="middle" fill="${BRAND.ink}" font-family="Segoe UI, sans-serif" font-size="${width * 0.125}" font-weight="700">RoleSpec</text>
-  <text x="${width / 2}" y="${nameY + width * 0.1}" text-anchor="middle" fill="rgba(237,233,254,0.9)" font-family="Segoe UI, sans-serif" font-size="${width * 0.055}">The job-search operating</text>
-  <text x="${width / 2}" y="${nameY + width * 0.185}" text-anchor="middle" fill="rgba(237,233,254,0.9)" font-family="Segoe UI, sans-serif" font-size="${width * 0.055}">system — free &amp; private</text>
+  <circle cx="${width / 2}" cy="${markCenter.toFixed(1)}" r="${(markBox * 0.72).toFixed(1)}" fill="url(#halo)"/>
+  ${markAt(markX.toFixed(1), markY.toFixed(1), markBox.toFixed(1))}
+  <text x="${width / 2}" y="${nameY.toFixed(1)}" text-anchor="middle" fill="${BRAND.ink}" font-family="${FONT}" font-size="22" font-weight="600" letter-spacing="-0.4">RoleSpec</text>
+  <text x="${width / 2}" y="${(nameY + 18).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-family="${FONT}" font-size="9">The job-search operating system</text>
+  ${featureRows}
+  <rect x="${(width / 2 - 14).toFixed(1)}" y="${(height - 34).toFixed(1)}" width="28" height="1" fill="#FFFFFF" fill-opacity="0.25"/>
+  <text x="${width / 2}" y="${(height - 16).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-family="${FONT}" font-size="6.6" letter-spacing="0.4">rolespec.ry0x7.dev</text>
 </svg>`
 }
 
 function headerSvg(width, height) {
-  const markPx = height * 0.72
-  const markX = width * 0.07
-  const textX = markX + markPx + width * 0.045
-  const markInner = markBody(512).replace(/\n/g, "\n      ")
+  const markBox = height * 0.78
+  const markX = width * 0.055
+  const textX = markX + markBox + width * 0.035
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
   ${GRADIENT_DEFS}
   <rect width="${width}" height="${height}" fill="url(#bg)"/>
-  <g transform="translate(${markX}, ${(height - markPx) / 2})">
-    <svg width="${markPx}" height="${markPx}" viewBox="0 0 512 512">
-      <rect width="512" height="512" rx="115" fill="${BRAND.bgBottom}" opacity="0.35"/>
-      ${markInner}
-    </svg>
-  </g>
-  <text x="${textX}" y="${height * 0.7}" fill="${BRAND.ink}" font-family="Segoe UI, sans-serif" font-size="${height * 0.34}" font-weight="700">RoleSpec</text>
+  ${markAt(markX.toFixed(1), ((height - markBox) / 2).toFixed(1), markBox.toFixed(1))}
+  <text x="${textX.toFixed(1)}" y="${(height * 0.62).toFixed(1)}" fill="${BRAND.ink}" font-family="${FONT}" font-size="${(height * 0.31).toFixed(1)}" font-weight="600" letter-spacing="-0.3">RoleSpec</text>
 </svg>`
 }
 
@@ -272,6 +277,24 @@ function encodeBmp(width, height, rgba) {
   return Buffer.concat([header, pixels])
 }
 
+/** Wrap PNG frames into an Apple icon archive (PNG-based element types). */
+function encodeIcns(pngBySize) {
+  const header = Buffer.alloc(8)
+  header.write("icns", 0, "ascii")
+  const elements = []
+  for (const [type, size] of ICNS_TYPES) {
+    const data = pngBySize.get(size)
+    if (!data) throw new Error(`No ${size}px frame for ICNS ${type}`)
+    const element = Buffer.alloc(8)
+    element.write(type, 0, "ascii")
+    element.writeUInt32BE(8 + data.length, 4)
+    elements.push(element, data)
+  }
+  const total = 8 + elements.reduce((sum, part) => sum + part.length, 0)
+  header.writeUInt32BE(total, 4)
+  return Buffer.concat([header, ...elements])
+}
+
 /** Wrap PNG frames into a multi-size, PNG-compressed ICO. */
 function encodeIco(frames) {
   const header = Buffer.alloc(6)
@@ -302,7 +325,22 @@ function encodeIco(frames) {
 // Main
 // ---------------------------------------------------------------------------
 
-const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
+const ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256]
+// Apple element types: 1x sizes plus the @2x slots macOS actually asks for.
+const ICNS_TYPES = [
+  ["icp4", 16],
+  ["icp5", 32],
+  ["icp6", 64],
+  ["ic07", 128],
+  ["ic08", 256],
+  ["ic09", 512],
+  ["ic10", 1024],
+  ["ic11", 32],
+  ["ic12", 64],
+  ["ic13", 256],
+  ["ic14", 512],
+]
+const ICNS_SIZES = [...new Set(ICNS_TYPES.map(([, size]) => size))]
 
 async function main() {
   await writeFile(path.join(iconsDir, "icon.svg"), iconSvg(512))
@@ -313,12 +351,15 @@ async function main() {
   const { browser, page } = await openRenderer()
   try {
     await shot(page, iconSvg(512), 512, 512, masterPng)
-    const frames = []
-    for (const size of ICO_SIZES) {
+
+    // Render each distinct pixel size once; the ICO and ICNS share the frames.
+    const pngBySize = new Map()
+    for (const size of [...new Set([...ICO_SIZES, ...ICNS_SIZES])]) {
       const target = tmp(`${size}.png`)
       await shot(page, iconSvg(512), size, size, target)
-      frames.push({ size, data: await readFile(target) })
+      pngBySize.set(size, await readFile(target))
     }
+    const frames = ICO_SIZES.map((size) => ({ size, data: pngBySize.get(size) }))
 
     const sidebarPng = tmp("sidebar.png")
     const headerPng = tmp("header.png")
@@ -326,6 +367,7 @@ async function main() {
     await shot(page, headerSvg(150, 57), 150, 57, headerPng)
 
     await writeFile(path.join(iconsDir, "icon.ico"), encodeIco(frames))
+    await writeFile(path.join(iconsDir, "icon.icns"), encodeIcns(pngBySize))
     for (const [name, target, w, h] of [
       ["sidebar.bmp", sidebarPng, 164, 314],
       ["header.bmp", headerPng, 150, 57],
@@ -339,9 +381,11 @@ async function main() {
   } finally {
     await browser.close()
     await Promise.allSettled(
-      [...ICO_SIZES.map((s) => tmp(`${s}.png`)), tmp("sidebar.png"), tmp("header.png")].map(
-        (target) => unlink(target),
-      ),
+      [
+        ...[...new Set([...ICO_SIZES, ...ICNS_SIZES])].map((s) => tmp(`${s}.png`)),
+        tmp("sidebar.png"),
+        tmp("header.png"),
+      ].map((target) => unlink(target)),
     )
   }
 
