@@ -19,8 +19,15 @@ motion, keyboard/focus, onboarding, filters/presets, salary conversion, an
 injected FX outage, ranking and ATS/tracking surfaces. The full PASS/FAIL matrix
 and remaining blockers are in [FRONTEND_QA.md](FRONTEND_QA.md#release-audit--23-november-2026).
 
-Still **NOT TESTED**: a clean Windows install/in-place upgrade, live employer ATS
-fill/submission, screen-reader or non-Chromium certification, and load/soak.
+After the audit, the published v2.0.2 installer was installed on Windows 11 x64 with
+no prior RoleSpec installation and then exercised as an in-place upgrade from v2.0.1.
+Both launches reached `/api/health` 200 and opened the native window; the clean
+install ended at 78 migrations, and the upgrade applied the three new migrations
+without losing a database marker or the generated secrets file. See
+[FRONTEND_QA.md](FRONTEND_QA.md#windows-install-and-upgrade-23-november-2026).
+
+Still **NOT TESTED**: live employer ATS fill/submission, screen-reader or
+non-Chromium certification, and load/soak.
 
 Historical pass: 2026-11-12. Workspace: RoleSpec OS on Windows 11 x64, Node
 24.18.0, Next.js 16.4.2, PostgreSQL 17 on loopback. It added real provider and
@@ -60,7 +67,7 @@ A green unit suite is not treated as proof of a live external integration.
 | Provider package resolution | VERIFIED | `npm install` restored the lockfile-pinned `ai-sdk-provider-codex-cli@2.4.0`; dynamic import succeeds |
 | Live ATS discovery/plan | VERIFIED | Real public Lever application HTML: 24 fields, 6 safe fills, 18 review fields (13 sensitive), no submit action |
 | Live ATS fill/attachment | NOT TESTED | No value was written to an employer page; no resume was uploaded |
-| Windows install/upgrade | NOT TESTED | The rebuilt installer was not installed or upgraded; it is unsigned |
+| Windows install/upgrade | VERIFIED | v2.0.2 clean install and v2.0.1 → v2.0.2 upgrade on Windows 11 x64: 78 migrations, marker/secrets preserved, uninstall kept data; installer unsigned |
 | Performance/load | PARTIAL | Synthetic ranking/qualification baseline and 25 HTTP reads; no soak, concurrency or multi-process test |
 
 ## Provider-backed workflow evidence
