@@ -141,11 +141,40 @@ and no outreach message was sent.
 These checks establish the stated scope; they do not establish that every legacy
 generator, destructive action, browser or employer integration was exercised.
 
+## Windows install and upgrade (23 November 2026)
+
+The published v2.0.2 installer was exercised on Windows 11 Pro x64 (10.0.26200)
+with no prior RoleSpec installation. Binaries used the installer's default
+`%LOCALAPPDATA%\RoleSpec` path; each launch pointed `LOCALAPPDATA` at a separate
+test root so the existing `%LOCALAPPDATA%\RoleSpecData` was not touched.
+
+- **Clean install:** v2.0.2 installed silently with exit 0. The executable and
+  uninstall entry reported 2.0.2 and CompanyName Chryypt Inc. First launch created
+  PostgreSQL 17.11 on `127.0.0.1:54329`, applied all 78 migrations, served
+  `/api/health` 200 and `/onboarding` 200, and opened a responding "RoleSpec OS"
+  native window. Silent uninstall removed the install directory and uninstall
+  entry; the isolated data root survived.
+- **In-place upgrade:** a clean v2.0.1 install applied 75 migrations. A marker table
+  and the generated `secrets.json` hash were recorded before upgrade. v2.0.2 then
+  installed over the existing files without uninstalling. The three new migrations
+  (`discovery_feedback_presets`, `salary_normalization`,
+  `drop_legacy_job_salary`) applied, the count reached 78, the marker row and
+  secrets hash were unchanged, `/api/health` and `/onboarding` returned 200, and
+  the native window opened.
+- **Artifacts:** both installers matched their release `SHA256SUMS.txt`:
+  v2.0.2 `5a38e579dabb530ebb637d2fbdd64c8c4c8d0c2cb65c290e69be5c8035e35e06` and
+  v2.0.1 `c8227cb35704e789faec9d0a22c541895d929c3fc960a51ab73d734341c5af1b`.
+- **Isolation:** the pre-existing `%LOCALAPPDATA%\RoleSpecData` remained at 1,620
+  files with the same `secrets.json` SHA-256.
+
+Not covered: a clean Windows OS image, Authenticode trust, screen-reader review of
+the native WebView, and uninstall while the app is running.
+
 ## Unverified or limited
 
-- A clean v2.0.1 Windows install, in-place upgrade and native WebView session.
-  There is no NSIS artifact in this worktree and the installer is unsigned. See
-  [the desktop guide](DESKTOP.md) for installation and release mechanics.
+- Native WebView visual and assistive-technology review. The v2.0.2 installer and
+  in-place upgrade were exercised (above); the browser and accessibility matrix
+  covers Chromium, not the desktop WebView2 window.
 - Live employer ATS filling, file attachment and final application completion.
   The audit verified preparation tabs and staged-material screens only. Headless
   Chrome identity authorization was blocked; manual-token reads worked.
