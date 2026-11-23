@@ -144,6 +144,17 @@ jobs:
           sha256sum ./*.exe > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      # Exercise the exact installer bytes that will be published. The app is
+      # launched with a redirected LOCALAPPDATA so the runner profile and its
+      # data directory are not touched.
+      - name: Smoke test the installer
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          $installer = Get-ChildItem 'desktop/src-tauri/target/release/bundle/nsis/RoleSpec_*_x64-setup.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS installer not found' }
+          ./scripts/desktop/smoke-installer.ps1 -InstallerPath $installer.FullName
+
       - name: Upload installer
         uses: actions/upload-artifact@v7
         with:
