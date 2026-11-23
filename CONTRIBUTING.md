@@ -90,6 +90,7 @@ npm run build
 | `extension` | `cd extension && npm ci && npm run build && npm test` | the extension is its own package; it is built and tested on every PR |
 | `audit` | `npm audit --audit-level=high --omit=dev` | production dependencies must stay clean at high/critical |
 | `audit` | `npm audit --audit-level=high` | dev-only advisories are reported, not fatal |
+| `CodeQL` | automatic | code scanning for JavaScript/TypeScript and GitHub Actions |
 
 If you touched `desktop/src-tauri/`, the **Desktop shell** workflow also runs
 `npm run desktop:check` and `npm run desktop:test` on `windows-latest`. That job only triggers on
@@ -166,7 +167,9 @@ workspace and resume editor are used on laptops.
 
 1. Keep the PR focused. A 4,000-line PR that mixes a refactor with a fix will be asked to split.
 2. Fill in the template: what changed, why, how you verified it, and any data or security impact.
-3. Wait for CI. Review starts once `types`, `lint`, `test`, `build` and `audit` are green.
+3. Wait for CI. `main` is protected: the branch must be up to date with `main`, the rule applies
+   to administrators, and review starts once `types`, `lint`, `test`, `build`, `audit`, `extension`
+   and `CodeQL` are green.
 4. Squash-merge is the default; the branch is deleted afterwards. Write the squash subject so it
    reads as a standalone change.
 5. A maintainer may push small fixups to your branch; ask if you would rather they did not.
@@ -176,10 +179,11 @@ and whether a test would catch the regression.
 
 ## Release flow (maintainers)
 
-- Every push to `main` runs CI. Releases are cut by bumping `version` in `package.json`
-  (and its lockfile), `desktop/src-tauri/Cargo.toml` and `desktop/src-tauri/tauri.conf.json`, then
-  pushing a matching `v*` tag. The tag workflow builds and publishes the Windows installer (see the
-  README's desktop section for the signing setup).
+- Every push to `main` runs CI, and CodeQL scans pushes and pull requests. Releases are cut only
+  from a `main` commit whose required checks are green: bump `version` in `package.json` (and its
+  lockfile), `desktop/src-tauri/Cargo.toml` and `desktop/src-tauri/tauri.conf.json`, then push a
+  matching `v*` tag. The tag workflow builds and publishes the Windows installer (see the README's
+  desktop section for the signing setup).
 - Desktop releases preserve user data: the installer replaces application files and the shell keeps
   `%LOCALAPPDATA%\RoleSpecData` untouched.
 - `latest.json` is published only when the updater signing key is configured. Without it, the

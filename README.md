@@ -120,6 +120,25 @@ npm run build
 Load `extension/dist` through **Load unpacked** in your browser's extension settings. See the
 [extension guide](extension/README.md) for details.
 
+## Development and quality gates
+
+`main` is protected: changes land through a pull request, the branch must be up to date with
+`main`, and the rule applies to administrators as well as contributors. A pull request can merge
+only after these required checks pass:
+
+| Check | Covers |
+| :--- | :--- |
+| `types` | `npx tsc --noEmit` |
+| `lint` | warning-free ESLint |
+| `test` | Vitest suite |
+| `build` | production Next.js build |
+| `audit` | production dependency advisories at high/critical |
+| `extension` | browser-extension build and tests |
+| `CodeQL` | code scanning for JavaScript/TypeScript and GitHub Actions |
+
+Run the same commands locally before opening a pull request. Setup, code layout and review rules
+are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## AI providers
 
 | Option | Setup |
@@ -153,6 +172,7 @@ that a listing is fraudulent.
 - [Architecture and invariants](docs/ARCHITECTURE.md)
 - [Roadmap and known gaps](docs/ROADMAP.md)
 - [Release notes](docs/releases/v2.0.1.md)
+- [Contributing and required checks](CONTRIBUTING.md)
 - [Frontend verification and release limits](docs/FRONTEND_QA.md)
 - [Windows runtime, installer metadata and releases](docs/DESKTOP.md)
 - [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
