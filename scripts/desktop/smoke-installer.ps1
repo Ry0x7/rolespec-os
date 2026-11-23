@@ -132,13 +132,30 @@ try {
     }
     Write-Host "Uninstall entry version: $($uninstallEntry.DisplayVersion)"
 
+    # The release workflow exports build-only DATABASE_URL/AUTH_SECRET values.
+    # A desktop launch must use its managed database, so force that mode for the
+    # child and restore the runner environment afterwards.
     New-Item -ItemType Directory -Path $testLocalAppData -Force | Out-Null
     $originalLocalAppData = $env:LOCALAPPDATA
+    $originalDatabaseUrl = $env:DATABASE_URL
+    $originalManagedDb = $env:ROLESPEC_MANAGED_DB
     try {
+        Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+        $env:ROLESPEC_MANAGED_DB = '1'
         $env:LOCALAPPDATA = $testLocalAppData
         $app = Start-Process -FilePath $installedExe -PassThru
     } finally {
         $env:LOCALAPPDATA = $originalLocalAppData
+        if ($null -eq $originalDatabaseUrl) {
+            Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+        } else {
+            $env:DATABASE_URL = $originalDatabaseUrl
+        }
+        if ($null -eq $originalManagedDb) {
+            Remove-Item Env:ROLESPEC_MANAGED_DB -ErrorAction SilentlyContinue
+        } else {
+            $env:ROLESPEC_MANAGED_DB = $originalManagedDb
+        }
     }
 
     $baseUrl = 'http://127.0.0.1:3100'
