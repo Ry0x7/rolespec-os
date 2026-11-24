@@ -1,16 +1,18 @@
-name: Desktop (Windows)
+name: Desktop
 
-# The desktop runtime is Windows-only: the staging script pins Windows x64
-# PostgreSQL binaries and the shell targets NSIS. Linux/macOS jobs would need
-# their own pinned runtimes, so they are out of scope until requested.
+# Windows builds the NSIS installer that tag builds publish as a GitHub release.
+# macOS builds an unsigned .app/.dmg and smoke-tests it, but uploads it as a
+# workflow artifact only: without an Apple Developer ID the bundle cannot pass
+# Gatekeeper, and the updater manifest has no darwin entry, so a published
+# macOS build could neither install normally nor self-update. The macOS job is
+# the CI guard for the cross-platform runtime until signing exists.
 #
-# A tag build produces an unsigned installer and publishes it as a GitHub
-# release. The executable records Chryypt as its CompanyName, but Windows
-# treats any unsigned binary as an unknown publisher; file metadata cannot
-# establish Authenticode trust. See docs/DESKTOP.md.
+# The executable records Chryypt as its CompanyName, but Windows treats any
+# unsigned binary as an unknown publisher; file metadata cannot establish
+# Authenticode trust. See docs/DESKTOP.md.
 #
 # TAURI_SIGNING_PRIVATE_KEY, when configured, additionally produces the
-# updater archive signature and `latest.json`. That signature protects
+# Windows updater archive signature and `latest.json`. That signature protects
 # updates; it is unrelated to Windows SmartScreen.
 on:
   workflow_dispatch:
@@ -198,3 +200,83 @@ jobs:
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
               --generate-notes --title "RoleSpec OS $GITHUB_REF_NAME"
           fi
+
+  installer-macos:
+    name: macOS arm64 app + smoke test
+    # macOS 14 images were retired on 2 November 2026; macos-15 is the current
+    # GA arm64 image.
+    runs-on: macos-15
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The universal EDB macOS archive is 436 MB compressed and changes only
+      # with the pinned version, so cache it across runs.
+      - name: Cache bundled PostgreSQL
+        uses: actions/cache@v6
+        with:
+          path: desktop/vendor
+          key: postgres-17.11-1-osx-universal
+
+      - name: Fetch bundled PostgreSQL
+        run: npm run desktop:postgres
+
+      - name: Shell tests
+        run: npm run desktop:test
+
+      - name: Stage desktop runtime
+        run: |
+          node --test scripts/desktop/runtime-links.test.mjs
+          npm run desktop:build
+
+      # tauri.macos.conf.json supplies the app + dmg targets and icon.icns;
+      # --bundles keeps the artifact paths independent of future config edits.
+      # There is no signing identity, so the bundle is ad-hoc signed at most;
+      # it still runs locally (no quarantine) which is all the smoke test needs.
+      - name: Build macOS app and DMG
+        working-directory: desktop/src-tauri
+        run: npx --yes @tauri-apps/cli@^2 build --bundles app,dmg
+
+      # A startup error shows a native dialog, which would wait forever on a
+      # runner; the timeout turns that into a failed step instead.
+      - name: Smoke test the DMG
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          dmg=$(ls desktop/src-tauri/target/release/bundle/dmg/*.dmg | head -n 1)
+          bash scripts/desktop/smoke-dmg.sh "$dmg"
+
+      - name: Checksum the DMG
+        run: |
+          set -euo pipefail
+          cd desktop/src-tauri/target/release/bundle/dmg
+          shasum -a 256 ./*.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      # Artifact only on purpose. Publishing needs Developer ID signing and
+      # notarization; see the header comment.
+      - name: Upload macOS build
+        uses: actions/upload-artifact@v7
+        with:
+          name: rolespec-macos-arm64
+          path: |
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
