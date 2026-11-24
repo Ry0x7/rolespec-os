@@ -162,7 +162,7 @@ build, and accept the prompt. Both builds must be signed with the same key as th
 
 ## macOS (experimental, CI only)
 
-The `Desktop` workflow also builds a macOS app bundle and DMG on a `macos-14` arm64 runner and
+The `Desktop` workflow also builds a macOS app bundle and DMG on a `macos-15` arm64 runner and
 smoke-tests the built disk image with `scripts/desktop/smoke-dmg.sh`. The script mounts the DMG
 read-only, copies `RoleSpec.app` to `~/Applications`, checks `CFBundleShortVersionString`, launches
 the app against its managed database, polls `/api/health` and `/onboarding`, quits it, then removes

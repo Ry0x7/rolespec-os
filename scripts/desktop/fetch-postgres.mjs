@@ -180,7 +180,9 @@ function extract() {
   }
 
   rmSync(temporary, { recursive: true, force: true })
-}if (!existsSync(archive)) {
+}
+
+if (!existsSync(archive)) {
   await download()
 } else {
   const actual = await sha256(archive)
