@@ -203,7 +203,9 @@ jobs:
 
   installer-macos:
     name: macOS arm64 app + smoke test
-    runs-on: macos-14
+    # macOS 14 images were retired on 2 November 2026; macos-15 is the current
+    # GA arm64 image.
+    runs-on: macos-15
     timeout-minutes: 90
     permissions:
       contents: read
