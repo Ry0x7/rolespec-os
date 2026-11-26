@@ -1,22 +1,43 @@
 import { cn } from "@/shared/lib/utils"
 
+export type LogoMarkVariant = "brand" | "ink" | "ice" | "on-dark" | "mono"
+
+const MARK =
+  "M14 13H35L47 25V31L36 42H25V52H14Z M25 23V32H32L36 28L31 23Z"
+const ACCENT = "M31 45H43L51 53H39Z"
+
 /**
- * RoleSpec mark: a hand-drawn "R" monogram (stroke geometry, 24x24 grid).
- * Solid brand tile with a white glyph — the app-icon treatment — so it reads
- * at 24px in the sidebar, nav and favicon. No gradient.
+ * Supplied brand-kit colourways. The geometry never changes; only the tile,
+ * glyph and accent colours do, so the mark stays recognisable everywhere.
  */
-export function LogoMark({ className }: { className?: string }) {
+const VARIANTS: Record<
+  LogoMarkVariant,
+  { tile: string | null; glyph: string; accent: string }
+> = {
+  brand: { tile: "#1447E6", glyph: "#FFFFFF", accent: "#8EC5FF" },
+  ink: { tile: "#101828", glyph: "#F5F5F7", accent: "#8EC5FF" },
+  ice: { tile: "#8EC5FF", glyph: "#1447E6", accent: "#FFFFFF" },
+  "on-dark": { tile: null, glyph: "#FFFFFF", accent: "#8EC5FF" },
+  mono: { tile: null, glyph: "currentColor", accent: "currentColor" },
+}
+
+export function LogoMark({
+  className,
+  variant = "brand",
+}: {
+  className?: string
+  variant?: LogoMarkVariant
+}) {
+  const colors = VARIANTS[variant]
+
   return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-lg bg-brand-700 text-white",
-        className
-      )}
-      aria-hidden="true"
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="h-[62%] w-[62%]">
-        <path d="M7 19.5v-15h5.5a3.75 3.75 0 0 1 0 7.5H7" />
-        <path d="M12.5 12 17.5 19.5" />
+    <span className={cn("inline-flex shrink-0", className)} aria-hidden="true">
+      <svg viewBox="0 0 64 64" className="h-full w-full">
+        {colors.tile ? (
+          <rect x="1" y="1" width="62" height="62" rx="15" fill={colors.tile} />
+        ) : null}
+        <path fill={colors.glyph} fillRule="evenodd" d={MARK} />
+        <path fill={colors.accent} d={ACCENT} />
       </svg>
     </span>
   )

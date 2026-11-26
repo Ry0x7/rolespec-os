@@ -15,6 +15,7 @@ import {
   getDesktopUpdateStatus,
   requestDesktopUpdateCheck,
   updateDesktopAutoCheck,
+  updateDesktopChannel,
 } from "../desktop-updates.actions"
 
 const originalDesktop = process.env.ROLSPEC_DESKTOP
@@ -65,13 +66,65 @@ describe("updateDesktopAutoCheck", () => {
 
     expect(
       JSON.parse(await readFile(path.join(root, "config", "updates.json"), "utf8"))
-    ).toEqual({ autoCheck: false })
+    ).toEqual({ autoCheck: false, channel: "stable" })
     expect(mockRevalidatePath).toHaveBeenCalledWith("/settings/preferences")
+  })
+
+  it("preserves the selected channel", async () => {
+    const file = path.join(root, "config", "updates.json")
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, JSON.stringify({ autoCheck: true, channel: "beta" }), "utf8")
+
+    expect(await updateDesktopAutoCheck({ autoCheck: false })).toEqual({ success: true })
+    expect(JSON.parse(await readFile(file, "utf8"))).toEqual({
+      autoCheck: false,
+      channel: "beta",
+    })
   })
 
   it("rejects a non-boolean preference", async () => {
     expect(
       await updateDesktopAutoCheck({ autoCheck: "no" } as unknown as { autoCheck: boolean })
+    ).toEqual({ error: "Invalid input" })
+  })
+})
+
+describe("updateDesktopChannel", () => {
+  it("refuses without a session", async () => {
+    mockAuth.mockResolvedValue(null)
+
+    expect(await updateDesktopChannel({ channel: "beta" })).toEqual({
+      error: "Unauthorized",
+    })
+    await expect(
+      readFile(path.join(root, "config", "updates.json"), "utf8")
+    ).rejects.toThrow()
+  })
+
+  it("refuses outside the desktop runtime", async () => {
+    delete process.env.ROLSPEC_DESKTOP
+
+    expect(await updateDesktopChannel({ channel: "beta" })).toEqual({
+      error: "Update settings are only available in the desktop app.",
+    })
+  })
+
+  it("writes beta and preserves the existing auto-check preference", async () => {
+    const file = path.join(root, "config", "updates.json")
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, JSON.stringify({ autoCheck: false }), "utf8")
+
+    expect(await updateDesktopChannel({ channel: "beta" })).toEqual({ success: true })
+    expect(JSON.parse(await readFile(file, "utf8"))).toEqual({
+      autoCheck: false,
+      channel: "beta",
+    })
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/settings/preferences")
+  })
+
+  it("rejects an unknown channel", async () => {
+    expect(
+      await updateDesktopChannel({ channel: "nightly" } as unknown as { channel: "beta" })
     ).toEqual({ error: "Invalid input" })
   })
 })

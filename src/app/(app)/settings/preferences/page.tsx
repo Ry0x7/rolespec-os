@@ -40,7 +40,10 @@ export default async function SettingsPreferencesPage() {
       <CardContent className="space-y-6">
         <QuickToggles preferences={parsePreferences(user.preferences)} />
         {desktopUpdates ? (
-          <DesktopUpdateSettings autoCheck={desktopUpdates.autoCheck} />
+          <DesktopUpdateSettings
+            autoCheck={desktopUpdates.autoCheck}
+            channel={desktopUpdates.channel}
+          />
         ) : null}
         <PreferencesForm preferences={parsePreferences(user.preferences)} />
       </CardContent>

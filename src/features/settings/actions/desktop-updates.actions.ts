@@ -7,9 +7,11 @@ import { auth } from "@/features/auth/config"
 
 import {
   isDesktopRuntime,
+  readDesktopUpdateSettings,
   readDesktopUpdateStatus,
   writeDesktopUpdateRequest,
   writeDesktopUpdateSettings,
+  type DesktopUpdateChannel,
 } from "../services/desktop-updates"
 
 /**
@@ -31,11 +33,38 @@ export async function updateDesktopAutoCheck(input: { autoCheck: boolean }) {
   }
 
   try {
-    await writeDesktopUpdateSettings({ autoCheck: input.autoCheck })
+    const current = await readDesktopUpdateSettings()
+    await writeDesktopUpdateSettings({ ...current, autoCheck: input.autoCheck })
     revalidatePath("/settings/preferences")
     return { success: true as const }
   } catch {
     return { error: "Could not save the update setting." }
+  }
+}
+
+/**
+ * Saves the release channel. The setting is intentionally separate from
+ * `autoCheck`: turning automatic checks off must not silently move the user
+ * back to stable, and selecting beta must not re-enable automatic checks.
+ */
+export async function updateDesktopChannel(input: { channel: DesktopUpdateChannel }) {
+  if (!isDesktopRuntime()) {
+    return { error: "Update settings are only available in the desktop app." }
+  }
+
+  const session = await auth()
+  if (!session?.user?.id) return { error: "Unauthorized" }
+  if (input?.channel !== "stable" && input?.channel !== "beta") {
+    return { error: "Invalid input" }
+  }
+
+  try {
+    const current = await readDesktopUpdateSettings()
+    await writeDesktopUpdateSettings({ ...current, channel: input.channel })
+    revalidatePath("/settings/preferences")
+    return { success: true as const }
+  } catch {
+    return { error: "Could not save the update channel." }
   }
 }
 

@@ -140,18 +140,19 @@ export function MoonIcon({ className, style }: IconProps) {
   )
 }
 
-/** RoleSpec mark: solid brand tile with a white "R" monogram — matches the
- * app's logo treatment (src/features/marketing/components/logo-mark.tsx). */
+/** RoleSpec mark: the supplied brand-kit app icon. Matches the app's logo
+ * treatment (src/features/marketing/components/logo-mark.tsx). */
 export function LogoMarkIcon({ className, style }: IconProps) {
   return (
     <span
       className={className}
-      style={{ ...style, display: "inline-flex", flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: "22%", background: "#0066cc", color: "#fff" }}
+      style={{ ...style, display: "inline-flex", flexShrink: 0 }}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: "62%", height: "62%" }} aria-hidden="true">
-        <path d="M7 19.5v-15h5.5a3.75 3.75 0 0 1 0 7.5H7" />
-        <path d="M12.5 12 17.5 19.5" />
+      <svg viewBox="0 0 64 64" style={{ width: "100%", height: "100%" }} aria-hidden="true">
+        <rect x="1" y="1" width="62" height="62" rx="15" fill="#1447E6" />
+        <path fill="#FFFFFF" fillRule="evenodd" d="M14 13H35L47 25V31L36 42H25V52H14Z M25 23V32H32L36 28L31 23Z" />
+        <path fill="#8EC5FF" d="M31 45H43L51 53H39Z" />
       </svg>
     </span>
   )

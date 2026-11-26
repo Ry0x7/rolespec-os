@@ -1,7 +1,1 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="64" height="64" rx="14" fill="#1447E6"/>
-  <g transform="translate(12 12) scale(1.6667)" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M7 19.5v-15h5.5a3.75 3.75 0 0 1 0 7.5H7"/>
-    <path d="M12.5 12 17.5 19.5"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title"><title id="title">RoleSpec OS favicon</title><rect x="1" y="1" width="62" height="62" rx="15" fill="#1447E6"/><path fill="#FFFFFF" fill-rule="evenodd" d="M14 13H35L47 25V31L36 42H25V52H14Z M25 23V32H32L36 28L31 23Z"/><path fill="#8EC5FF" d="M31 45H43L51 53H39Z"/></svg>

@@ -13,8 +13,13 @@ import {
   getDesktopUpdateStatus,
   requestDesktopUpdateCheck,
   updateDesktopAutoCheck,
+  updateDesktopChannel,
 } from "../actions/desktop-updates.actions"
-import type { DesktopUpdateState, DesktopUpdateStatus } from "../services/desktop-updates"
+import type {
+  DesktopUpdateChannel,
+  DesktopUpdateState,
+  DesktopUpdateStatus,
+} from "../services/desktop-updates"
 
 const POLL_INTERVAL_MS = 1000
 const POLL_TIMEOUT_MS = 10 * 60 * 1000
@@ -106,10 +111,18 @@ function StatusIcon({ state }: { state: DesktopUpdateState | null }) {
   )
 }
 
-export function DesktopUpdateSettings({ autoCheck }: { autoCheck: boolean }) {
+export function DesktopUpdateSettings({
+  autoCheck,
+  channel,
+}: {
+  autoCheck: boolean
+  channel: DesktopUpdateChannel
+}) {
   const router = useRouter()
   const [enabled, setEnabled] = useState(autoCheck)
+  const [selectedChannel, setSelectedChannel] = useState<DesktopUpdateChannel>(channel)
   const [isPending, startTransition] = useTransition()
+  const [isChannelPending, startChannelTransition] = useTransition()
   const [manualStatus, setManualStatus] = useState<DesktopUpdateStatus | null>(null)
   const [isRequesting, setIsRequesting] = useState(false)
   const poll = useRef<{
@@ -194,6 +207,23 @@ export function DesktopUpdateSettings({ autoCheck }: { autoCheck: boolean }) {
     })
   }
 
+  function changeChannel(next: DesktopUpdateChannel) {
+    if (next === selectedChannel || isChannelPending) return
+    startChannelTransition(async () => {
+      const result = await updateDesktopChannel({ channel: next })
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      setSelectedChannel(next)
+      // The previous result belongs to the old channel.
+      setManualStatus(null)
+      stopPolling()
+      toast.success(next === "beta" ? "Beta updates enabled" : "Stable updates enabled")
+      router.refresh()
+    })
+  }
+
   async function checkNow() {
     if (isRequesting || (manualStatus && IN_PROGRESS_STATES.has(manualStatus.state))) {
       return
@@ -261,8 +291,36 @@ export function DesktopUpdateSettings({ autoCheck }: { autoCheck: boolean }) {
           />
         </button>
       </div>
-      <p className="mt-3 text-[11px] text-muted-foreground" aria-live="polite">
-        {enabled ? "Automatic checks are on." : "Automatic checks are off."}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[11px] text-muted-foreground" aria-live="polite">
+          {enabled ? "Automatic checks are on." : "Automatic checks are off."}
+        </p>
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="desktop-update-channel"
+            className="text-xs text-muted-foreground"
+          >
+            Release channel
+          </label>
+          <select
+            id="desktop-update-channel"
+            aria-describedby="desktop-update-channel-help"
+            value={selectedChannel}
+            disabled={isChannelPending || checking}
+            onChange={(event) =>
+              changeChannel(event.target.value === "beta" ? "beta" : "stable")
+            }
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="stable">Stable</option>
+            <option value="beta">Beta</option>
+          </select>
+        </div>
+      </div>
+      <p id="desktop-update-channel-help" className="mt-1 text-[11px] text-muted-foreground">
+        {selectedChannel === "beta"
+          ? "Beta also offers signed prereleases. The choice applies to the next check; both channels use the same update key."
+          : "Stable releases only. The choice applies to the next check."}
       </p>
 
       <div className="mt-4 space-y-3 border-t border-border/60 pt-4">

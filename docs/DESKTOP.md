@@ -87,10 +87,15 @@ To point the shell at an existing database instead, set `DATABASE_URL` and `AUTH
 
 Shell checks: `npm run desktop:check`, `npm run desktop:test`.
 
-The app icon, installer icon and installer wizard images (`icons/`) are generated from
-`scripts/desktop/generate-icons.mjs`. Regenerate them after changing the design with
-`npm run desktop:icons`; it renders the SVG through the playwright DevDependency and rewrites
-`icon.svg`, `icon.png`, `icon.ico`, `icon.icns`, `header.bmp` and `sidebar.bmp` in place.
+The app icon, installer icon and installer wizard images (`icons/`) come from the supplied
+RoleSpec OS brand kit. `public/brand/` carries the primary mark plus the ink, ice, mono and
+on-dark colourways, and the official light/dark wordmarks; the primary mark is also
+`desktop/src-tauri/icons/icon.svg`. The in-app mark is
+`src/features/marketing/components/logo-mark.tsx`; its `variant` prop selects `brand`, `ink`,
+`ice`, `on-dark` or `mono`. `scripts/desktop/generate-icons.mjs` composes the installer lockups
+and renders the whole set through the playwright DevDependency. Regenerate after a design
+change with `npm run desktop:icons`; it rewrites `icon.svg`, `icon.png`, `icon.ico`,
+`icon.icns`, `header.bmp` and `sidebar.bmp` in place.
 
 To produce the (unsigned) NSIS installer locally, after `npm run desktop:build`:
 
@@ -123,26 +128,34 @@ longer bypass SmartScreen). Obtaining and configuring one is a separate decision
 
 **Updates and the downgrade guard**
 
-An installed copy asks `releases/latest/download/latest.json` for a newer version about ten seconds
-after it starts ([update.rs](../desktop/src-tauri/src/update.rs)), verifies the archive against the
-updater public key compiled into `tauri.conf.json`, then stops the local server and database before
-the installer replaces files and relaunches the app. The matching private key is the repository
-secret `TAURI_SIGNING_PRIVATE_KEY`; without it CI produces no updater archive and attaches no
-`latest.json`. **Back that key up**: losing it means installed copies can never be updated and every
-user has to install a new build by hand.
+An installed copy checks for a newer signed version about ten seconds after it starts
+([update.rs](../desktop/src-tauri/src/update.rs)), verifies the artifact against the updater public
+key compiled into `tauri.conf.json`, then stops the local server and database before the installer
+replaces files and relaunches the app. The stable channel reads
+`releases/latest/download/latest.json`; the beta channel reads the rolling `beta` release at
+`releases/download/beta/latest-beta.json`. Both manifests are signed by the same updater key, so
+switching channel does not weaken verification. The matching private key is the repository secret
+`TAURI_SIGNING_PRIVATE_KEY`; without it CI produces no updater artifacts and attaches no manifest.
+**Back that key up**: losing it means installed copies can never be updated and every user has to
+install a new build by hand.
 
-Automatic checks can be turned off in **Settings → Preferences → Desktop updates**. The choice is
-stored in `%LOCALAPPDATA%\RoleSpecData\config\updates.json` as `{"autoCheck": false}` and read at
-startup, so it applies on the next launch. **Check for updates** in the same section asks the shell
-to run the documented signed check immediately; the page shows checking, download progress and the
-up-to-date result inline. Manual installs still work by downloading a newer signed setup file.
+Automatic checks and the release channel are in **Settings → Preferences → Desktop updates**.
+Choices are stored in `%LOCALAPPDATA%\RoleSpecData\config\updates.json` as
+`{"autoCheck": false, "channel": "beta"}` and read at startup, so automatic checks use them on the
+next launch; **Check for updates** re-reads the channel and applies it immediately. The beta channel
+also accepts a newer stable release. Switching back to stable does not downgrade an installed beta
+build; it stops offering prereleases until a newer stable exists. **Check for updates** shows
+checking, download progress and the up-to-date result inline. Manual installs still work by
+downloading a newer signed setup file.
 
 Release by bumping `version` in `package.json` (and the lockfile), `desktop/src-tauri/Cargo.toml`
 (which feeds the Windows executable) and `desktop/src-tauri/tauri.conf.json`, then pushing a matching
-`v*` tag. The workflow builds the installer, publishes it with its SHA-256 checksum, and — when
-`TAURI_SIGNING_PRIVATE_KEY` is configured — writes the updater `.sig` and `latest.json` around the
-built bytes. No Authenticode signature is applied, so those updater signatures do not make
-Windows trust the download.
+`v*` tag. A stable tag (`v2.1.0`) publishes `latest.json`; a prerelease tag such as
+`v2.2.0-beta.1` publishes as a GitHub prerelease and writes `latest-beta.json`. Both update the
+rolling `beta` release, and a stable release also points the beta channel at itself so beta users can
+move to the newer stable. When `TAURI_SIGNING_PRIVATE_KEY` is configured, the workflow writes the
+updater `.sig` and channel manifest around the built bytes. No Authenticode signature is applied, so
+those updater signatures do not make Windows trust the download.
 
 The shell also refuses to open data a newer build created: it compares the migrations recorded in
 `_prisma_migrations` against the migrations it ships and exits with an explanation when the database
@@ -150,9 +163,10 @@ is ahead. A downgrade therefore fails loudly instead of running old code against
 
 To exercise an update without publishing anything, build two installers with a `--config` overlay
 that points the endpoint at a local server (`dangerousInsecureTransportProtocol` is required for
-`http://`), serve the newer installer plus a `latest.json` that carries its `.sig`, install the older
-build, and accept the prompt. Both builds must be signed with the same key as the `pubkey` in
-`tauri.conf.json`, or the download is rejected before anything is installed.
+`http://`), serve the newer installer plus a `latest.json` (or `latest-beta.json` for the beta
+channel) that carries its `.sig`, install the older build, and accept the prompt. Both builds must
+be signed with the same key as the `pubkey` in `tauri.conf.json`, or the download is rejected before
+anything is installed.
 
 **If desktop startup fails**
 

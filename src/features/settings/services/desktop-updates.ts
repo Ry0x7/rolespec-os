@@ -15,8 +15,11 @@ export const DESKTOP_UPDATE_SETTINGS_FILE = "updates.json"
 export const DESKTOP_UPDATE_REQUEST_FILE = "update-check.json"
 export const DESKTOP_UPDATE_STATUS_FILE = "update-status.json"
 
+export type DesktopUpdateChannel = "stable" | "beta"
+
 export interface DesktopUpdateSettings {
   autoCheck: boolean
+  channel: DesktopUpdateChannel
 }
 
 export type DesktopUpdateState =
@@ -45,7 +48,7 @@ export interface DesktopUpdateStatus {
   checkedAt?: string
 }
 
-const DEFAULT_SETTINGS: DesktopUpdateSettings = { autoCheck: true }
+const DEFAULT_SETTINGS: DesktopUpdateSettings = { autoCheck: true, channel: "stable" }
 
 const UPDATE_STATES = new Set<DesktopUpdateState>([
   "checking",
@@ -97,15 +100,19 @@ function nonEmptyString(value: unknown): string | undefined {
  * preference must not silently stop security updates; the shell logs the same
  * fallback when it reads the file.
  */
+export function parseDesktopUpdateChannel(value: unknown): DesktopUpdateChannel {
+  return value === "beta" ? "beta" : "stable"
+}
+
 export function parseDesktopUpdateSettings(contents: string): DesktopUpdateSettings {
   try {
     const parsed: unknown = JSON.parse(contents)
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      typeof (parsed as { autoCheck?: unknown }).autoCheck === "boolean"
-    ) {
-      return { autoCheck: (parsed as DesktopUpdateSettings).autoCheck }
+    if (typeof parsed === "object" && parsed !== null) {
+      const candidate = parsed as { autoCheck?: unknown; channel?: unknown }
+      return {
+        autoCheck: typeof candidate.autoCheck === "boolean" ? candidate.autoCheck : true,
+        channel: parseDesktopUpdateChannel(candidate.channel),
+      }
     }
   } catch {
     // Fall through to the default.

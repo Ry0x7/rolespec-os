@@ -26,6 +26,36 @@ install ended at 78 migrations, and the upgrade applied the three new migrations
 without losing a database marker or the generated secrets file. See
 [FRONTEND_QA.md](FRONTEND_QA.md#windows-install-and-upgrade-23-november-2026).
 
+## Windows in-app update v2.0.2 → v2.1.0 (27 November 2026)
+
+A Windows 11 x64 host with no prior RoleSpec install was used to exercise the signed
+in-app update end to end. The test backed up and restored the real
+`%LOCALAPPDATA%\RoleSpecData` root so the existing workspace was untouched.
+
+- **Baseline:** installed `RoleSpec_2.0.2_x64-setup.exe` (SHA-256
+  `5A38E579DABB530EBB637D2FBDD64C8C4C8D0C2CB65C290E69BE5C8035E35E06`). The v2.0.2
+  settings page rendered without the Desktop updates card, confirming the feature
+  was absent before the update.
+- **Discovery and consent:** the startup check logged `RoleSpec 2.1.0 is available
+  (installed: 2.0.2)` and opened the native `RoleSpec update available` dialog. The
+  test accepted the Yes button; the download was verified against the embedded
+  update key before installation.
+- **Install:** the installed executable's ProductVersion changed from 2.0.2 to
+  2.1.0, and the passive updater removed the old uninstall entry.
+- **Updated app:** `/api/health`, `/onboarding` and `/settings/preferences` all
+  returned 200 on the updated build. The settings page contained the Desktop
+  updates card and the new "Check for updates" action. (The release-channel
+  selector ships in v2.1.1, not in the v2.1.0 build tested here.)
+- **Manual check:** writing `config/update-check.json` with the same BOM-free UTF-8
+  bytes the web action writes produced `state=upToDate currentVersion=2.1.0`. The
+  first attempt raced the startup check and returned `busy`; the harness retried
+  once and recorded the clean result.
+- **Limitations:** the updater's passive installer did not relaunch the app in this
+  run, so the test started the updated executable itself (`relaunchedByInstaller:
+  false`). Uninstall removed the ARP entry but left an empty
+  `%LOCALAPPDATA%\RoleSpec` directory; the data root was restored and the installer
+  remains unsigned.
+
 Still **NOT TESTED**: live employer ATS fill/submission, screen-reader or
 non-Chromium certification, and load/soak.
 
@@ -68,6 +98,7 @@ A green unit suite is not treated as proof of a live external integration.
 | Live ATS discovery/plan | VERIFIED | Real public Lever application HTML: 24 fields, 6 safe fills, 18 review fields (13 sensitive), no submit action |
 | Live ATS fill/attachment | NOT TESTED | No value was written to an employer page; no resume was uploaded |
 | Windows install/upgrade | VERIFIED | v2.0.2 clean install and v2.0.1 → v2.0.2 upgrade on Windows 11 x64: 78 migrations, marker/secrets preserved, uninstall kept data; installer unsigned |
+| Windows in-app update | VERIFIED | v2.0.2 → v2.1.0 on Windows 11 x64: native update prompt accepted, installed ProductVersion 2.1.0, health/settings 200, manual-check bridge returned `upToDate`; data restored, installer unsigned |
 | Performance/load | PARTIAL | Synthetic ranking/qualification baseline and 25 HTTP reads; no soak, concurrency or multi-process test |
 
 ## Provider-backed workflow evidence
