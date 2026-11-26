@@ -125,6 +125,10 @@ fn main() {
             };
 
             update::spawn_startup_check(handle.clone(), logger.clone());
+            // The settings page cannot call Tauri commands directly, so it
+            // drops a request file here and polls the status file the shell
+            // writes back.
+            update::spawn_update_request_watcher(handle.clone(), logger.clone());
 
             std::thread::spawn(move || {
                 if let Err(message) = start_runtime(
