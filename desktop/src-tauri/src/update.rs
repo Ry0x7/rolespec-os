@@ -276,6 +276,51 @@ fn write_status(path: &Path, status: &UpdateStatus<'_>) -> std::io::Result<()> {
     fs::rename(temp, path)
 }
 
+/// The updater extracts the downloaded setup into a kept directory under the
+/// temp directory. Nothing removes that directory, so every update would strand
+/// a full installer copy. Clear the previous ones at startup; the copy in use
+/// by a running installer simply fails to delete and is retried next launch.
+pub fn clean_stale_update_installers(logger: &Logger) {
+    clean_stale_update_installers_in(&std::env::temp_dir(), logger);
+}
+
+fn clean_stale_update_installers_in(directory: &Path, logger: &Logger) {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == ErrorKind::NotFound => return,
+        Err(error) => {
+            logger.warn(&format!(
+                "Could not inspect {} for stale update installers: {error}",
+                directory.display()
+            ));
+            return;
+        }
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let name = name.to_ascii_lowercase();
+        if !name.starts_with("rolespec-") || !name.contains("-updater-") || !path.is_dir() {
+            continue;
+        }
+
+        match fs::remove_dir_all(&path) {
+            Ok(()) => logger.info(&format!(
+                "Removed the previous update installer at {}",
+                path.display()
+            )),
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            Err(error) => logger.warn(&format!(
+                "Could not remove the previous update installer at {}: {error}",
+                path.display()
+            )),
+        }
+    }
+}
+
 /// Checks once, shortly after startup, on a background thread.
 pub fn spawn_startup_check(handle: AppHandle, logger: Arc<Logger>) {
     let preferences = read_update_preferences(&logger);
@@ -550,8 +595,9 @@ fn check_and_install(
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_auto_check, parse_request_id, parse_update_preferences, read_update_preferences_at,
-        write_status, UpdateChannel, UpdateStatus,
+        clean_stale_update_installers_in, parse_auto_check, parse_request_id,
+        parse_update_preferences, read_update_preferences_at, write_status, UpdateChannel,
+        UpdateStatus,
     };
     use crate::logging::Logger;
     use std::fs;
@@ -561,6 +607,26 @@ mod tests {
         let path =
             std::env::temp_dir().join(format!("rolespec-update-{name}-{}.log", std::process::id()));
         Arc::new(Logger::open(path).expect("open test logger"))
+    }
+
+    #[test]
+    fn stale_update_installers_are_removed() {
+        let root = std::env::temp_dir().join(format!(
+            "rolespec-update-cleanup-test-{}",
+            std::process::id()
+        ));
+        let stale = root.join("RoleSpec-9.9.9-updater-AbCdEf");
+        let keep = root.join("keep-me");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&stale).expect("create stale installer directory");
+        fs::create_dir_all(&keep).expect("create unrelated directory");
+        fs::write(stale.join("setup.exe"), b"stale").expect("write stale installer");
+
+        clean_stale_update_installers_in(&root, &test_logger("cleanup"));
+
+        assert!(!stale.exists(), "the stale installer directory is removed");
+        assert!(keep.exists(), "unrelated temp directories are untouched");
+        fs::remove_dir_all(&root).expect("clean up cleanup test root");
     }
 
     #[test]

@@ -50,11 +50,13 @@ in-app update end to end. The test backed up and restored the real
   bytes the web action writes produced `state=upToDate currentVersion=2.1.0`. The
   first attempt raced the startup check and returned `busy`; the harness retried
   once and recorded the clean result.
-- **Limitations:** the updater's passive installer did not relaunch the app in this
-  run, so the test started the updated executable itself (`relaunchedByInstaller:
-  false`). Uninstall removed the ARP entry but left an empty
-  `%LOCALAPPDATA%\RoleSpec` directory; the data root was restored and the installer
-  remains unsigned.
+- **Relaunch timing:** this run checked for a relaunch only five seconds after the
+  executable version changed, before the passive installer had finished, so the
+  test started the updated executable itself (`relaunchedByInstaller: false`).
+  The later v2.1.1 run waited for the installer process and observed the real
+  relaunch. Uninstall removed the ARP entry; the harness removed an empty
+  `%LOCALAPPDATA%\RoleSpec` directory. The data root was restored and the
+  installer remains unsigned.
 
 ## Windows in-app update v2.1.0 → v2.1.1 (27 November 2026)
 
@@ -81,12 +83,18 @@ workspace was untouched.
   "Check for updates" action.
 - **Manual check:** writing `config/update-check.json` with the same BOM-free UTF-8
   bytes the web action writes produced `state=upToDate currentVersion=2.1.1`.
-- **Limitations:** the passive installer again did not relaunch the app, so the test
-  started the updated executable itself (`relaunchedByInstaller: false`). A passive
-  installer process was still present after the update and an empty
-  `%LOCALAPPDATA%\RoleSpec` directory remained after uninstall; both were cleaned up
-  by the harness. The data root was restored intact, and the installer remains
-  unsigned.
+- **Relaunch and cleanup:** the corrected harness detected the passive installer
+  (`RoleSpec-2.1.1-installer.exe`), waited for it to exit, and observed it relaunch
+  RoleSpec (`installerObserved: true`, `installerExited: true`,
+  `relaunchedByInstaller: true`). The installer process was gone after the update,
+  the uninstaller removed the install directory
+  (`installDirectoryRemovedByUninstaller: true`), and the ARP entry was removed.
+  The data root was restored intact, and the installer remains unsigned.
+- **Timing note:** the earlier run above checked for a relaunch only five seconds
+  after the executable version changed. The passive installer continues copying
+  the runtime for about a minute before its finish hook starts the app, so that
+  early check recorded a false negative and started the app itself. The rerun
+  waits for the installer process, not only the file version.
 
 Still **NOT TESTED**: live employer ATS fill/submission, screen-reader or
 non-Chromium certification, and load/soak.
@@ -131,7 +139,7 @@ A green unit suite is not treated as proof of a live external integration.
 | Live ATS fill/attachment | NOT TESTED | No value was written to an employer page; no resume was uploaded |
 | Windows install/upgrade | VERIFIED | v2.0.2 clean install and v2.0.1 → v2.0.2 upgrade on Windows 11 x64: 78 migrations, marker/secrets preserved, uninstall kept data; installer unsigned |
 | Windows in-app update | VERIFIED | v2.0.2 → v2.1.0 on Windows 11 x64: native update prompt accepted, installed ProductVersion 2.1.0, health/settings 200, manual-check bridge returned `upToDate`; data restored, installer unsigned |
-| Windows in-app update v2.1.0 → v2.1.1 | VERIFIED | Published v2.1.0 installed cleanly, startup prompt accepted, ProductVersion changed to 2.1.1, health/onboarding/settings 200, Release channel selector rendered, manual-check bridge returned `upToDate`; data restored, installer unsigned |
+| Windows in-app update v2.1.0 → v2.1.1 | VERIFIED | Published v2.1.0 installed cleanly, startup prompt accepted, ProductVersion changed to 2.1.1, installer exited and relaunched the app, health/onboarding/settings 200, Release channel selector rendered, manual-check bridge returned `upToDate`; uninstaller removed the install directory, data restored, installer unsigned |
 | Performance/load | PARTIAL | Synthetic ranking/qualification baseline and 25 HTTP reads; no soak, concurrency or multi-process test |
 
 ## Provider-backed workflow evidence

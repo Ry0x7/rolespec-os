@@ -108,9 +108,10 @@ The result is `desktop/src-tauri/target/release/bundle/nsis/RoleSpec_<version>_x
 The file name and install directory keep the `RoleSpec` identity used by earlier releases; the
 window title and documentation say RoleSpec OS, and the bundled executable records Chryypt Inc as its
 CompanyName. `desktop/src-tauri/installer-hooks.nsh` adds the CompanyName key the stock Tauri
-template omits and removes the runtime `resources` tree on uninstall; the uninstall entry names
-Chryypt Inc. A local build is **unsigned**, so Windows SmartScreen will warn about it and the publisher
-is not verified.
+template omits, removes the runtime `resources` tree on uninstall, and removes the
+now-empty install root; the uninstall entry names Chryypt Inc. A local build is
+**unsigned**, so Windows SmartScreen will warn about it and the publisher is not
+verified.
 
 **Windows trust and SmartScreen**
 
@@ -131,7 +132,9 @@ longer bypass SmartScreen). Obtaining and configuring one is a separate decision
 An installed copy checks for a newer signed version about ten seconds after it starts
 ([update.rs](../desktop/src-tauri/src/update.rs)), verifies the artifact against the updater public
 key compiled into `tauri.conf.json`, then stops the local server and database before the installer
-replaces files and relaunches the app. The stable channel reads
+replaces files and relaunches the app. The passive installer shows progress while it copies the
+runtime, starts the new build when it finishes, and exits on its own; the shell removes the
+previous update's extracted setup from the temp directory on its next launch. The stable channel reads
 `releases/latest/download/latest.json`; the beta channel reads the rolling `beta` release at
 `releases/download/beta/latest-beta.json`. Both manifests are signed by the same updater key, so
 switching channel does not weaken verification. The matching private key is the repository secret
