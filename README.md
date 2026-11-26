@@ -27,7 +27,7 @@ application silently** — the final submit stays with you.
 - **Dashboard visual regression.** A deterministic fixture catches card reflow at 390px and 1440px before a screenshot review.
 - **Personal-use license.** Commercial use, monetization, redistribution and patent claims are no longer permitted. See [LICENSE](LICENSE).
 
-Full notes: [RoleSpec OS v2.0.2](docs/releases/v2.0.2.md) · [v2.0.1](docs/releases/v2.0.1.md) · [v2.0.0](docs/releases/v2.0.0.md).
+Full notes: [RoleSpec OS v2.1.0](docs/releases/v2.1.0.md) · [v2.0.2](docs/releases/v2.0.2.md) · [v2.0.1](docs/releases/v2.0.1.md) · [v2.0.0](docs/releases/v2.0.0.md).
 
 ## Features
 
@@ -74,8 +74,8 @@ creates a private database cluster on first launch. No Node.js, Docker or `.env`
 The installer is **unsigned**, so Windows SmartScreen may warn you. The installer names
 **Chryypt Inc** as publisher, but that is application metadata, not a verified Authenticode
 signature. Automatic update checks are on by default and can be turned off in
-**Settings → Preferences → Desktop updates**; a release without a signed `latest.json` must be
-installed manually.
+**Settings → Preferences → Desktop updates**, where **Check for updates** runs a check
+immediately; a release without a signed `latest.json` must be installed manually.
 
 macOS and Linux can self-host; native installers are not shipped.
 
@@ -173,7 +173,7 @@ that a listing is fraudulent.
 
 - [Architecture and invariants](docs/ARCHITECTURE.md)
 - [Roadmap and known gaps](docs/ROADMAP.md)
-- [Release notes](docs/releases/v2.0.2.md)
+- [Release notes](docs/releases/v2.1.0.md)
 - [Contributing and required checks](CONTRIBUTING.md)
 - [Frontend verification and release limits](docs/FRONTEND_QA.md)
 - [Windows runtime, installer metadata and releases](docs/DESKTOP.md)
