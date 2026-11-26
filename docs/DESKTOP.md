@@ -133,8 +133,9 @@ An installed copy checks for a newer signed version about ten seconds after it s
 ([update.rs](../desktop/src-tauri/src/update.rs)), verifies the artifact against the updater public
 key compiled into `tauri.conf.json`, then stops the local server and database before the installer
 replaces files and relaunches the app. The passive installer shows progress while it copies the
-runtime, starts the new build when it finishes, and exits on its own; the shell removes the
-previous update's extracted setup from the temp directory on its next launch. The stable channel reads
+runtime, starts the new build when it finishes, and exits on its own; the shell removes updater
+installer copies from the temp directory at launch, retrying for up to a minute while the exiting
+installer still holds its own copy. The stable channel reads
 `releases/latest/download/latest.json`; the beta channel reads the rolling `beta` release at
 `releases/download/beta/latest-beta.json`. Both manifests are signed by the same updater key, so
 switching channel does not weaken verification. The matching private key is the repository secret

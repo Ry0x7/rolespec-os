@@ -125,6 +125,14 @@ the real `%LOCALAPPDATA%\RoleSpecData` root so the existing workspace was untouc
   installer copies are removed at startup, verified separately with the rebuilt
   package. The data root was restored intact, and the installer remains unsigned.
 
+## Updater installer cleanup retry (27 November 2026)
+
+A locally rebuilt v2.1.2 shell on Windows 11 x64 was tested with a fake
+`%TEMP%\RoleSpec-9.9.9-updater-RETRY01` directory whose file another process held
+open for 10 seconds. The shell removed the directory during the same launch after the
+lock was released, without logging a cleanup failure. Its uninstaller removed the
+install directory. The desktop crate's 33 tests pass. This retry ships in v2.1.3.
+
 Still **NOT TESTED**: live employer ATS fill/submission, screen-reader or
 non-Chromium certification, and load/soak.
 
@@ -170,6 +178,7 @@ A green unit suite is not treated as proof of a live external integration.
 | Windows in-app update | VERIFIED | v2.0.2 → v2.1.0 on Windows 11 x64: native update prompt accepted, installed ProductVersion 2.1.0, health/settings 200, manual-check bridge returned `upToDate`; data restored, installer unsigned |
 | Windows in-app update v2.1.0 → v2.1.1 | VERIFIED | Published v2.1.0 installed cleanly, startup prompt accepted, ProductVersion changed to 2.1.1, installer exited and relaunched the app, health/onboarding/settings 200, Release channel selector rendered, manual-check bridge returned `upToDate`; uninstaller removed the install directory, data restored, installer unsigned |
 | Windows in-app update v2.1.1 → v2.1.2 | VERIFIED | Published v2.1.1 installed cleanly, startup prompt accepted, ProductVersion changed to 2.1.2, installer exited and relaunched the app, health/onboarding/settings 200, channel selector and Check for updates rendered, manual-check bridge returned `upToDate`; uninstaller removed the install directory, data restored, installer unsigned |
+| Updater installer cleanup retry | VERIFIED | Locally rebuilt shell with the retry (shipped in v2.1.3) removed a locked fake updater copy during the same launch after the lock was released; no failure warning; 33 tests pass |
 | Performance/load | PARTIAL | Synthetic ranking/qualification baseline and 25 HTTP reads; no soak, concurrency or multi-process test |
 
 ## Provider-backed workflow evidence

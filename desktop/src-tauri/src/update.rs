@@ -18,7 +18,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -32,6 +32,12 @@ use crate::supervisor::app_data_root;
 /// Long enough for the window, the server and onboarding to be up before a
 /// modal dialog can appear.
 const STARTUP_DELAY: Duration = Duration::from_secs(10);
+
+/// The installer can hold its just-used setup for a moment after starting the
+/// new build. Give it time, then retry until the copy can be removed.
+const UPDATE_INSTALLER_CLEANUP_DELAY: Duration = Duration::from_secs(1);
+const UPDATE_INSTALLER_CLEANUP_RETRY: Duration = Duration::from_secs(2);
+const UPDATE_INSTALLER_CLEANUP_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// The settings page writes a request and polls for a result while the shell
 /// keeps working; one second keeps the button responsive without busy-waiting.
@@ -278,25 +284,53 @@ fn write_status(path: &Path, status: &UpdateStatus<'_>) -> std::io::Result<()> {
 
 /// The updater extracts the downloaded setup into a kept directory under the
 /// temp directory. Nothing removes that directory, so every update would strand
-/// a full installer copy. Clear the previous ones at startup; the copy in use
-/// by a running installer simply fails to delete and is retried next launch.
-pub fn clean_stale_update_installers(logger: &Logger) {
-    clean_stale_update_installers_in(&std::env::temp_dir(), logger);
+/// a full installer copy. Startup removes the previous copies and retries the
+/// update that just launched this build: the installer can still hold its own
+/// executable for a moment after the finish hook starts RoleSpec.
+pub fn spawn_stale_update_cleanup(logger: Arc<Logger>) {
+    std::thread::spawn(move || {
+        // Let the installer finish exiting before touching its temp copy.
+        std::thread::sleep(UPDATE_INSTALLER_CLEANUP_DELAY);
+        let deadline = Instant::now() + UPDATE_INSTALLER_CLEANUP_TIMEOUT;
+
+        loop {
+            let pending = clean_stale_update_installers_in(&std::env::temp_dir(), &logger);
+            if pending.is_empty() {
+                return;
+            }
+            if Instant::now() >= deadline {
+                for (path, error) in pending {
+                    logger.warn(&format!(
+                        "Could not remove the previous update installer at {}: {error}",
+                        path.display()
+                    ));
+                }
+                return;
+            }
+            std::thread::sleep(UPDATE_INSTALLER_CLEANUP_RETRY);
+        }
+    });
 }
 
-fn clean_stale_update_installers_in(directory: &Path, logger: &Logger) {
+/// Returns the directories that could not be removed yet, so the caller can
+/// retry a copy that the exiting installer still has open.
+fn clean_stale_update_installers_in(
+    directory: &Path,
+    logger: &Logger,
+) -> Vec<(PathBuf, std::io::Error)> {
     let entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
-        Err(error) if error.kind() == ErrorKind::NotFound => return,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Vec::new(),
         Err(error) => {
             logger.warn(&format!(
                 "Could not inspect {} for stale update installers: {error}",
                 directory.display()
             ));
-            return;
+            return Vec::new();
         }
     };
 
+    let mut pending = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
@@ -313,12 +347,12 @@ fn clean_stale_update_installers_in(directory: &Path, logger: &Logger) {
                 path.display()
             )),
             Err(error) if error.kind() == ErrorKind::NotFound => {}
-            Err(error) => logger.warn(&format!(
-                "Could not remove the previous update installer at {}: {error}",
-                path.display()
-            )),
+            // A running installer keeps its own executable open. Retry instead
+            // of leaving the copy for a later launch.
+            Err(error) => pending.push((path, error)),
         }
     }
+    pending
 }
 
 /// Checks once, shortly after startup, on a background thread.
@@ -622,8 +656,9 @@ mod tests {
         fs::create_dir_all(&keep).expect("create unrelated directory");
         fs::write(stale.join("setup.exe"), b"stale").expect("write stale installer");
 
-        clean_stale_update_installers_in(&root, &test_logger("cleanup"));
+        let pending = clean_stale_update_installers_in(&root, &test_logger("cleanup"));
 
+        assert!(pending.is_empty(), "the stale installer can be removed now");
         assert!(!stale.exists(), "the stale installer directory is removed");
         assert!(keep.exists(), "unrelated temp directories are untouched");
         fs::remove_dir_all(&root).expect("clean up cleanup test root");
