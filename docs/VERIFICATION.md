@@ -96,6 +96,35 @@ workspace was untouched.
   early check recorded a false negative and started the app itself. The rerun
   waits for the installer process, not only the file version.
 
+## Windows in-app update v2.1.1 → v2.1.2 (27 November 2026)
+
+A Windows 11 x64 host with no prior RoleSpec installation was used directly, without a
+VM, to exercise the published v2.1.1 → v2.1.2 update. The test backed up and restored
+the real `%LOCALAPPDATA%\RoleSpecData` root so the existing workspace was untouched.
+
+- **Baseline:** installed the published `RoleSpec_2.1.1_x64-setup.exe` (SHA-256
+  `341F03B039AC1B447EFA1A9ABAED9A415C9B32BFBCD8AE3D7746A8EBDB5B22D8`). The settings
+  page rendered the Desktop updates card, the Release channel selector with Stable and
+  Beta, and the "Check for updates" action.
+- **Discovery and consent:** the startup check logged `RoleSpec 2.1.2 is available
+  (installed: 2.1.1)` and opened the native `RoleSpec update available` dialog. The
+  test accepted the Yes button.
+- **Install:** the log recorded `Downloading RoleSpec 2.1.2` and `Installing the
+  update`. The installed ProductVersion changed from 2.1.1 to 2.1.2. The harness
+  observed `RoleSpec-2.1.2-installer.exe`, waited for it to exit, and confirmed the
+  installer relaunched RoleSpec (`installerObserved: true`, `installerExited: true`,
+  `relaunchedByInstaller: true`). No installer process remained afterward.
+- **Updated app:** `/api/health`, `/onboarding` and `/settings/preferences` all
+  returned 200 on the updated build. The settings page contained the Release channel
+  selector with Stable and Beta, the Desktop updates card and the "Check for updates"
+  action. The manual-check bridge returned `state=upToDate currentVersion=2.1.2`.
+- **Cleanup:** the uninstaller removed the install directory
+  (`installDirectoryRemovedByUninstaller: true`) and the ARP entry. The update's own
+  installer copy under `%TEMP%` was still locked when the new shell started, so its
+  first cleanup attempt logged a warning; the next launch retries it. Previous stale
+  installer copies are removed at startup, verified separately with the rebuilt
+  package. The data root was restored intact, and the installer remains unsigned.
+
 Still **NOT TESTED**: live employer ATS fill/submission, screen-reader or
 non-Chromium certification, and load/soak.
 
@@ -140,6 +169,7 @@ A green unit suite is not treated as proof of a live external integration.
 | Windows install/upgrade | VERIFIED | v2.0.2 clean install and v2.0.1 → v2.0.2 upgrade on Windows 11 x64: 78 migrations, marker/secrets preserved, uninstall kept data; installer unsigned |
 | Windows in-app update | VERIFIED | v2.0.2 → v2.1.0 on Windows 11 x64: native update prompt accepted, installed ProductVersion 2.1.0, health/settings 200, manual-check bridge returned `upToDate`; data restored, installer unsigned |
 | Windows in-app update v2.1.0 → v2.1.1 | VERIFIED | Published v2.1.0 installed cleanly, startup prompt accepted, ProductVersion changed to 2.1.1, installer exited and relaunched the app, health/onboarding/settings 200, Release channel selector rendered, manual-check bridge returned `upToDate`; uninstaller removed the install directory, data restored, installer unsigned |
+| Windows in-app update v2.1.1 → v2.1.2 | VERIFIED | Published v2.1.1 installed cleanly, startup prompt accepted, ProductVersion changed to 2.1.2, installer exited and relaunched the app, health/onboarding/settings 200, channel selector and Check for updates rendered, manual-check bridge returned `upToDate`; uninstaller removed the install directory, data restored, installer unsigned |
 | Performance/load | PARTIAL | Synthetic ranking/qualification baseline and 25 HTTP reads; no soak, concurrency or multi-process test |
 
 ## Provider-backed workflow evidence
