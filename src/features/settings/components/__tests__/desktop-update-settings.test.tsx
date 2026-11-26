@@ -36,6 +36,12 @@ const updateDesktopAutoCheck = vi.fn(
 const requestDesktopUpdateCheck = vi.fn(async (): Promise<RequestResult> => ({
   id: "req-1",
 }))
+const updateDesktopChannel = vi.fn(
+  async (input: { channel: "stable" | "beta" }): Promise<ActionResult> => {
+    void input
+    return { success: true }
+  }
+)
 const getDesktopUpdateStatus = vi.fn(async (): Promise<StatusResult> => ({
   status: null,
 }))
@@ -46,6 +52,8 @@ const toastError = vi.fn()
 vi.mock("../../actions/desktop-updates.actions", () => ({
   updateDesktopAutoCheck: (input: { autoCheck: boolean }) =>
     updateDesktopAutoCheck(input),
+  updateDesktopChannel: (input: { channel: "stable" | "beta" }) =>
+    updateDesktopChannel(input),
   requestDesktopUpdateCheck: () => requestDesktopUpdateCheck(),
   getDesktopUpdateStatus: () => getDesktopUpdateStatus(),
 }))
@@ -56,6 +64,8 @@ const { DesktopUpdateSettings } = await import("../desktop-update-settings")
 
 beforeEach(() => {
   updateDesktopAutoCheck.mockClear()
+  updateDesktopChannel.mockClear()
+  updateDesktopChannel.mockResolvedValue({ success: true })
   requestDesktopUpdateCheck.mockClear()
   getDesktopUpdateStatus.mockClear()
   requestDesktopUpdateCheck.mockResolvedValue({ id: "req-1" })
@@ -72,7 +82,7 @@ afterEach(() => {
 
 describe("DesktopUpdateSettings", () => {
   it("shows the stored off state", () => {
-    render(<DesktopUpdateSettings autoCheck={false} />)
+    render(<DesktopUpdateSettings autoCheck={false} channel="stable" />)
 
     expect(
       screen
@@ -82,7 +92,7 @@ describe("DesktopUpdateSettings", () => {
   })
 
   it("saves the flipped value and refreshes the page", async () => {
-    render(<DesktopUpdateSettings autoCheck />)
+    render(<DesktopUpdateSettings autoCheck channel="stable" />)
     const toggle = screen.getByRole("switch", { name: "Check for updates automatically" })
 
     fireEvent.click(toggle)
@@ -95,9 +105,35 @@ describe("DesktopUpdateSettings", () => {
     expect(refresh).toHaveBeenCalled()
   })
 
+  it("saves the release channel and applies it to the next check", async () => {
+    render(<DesktopUpdateSettings autoCheck channel="stable" />)
+    const select = screen.getByLabelText("Release channel") as HTMLSelectElement
+
+    fireEvent.change(select, { target: { value: "beta" } })
+
+    await waitFor(() => expect(updateDesktopChannel).toHaveBeenCalledWith({ channel: "beta" }))
+    await waitFor(() => expect(select.value).toBe("beta"))
+    expect(toastSuccess).toHaveBeenCalledWith("Beta updates enabled")
+    expect(refresh).toHaveBeenCalled()
+  })
+
+  it("keeps the current channel and reports a save failure", async () => {
+    updateDesktopChannel.mockResolvedValueOnce({ error: "Could not save the update channel." })
+    render(<DesktopUpdateSettings autoCheck channel="stable" />)
+    const select = screen.getByLabelText("Release channel") as HTMLSelectElement
+
+    fireEvent.change(select, { target: { value: "beta" } })
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith("Could not save the update channel.")
+    )
+    expect(select.value).toBe("stable")
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
   it("keeps the current value and reports a save failure", async () => {
     updateDesktopAutoCheck.mockResolvedValueOnce({ error: "Could not save the update setting." })
-    render(<DesktopUpdateSettings autoCheck />)
+    render(<DesktopUpdateSettings autoCheck channel="stable" />)
     const toggle = screen.getByRole("switch", { name: "Check for updates automatically" })
 
     fireEvent.click(toggle)
@@ -119,7 +155,7 @@ describe("DesktopUpdateSettings", () => {
         checkedAt: "2026-11-26T00:00:00Z",
       },
     })
-    render(<DesktopUpdateSettings autoCheck />)
+    render(<DesktopUpdateSettings autoCheck channel="stable" />)
 
     fireEvent.click(screen.getByRole("button", { name: "Check for updates" }))
     await act(async () => {
@@ -150,7 +186,7 @@ describe("DesktopUpdateSettings", () => {
         checkedAt: "2026-11-26T00:00:00Z",
       },
     })
-    render(<DesktopUpdateSettings autoCheck />)
+    render(<DesktopUpdateSettings autoCheck channel="stable" />)
 
     fireEvent.click(screen.getByRole("button", { name: "Check for updates" }))
     await act(async () => {
@@ -168,7 +204,7 @@ describe("DesktopUpdateSettings", () => {
     requestDesktopUpdateCheck.mockResolvedValueOnce({
       error: "Could not start an update check.",
     })
-    render(<DesktopUpdateSettings autoCheck />)
+    render(<DesktopUpdateSettings autoCheck channel="stable" />)
 
     fireEvent.click(screen.getByRole("button", { name: "Check for updates" }))
 
@@ -176,5 +212,12 @@ describe("DesktopUpdateSettings", () => {
       expect(toastError).toHaveBeenCalledWith("Could not start an update check.")
     )
     expect(getDesktopUpdateStatus).not.toHaveBeenCalled()
+  })
+
+  it("shows the saved beta channel", () => {
+    render(<DesktopUpdateSettings autoCheck channel="beta" />)
+
+    expect((screen.getByLabelText("Release channel") as HTMLSelectElement).value).toBe("beta")
+    expect(screen.getByText(/Beta also offers signed prereleases/)).toBeTruthy()
   })
 })

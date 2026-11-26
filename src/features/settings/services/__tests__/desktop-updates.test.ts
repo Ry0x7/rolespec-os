@@ -38,24 +38,50 @@ afterEach(async () => {
 })
 
 describe("desktop update settings", () => {
-  it("defaults to checking when the file does not exist", async () => {
-    await expect(readDesktopUpdateSettings()).resolves.toEqual({ autoCheck: true })
+  it("defaults to checking stable when the file does not exist", async () => {
+    await expect(readDesktopUpdateSettings()).resolves.toEqual({
+      autoCheck: true,
+      channel: "stable",
+    })
   })
 
   it("writes to config/updates.json and reads the saved value back", async () => {
-    await writeDesktopUpdateSettings({ autoCheck: false })
+    await writeDesktopUpdateSettings({ autoCheck: false, channel: "beta" })
 
     const file = path.join(root, "config", DESKTOP_UPDATE_SETTINGS_FILE)
     expect(desktopUpdatesFilePath()).toBe(file)
-    expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ autoCheck: false })
-    await expect(readDesktopUpdateSettings()).resolves.toEqual({ autoCheck: false })
+    expect(JSON.parse(await readFile(file, "utf8"))).toEqual({
+      autoCheck: false,
+      channel: "beta",
+    })
+    await expect(readDesktopUpdateSettings()).resolves.toEqual({
+      autoCheck: false,
+      channel: "beta",
+    })
   })
 
-  it("keeps checks enabled for malformed or incomplete files", async () => {
-    expect(parseDesktopUpdateSettings("not json")).toEqual({ autoCheck: true })
-    expect(parseDesktopUpdateSettings('{"autoCheck":"no"}')).toEqual({ autoCheck: true })
-    expect(parseDesktopUpdateSettings("{}")).toEqual({ autoCheck: true })
-    expect(parseDesktopUpdateSettings('{"autoCheck":false}')).toEqual({ autoCheck: false })
+  it("keeps checks enabled and falls back to stable for malformed or incomplete files", async () => {
+    expect(parseDesktopUpdateSettings("not json")).toEqual({
+      autoCheck: true,
+      channel: "stable",
+    })
+    expect(parseDesktopUpdateSettings('{"autoCheck":"no"}')).toEqual({
+      autoCheck: true,
+      channel: "stable",
+    })
+    expect(parseDesktopUpdateSettings("{}")).toEqual({ autoCheck: true, channel: "stable" })
+    expect(parseDesktopUpdateSettings('{"autoCheck":false}')).toEqual({
+      autoCheck: false,
+      channel: "stable",
+    })
+    expect(parseDesktopUpdateSettings('{"autoCheck":false,"channel":"nightly"}')).toEqual({
+      autoCheck: false,
+      channel: "stable",
+    })
+    expect(parseDesktopUpdateSettings('{"channel":"beta"}')).toEqual({
+      autoCheck: true,
+      channel: "beta",
+    })
   })
 
   it("does not invent a path without a desktop data root", async () => {
@@ -67,9 +93,9 @@ describe("desktop update settings", () => {
   it("rejects a write without a desktop data root", async () => {
     delete process.env.ROLSPEC_DATA_DIR
 
-    await expect(writeDesktopUpdateSettings({ autoCheck: false })).rejects.toThrow(
-      "desktop data directory"
-    )
+    await expect(
+      writeDesktopUpdateSettings({ autoCheck: false, channel: "stable" })
+    ).rejects.toThrow("desktop data directory")
   })
 
   it("reads a hand-edited file", async () => {
@@ -77,7 +103,10 @@ describe("desktop update settings", () => {
     await mkdir(path.dirname(file), { recursive: true })
     await writeFile(file, '{"autoCheck": false}\n', "utf8")
 
-    await expect(readDesktopUpdateSettings()).resolves.toEqual({ autoCheck: false })
+    await expect(readDesktopUpdateSettings()).resolves.toEqual({
+      autoCheck: false,
+      channel: "stable",
+    })
   })
 })
 

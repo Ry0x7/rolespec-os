@@ -75,7 +75,8 @@ The installer is **unsigned**, so Windows SmartScreen may warn you. The installe
 **Chryypt Inc** as publisher, but that is application metadata, not a verified Authenticode
 signature. Automatic update checks are on by default and can be turned off in
 **Settings → Preferences → Desktop updates**, where **Check for updates** runs a check
-immediately; a release without a signed `latest.json` must be installed manually.
+immediately and the release channel can be switched between stable and beta; a release without a
+signed `latest.json` must be installed manually.
 
 macOS and Linux can self-host; native installers are not shipped.
 

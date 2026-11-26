@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * Writes the Tauri update manifest (`latest.json`) that installed copies read
- * from `releases/latest/download/latest.json`.
+ * Writes the Tauri update manifest for a release channel.
+ *
+ * Stable installs read `releases/latest/download/latest.json`; beta installs
+ * read the rolling `beta` release at `releases/download/beta/latest-beta.json`.
+ * Both manifests are signed by the same updater key, so switching channel does
+ * not weaken verification.
  *
  * The Tauri CLI produces the `*.sig` next to the installer but not this
  * manifest, and the manifest is what maps a platform to that signature. The
@@ -10,14 +14,15 @@
  * different version than the manifest announces.
  *
  * Usage (from the directory holding the installer):
- *   node scripts/write-update-manifest.mjs <installer> <signature> <version> <tag> <owner/repo>
+ *   node scripts/write-update-manifest.mjs <installer> <signature> <version> <tag> <owner/repo> [stable|beta]
  */
 
 import { createHash } from "node:crypto"
 import { readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
-const [installer, signatureFile, version, tag, repo] = process.argv.slice(2)
+const [installer, signatureFile, version, tag, repo, channelArg] = process.argv.slice(2)
+const channel = channelArg ?? "stable"
 
 function fail(message) {
   console.error(`write-update-manifest: ${message}`)
@@ -26,8 +31,11 @@ function fail(message) {
 
 if (!installer || !signatureFile || !version || !tag || !repo) {
   fail(
-    "usage: write-update-manifest.mjs <installer> <signature> <version> <tag> <owner/repo>"
+    "usage: write-update-manifest.mjs <installer> <signature> <version> <tag> <owner/repo> [stable|beta]"
   )
+}
+if (channel !== "stable" && channel !== "beta") {
+  fail(`channel ${channel} is not stable or beta`)
 }
 if (!/^v\d+\.\d+\.\d+/.test(tag)) fail(`tag ${tag} is not a version tag`)
 if (tag !== `v${version}`) {
@@ -51,7 +59,10 @@ if (!decoded.includes("version:")) {
 const manifest = {
   version,
   pub_date: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
-  notes: `RoleSpec ${tag}. See the release notes.`,
+  notes:
+    channel === "beta"
+      ? `RoleSpec ${tag} (beta channel). See the release notes.`
+      : `RoleSpec ${tag}. See the release notes.`,
   platforms: {
     "windows-x86_64": {
       signature,
@@ -60,7 +71,8 @@ const manifest = {
   },
 }
 
-const output = path.join(path.dirname(installFile), "latest.json")
+const outputName = channel === "beta" ? "latest-beta.json" : "latest.json"
+const output = path.join(path.dirname(installFile), outputName)
 writeFileSync(output, `${JSON.stringify(manifest, null, 2)}\n`)
 
 console.log(`Wrote ${output}`)

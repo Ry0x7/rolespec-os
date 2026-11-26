@@ -40,6 +40,59 @@ const REQUEST_WATCH_INTERVAL: Duration = Duration::from_secs(1);
 const UPDATE_REQUEST_FILE: &str = "update-check.json";
 const UPDATE_STATUS_FILE: &str = "update-status.json";
 
+const STABLE_UPDATE_ENDPOINT: &str =
+    "https://github.com/Ry0x7/rolespec-os/releases/latest/download/latest.json";
+const BETA_UPDATE_ENDPOINT: &str =
+    "https://github.com/Ry0x7/rolespec-os/releases/download/beta/latest-beta.json";
+
+/// Stable is the safe default: an unknown or removed channel name must never
+/// move an installed copy onto prereleases.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum UpdateChannel {
+    #[default]
+    Stable,
+    Beta,
+}
+
+impl UpdateChannel {
+    fn parse(value: Option<&str>) -> Self {
+        if value.map(str::trim) == Some("beta") {
+            Self::Beta
+        } else {
+            Self::Stable
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Stable => "stable",
+            Self::Beta => "beta",
+        }
+    }
+
+    fn endpoint(self) -> &'static str {
+        match self {
+            Self::Stable => STABLE_UPDATE_ENDPOINT,
+            Self::Beta => BETA_UPDATE_ENDPOINT,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct UpdatePreferences {
+    auto_check: bool,
+    channel: UpdateChannel,
+}
+
+impl Default for UpdatePreferences {
+    fn default() -> Self {
+        Self {
+            auto_check: true,
+            channel: UpdateChannel::Stable,
+        }
+    }
+}
+
 /// A startup check and a manual request must never run together: two download
 /// dialogs or two installers at once would race over the same files.
 static CHECK_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -81,33 +134,52 @@ fn parse_auto_check(contents: &str) -> Option<bool> {
         .map(|settings| settings.auto_check)
 }
 
-/// Missing settings keep the old behaviour (check automatically); only an
-/// explicit `{"autoCheck": false}` disables the startup check.
-fn auto_check_enabled(logger: &Arc<Logger>) -> bool {
-    auto_check_enabled_at(&app_data_root().join("config").join("updates.json"), logger)
+/// Reads the preference pair without letting a bad channel reset a valid
+/// `autoCheck: false`. The channel is deliberately parsed from the raw value:
+/// an unknown or non-string channel falls back to stable, while the existing
+/// auto-check contract (malformed autoCheck is unknown) is preserved.
+fn parse_update_preferences(contents: &str) -> Option<UpdatePreferences> {
+    let auto_check = parse_auto_check(contents)?;
+    let parsed: serde_json::Value = serde_json::from_str(contents).ok()?;
+    let channel = parsed
+        .get("channel")
+        .and_then(serde_json::Value::as_str)
+        .map(|value| UpdateChannel::parse(Some(value)))
+        .unwrap_or(UpdateChannel::Stable);
+
+    Some(UpdatePreferences {
+        auto_check,
+        channel,
+    })
 }
 
-fn auto_check_enabled_at(path: &Path, logger: &Arc<Logger>) -> bool {
+fn read_update_preferences(logger: &Arc<Logger>) -> UpdatePreferences {
+    read_update_preferences_at(&app_data_root().join("config").join("updates.json"), logger)
+}
+
+/// Missing settings keep the old behaviour (automatic checks on stable); only
+/// an explicit `{"autoCheck": false}` disables the startup check.
+fn read_update_preferences_at(path: &Path, logger: &Arc<Logger>) -> UpdatePreferences {
     let contents = match fs::read_to_string(path) {
         Ok(contents) => contents,
-        Err(error) if error.kind() == ErrorKind::NotFound => return true,
+        Err(error) if error.kind() == ErrorKind::NotFound => return UpdatePreferences::default(),
         Err(error) => {
             logger.warn(&format!(
-                "Could not read {}: {error}. Update checks stay enabled.",
+                "Could not read {}: {error}. Update checks stay enabled on stable.",
                 path.display()
             ));
-            return true;
+            return UpdatePreferences::default();
         }
     };
 
-    match parse_auto_check(&contents) {
-        Some(enabled) => enabled,
+    match parse_update_preferences(&contents) {
+        Some(preferences) => preferences,
         None => {
             logger.warn(&format!(
-                "{} is not valid update settings. Update checks stay enabled.",
+                "{} is not valid update settings. Update checks stay enabled on stable.",
                 path.display()
             ));
-            true
+            UpdatePreferences::default()
         }
     }
 }
@@ -206,10 +278,12 @@ fn write_status(path: &Path, status: &UpdateStatus<'_>) -> std::io::Result<()> {
 
 /// Checks once, shortly after startup, on a background thread.
 pub fn spawn_startup_check(handle: AppHandle, logger: Arc<Logger>) {
-    if !auto_check_enabled(&logger) {
+    let preferences = read_update_preferences(&logger);
+    if !preferences.auto_check {
         logger.info("Automatic update checks are disabled in Settings → Preferences");
         return;
     }
+    let channel = preferences.channel;
 
     std::thread::spawn(move || {
         std::thread::sleep(STARTUP_DELAY);
@@ -217,7 +291,7 @@ pub fn spawn_startup_check(handle: AppHandle, logger: Arc<Logger>) {
             logger.info("Skipping the automatic update check: another check is already running");
             return;
         };
-        if let Err(message) = check_and_install(&handle, &logger, None) {
+        if let Err(message) = check_and_install(&handle, &logger, None, channel) {
             logger.warn(&format!("Update check failed: {message}"));
         }
     });
@@ -246,7 +320,11 @@ pub fn spawn_update_request_watcher(handle: AppHandle, logger: Arc<Logger>) {
             }
             handled = Some(id.clone());
 
-            logger.info(&format!("Manual update check requested ({id})"));
+            let preferences = read_update_preferences(&logger);
+            logger.info(&format!(
+                "Manual update check requested ({id}) on the {} channel",
+                preferences.channel.as_str()
+            ));
             let reporter = StatusReporter::new(&root, id.clone());
 
             let Some(_guard) = begin_check() else {
@@ -254,7 +332,9 @@ pub fn spawn_update_request_watcher(handle: AppHandle, logger: Arc<Logger>) {
                 continue;
             };
 
-            if let Err(message) = check_and_install(&handle, &logger, Some(&reporter)) {
+            if let Err(message) =
+                check_and_install(&handle, &logger, Some(&reporter), preferences.channel)
+            {
                 logger.warn(&format!("Update check failed: {message}"));
             }
         }
@@ -290,30 +370,47 @@ fn take_request(root: &Path, logger: &Logger) -> Option<String> {
     }
 }
 
+fn updater_for_channel(
+    handle: &AppHandle,
+    channel: UpdateChannel,
+) -> Result<tauri_plugin_updater::Updater, String> {
+    let endpoint = tauri::Url::parse(channel.endpoint()).map_err(|error| {
+        format!(
+            "the {} update endpoint is invalid: {error}",
+            channel.as_str()
+        )
+    })?;
+
+    handle
+        .updater_builder()
+        .endpoints(vec![endpoint])
+        .map_err(|error| {
+            format!(
+                "the {} update endpoint is not allowed: {error}",
+                channel.as_str()
+            )
+        })?
+        .build()
+        .map_err(|error| format!("the updater could not be configured: {error}"))
+}
+
 fn check_and_install(
     handle: &AppHandle,
     logger: &Arc<Logger>,
     reporter: Option<&StatusReporter>,
+    channel: UpdateChannel,
 ) -> Result<(), String> {
     if let Some(reporter) = reporter {
         reporter.report("checking", None, None, None);
     }
 
-    let updater = match handle.updater() {
+    logger.info(&format!("Checking the {} update channel", channel.as_str()));
+    let updater = match updater_for_channel(handle, channel) {
         Ok(updater) => updater,
-        Err(error) => {
-            logger.info(&format!(
-                "Automatic updates are not configured in this build: {error}"
-            ));
+        Err(message) => {
+            logger.warn(&format!("Update channel unavailable: {message}"));
             if let Some(reporter) = reporter {
-                reporter.report(
-                    "unavailable",
-                    None,
-                    None,
-                    Some(&format!(
-                        "Automatic updates are not configured in this build: {error}"
-                    )),
-                );
+                reporter.report("unavailable", None, None, Some(&message));
             }
             return Ok(());
         }
@@ -453,7 +550,8 @@ fn check_and_install(
 #[cfg(test)]
 mod tests {
     use super::{
-        auto_check_enabled_at, parse_auto_check, parse_request_id, write_status, UpdateStatus,
+        parse_auto_check, parse_request_id, parse_update_preferences, read_update_preferences_at,
+        write_status, UpdateChannel, UpdateStatus,
     };
     use crate::logging::Logger;
     use std::fs;
@@ -473,7 +571,7 @@ mod tests {
         ));
         let _ = fs::remove_file(&path);
 
-        assert!(auto_check_enabled_at(&path, &test_logger("missing")));
+        assert!(read_update_preferences_at(&path, &test_logger("missing")).auto_check);
     }
 
     #[test]
@@ -482,7 +580,7 @@ mod tests {
             std::env::temp_dir().join(format!("rolespec-update-false-{}.json", std::process::id()));
         fs::write(&path, r#"{"autoCheck":false}"#).expect("write settings");
 
-        assert!(!auto_check_enabled_at(&path, &test_logger("false")));
+        assert!(!read_update_preferences_at(&path, &test_logger("false")).auto_check);
         let _ = fs::remove_file(&path);
     }
 
@@ -505,6 +603,53 @@ mod tests {
     fn malformed_preference_is_reported_as_unknown() {
         assert_eq!(parse_auto_check("not json"), None);
         assert_eq!(parse_auto_check(r#"{"autoCheck":"no"}"#), None);
+    }
+
+    #[test]
+    fn channel_defaults_to_stable_and_accepts_beta() {
+        assert_eq!(
+            parse_update_preferences("{}").unwrap().channel,
+            UpdateChannel::Stable
+        );
+        assert_eq!(
+            parse_update_preferences(r#"{"channel":"beta"}"#)
+                .unwrap()
+                .channel,
+            UpdateChannel::Beta
+        );
+        assert_eq!(
+            parse_update_preferences(r#"{"channel":"nightly"}"#)
+                .unwrap()
+                .channel,
+            UpdateChannel::Stable
+        );
+        assert_eq!(
+            parse_update_preferences(r#"{"channel":42}"#)
+                .unwrap()
+                .channel,
+            UpdateChannel::Stable
+        );
+    }
+
+    #[test]
+    fn invalid_channel_keeps_saved_auto_check_false() {
+        let preferences =
+            parse_update_preferences(r#"{"autoCheck":false,"channel":"nightly"}"#).unwrap();
+
+        assert!(!preferences.auto_check);
+        assert_eq!(preferences.channel, UpdateChannel::Stable);
+    }
+
+    #[test]
+    fn channels_use_distinct_manifest_endpoints() {
+        assert_ne!(
+            UpdateChannel::Stable.endpoint(),
+            UpdateChannel::Beta.endpoint()
+        );
+        assert!(UpdateChannel::Stable.endpoint().ends_with("/latest.json"));
+        assert!(UpdateChannel::Beta
+            .endpoint()
+            .ends_with("/beta/latest-beta.json"));
     }
 
     #[test]
