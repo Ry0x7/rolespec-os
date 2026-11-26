@@ -73,7 +73,9 @@ creates a private database cluster on first launch. No Node.js, Docker or `.env`
 
 The installer is **unsigned**, so Windows SmartScreen may warn you. The installer names
 **Chryypt Inc** as publisher, but that is application metadata, not a verified Authenticode
-signature. Builds are installed manually; auto-update is not guaranteed for every release.
+signature. Automatic update checks are on by default and can be turned off in
+**Settings → Preferences → Desktop updates**; a release without a signed `latest.json` must be
+installed manually.
 
 macOS and Linux can self-host; native installers are not shipped.
 

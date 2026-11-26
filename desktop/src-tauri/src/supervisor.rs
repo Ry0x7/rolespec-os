@@ -261,6 +261,10 @@ impl ServerProcess {
             // into its single-owner workspace without a key gate.
             .env("ROLSPEC_ACCESS_MODE", "local")
             .env("ROLSPEC_DESKTOP", "1")
+            // The settings UI stores desktop-only preferences next to the
+            // managed data (for example the auto-update choice), so the server
+            // needs the same root the shell reads.
+            .env("ROLSPEC_DATA_DIR", app_data_root())
             .env(
                 "EXPORT_STORAGE_DIR",
                 paths.data_dir.join("exports").as_os_str(),
