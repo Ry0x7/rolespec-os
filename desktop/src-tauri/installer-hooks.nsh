@@ -11,3 +11,11 @@ VIAddVersionKey "CompanyName" "Chryypt Inc"
 !macro NSIS_HOOK_PREUNINSTALL
   RMDir /r "$INSTDIR\resources"
 !macroend
+
+; The stock uninstaller removes its recorded files but leaves the install root
+; behind. The preuninstall hook above clears the runtime tree; remove the now
+; empty directory after the standard uninstall steps so an uninstall leaves no
+; empty "%LOCALAPPDATA%\RoleSpec" behind.
+!macro NSIS_HOOK_POSTUNINSTALL
+  RMDir "$INSTDIR"
+!macroend
