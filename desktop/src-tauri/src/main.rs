@@ -66,7 +66,7 @@ fn main() {
 
             logger.info("RoleSpec desktop shell starting");
             logger.info(&format!("Log file: {}", logger.path().display()));
-            update::clean_stale_update_installers(&logger);
+            update::spawn_stale_update_cleanup(logger.clone());
 
             {
                 let state = handle.state::<AppState>();
