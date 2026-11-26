@@ -133,8 +133,9 @@ user has to install a new build by hand.
 
 Automatic checks can be turned off in **Settings → Preferences → Desktop updates**. The choice is
 stored in `%LOCALAPPDATA%\RoleSpecData\config\updates.json` as `{"autoCheck": false}` and read at
-startup, so it applies on the next launch. Manual installs still work by downloading a newer signed
-setup file.
+startup, so it applies on the next launch. **Check for updates** in the same section asks the shell
+to run the documented signed check immediately; the page shows checking, download progress and the
+up-to-date result inline. Manual installs still work by downloading a newer signed setup file.
 
 Release by bumping `version` in `package.json` (and the lockfile), `desktop/src-tauri/Cargo.toml`
 (which feeds the Windows executable) and `desktop/src-tauri/tauri.conf.json`, then pushing a matching
