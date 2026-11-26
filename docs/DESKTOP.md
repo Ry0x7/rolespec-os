@@ -131,6 +131,11 @@ secret `TAURI_SIGNING_PRIVATE_KEY`; without it CI produces no updater archive an
 `latest.json`. **Back that key up**: losing it means installed copies can never be updated and every
 user has to install a new build by hand.
 
+Automatic checks can be turned off in **Settings → Preferences → Desktop updates**. The choice is
+stored in `%LOCALAPPDATA%\RoleSpecData\config\updates.json` as `{"autoCheck": false}` and read at
+startup, so it applies on the next launch. Manual installs still work by downloading a newer signed
+setup file.
+
 Release by bumping `version` in `package.json` (and the lockfile), `desktop/src-tauri/Cargo.toml`
 (which feeds the Windows executable) and `desktop/src-tauri/tauri.conf.json`, then pushing a matching
 `v*` tag. The workflow builds the installer, publishes it with its SHA-256 checksum, and — when
