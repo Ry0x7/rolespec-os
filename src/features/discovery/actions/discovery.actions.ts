@@ -1449,8 +1449,10 @@ export async function saveDiscoveredJob(
       workType: workType ?? null,
       ...(jobType && { jobType }),
       jobDescription: description ?? null,
-      // Providers publish salary as free text ("$60k – $80k"), which the
-      // numeric column cannot hold; the note keeps it instead of losing it.
+      // The posted text is parsed into the salary columns on write, as the
+      // extension does, so the saved job shows its pay instead of "does not
+      // state pay". The note keeps the provider's exact words as well.
+      ...(salaryText && { salaryText }),
       notes: salaryText ? `Salary (as posted): ${salaryText}` : null,
       source: JobSource.DISCOVERY,
       sourceProvider: provider,

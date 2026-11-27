@@ -7,6 +7,7 @@ const LINKS = [
   { href: "https://github.com/Ry0x7/rolespec-os/releases/latest", label: "Latest release" },
   { href: "https://github.com/Ry0x7/rolespec-os/blob/main/LICENSE", label: "Personal-use license" },
   { href: "https://github.com/Ry0x7", label: "Publisher: Chryypt" },
+  { href: "https://ko-fi.com/ry0x7", label: "Support on Ko-fi" },
 ]
 
 export function ShowcaseFooter() {

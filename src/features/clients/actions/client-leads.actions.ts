@@ -25,6 +25,8 @@ export interface SavedLeadRef {
 export interface FindClientLeadsResult {
   serviceLabel: string
   leads: Array<ClientLead & { saved?: SavedLeadRef }>
+  /** Relevant leads found; more than `leads.length` when the list was cut. */
+  matchedCount: number
   unrelatedCount: number
   sources: ClientSourceReport[]
   links: ClientSearchLink[]
@@ -98,6 +100,7 @@ export async function findClientLeads(
       const applicationId = savedByUrl.get(lead.canonicalUrl) ?? savedByUrl.get(lead.url)
       return applicationId ? { ...lead, saved: { applicationId } } : lead
     }),
+    matchedCount: result.matchedCount,
     unrelatedCount: result.unrelatedCount,
     sources: result.sources,
     links,

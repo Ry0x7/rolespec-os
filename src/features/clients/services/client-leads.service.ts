@@ -8,7 +8,7 @@ import type { NormalizedPosting, RawPosting, SourceAdapter } from "@/features/di
 import { logger } from "@/shared/lib/logger"
 
 import type { ClientService } from "../data/services"
-import { scoreClientLead, type ClientArrangement, type LeadScore } from "../lib/lead-score"
+import { effectiveWorkType, scoreClientLead, type ClientArrangement, type LeadScore } from "../lib/lead-score"
 
 const log = logger("clients")
 
@@ -48,6 +48,8 @@ export interface ClientSourceReport {
 
 export interface ClientLeadSearchResult {
   leads: ClientLead[]
+  /** Relevant leads found before the list was cut to {@link MAX_CLIENT_LEADS}. */
+  matchedCount: number
   /** Posts the sources returned that never mention the service. */
   unrelatedCount: number
   sources: ClientSourceReport[]
@@ -128,7 +130,7 @@ export async function searchClientLeads(input: {
       continue
     }
     // An on-site search must not fill up with remote posts it cannot use.
-    if (input.arrangement === "ONSITE" && posting.workType === "REMOTE") {
+    if (input.arrangement === "ONSITE" && effectiveWorkType(posting) === "REMOTE") {
       unrelatedCount += 1
       continue
     }
@@ -147,6 +149,7 @@ export async function searchClientLeads(input: {
 
   return {
     leads: leads.slice(0, MAX_CLIENT_LEADS),
+    matchedCount: leads.length,
     unrelatedCount,
     sources: adapters.map((adapter) => ({
       provider: adapter.id,

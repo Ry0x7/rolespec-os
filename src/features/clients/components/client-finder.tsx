@@ -207,11 +207,19 @@ export function ClientFinder({ defaultLocation }: { defaultLocation?: string | n
       )}
 
       {result && (
-        <section aria-labelledby="client-leads-heading" className="space-y-3">
+        <section
+          aria-labelledby="client-leads-heading"
+          aria-busy={searching}
+          // A new search keeps the old results on screen until it answers; dim
+          // them so they are not mistaken for the new service's leads.
+          className={`space-y-3 transition-opacity ${searching ? "pointer-events-none opacity-50" : ""}`}
+        >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="client-leads-heading" className="text-lg font-semibold">
               {result.leads.length > 0
-                ? `${result.leads.length} lead${result.leads.length === 1 ? "" : "s"} for ${result.serviceLabel.toLowerCase()}`
+                ? result.matchedCount > result.leads.length
+                  ? `Best ${result.leads.length} of ${result.matchedCount} leads for ${result.serviceLabel.toLowerCase()}`
+                  : `${result.leads.length} lead${result.leads.length === 1 ? "" : "s"} for ${result.serviceLabel.toLowerCase()}`
                 : `No open leads for ${result.serviceLabel.toLowerCase()} right now`}
             </h2>
             <p className="text-xs text-muted-foreground" aria-live="polite">
