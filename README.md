@@ -2,8 +2,10 @@
 
 ![RoleSpec OS — a private, local-first job-search workspace](screenshots/banner-2.1.webp)
 
-A private, local-first job-search workspace: resume studio, ATS matching, job discovery,
-application tracking and agent-prepared applications. Published by **Chryypt Inc**.
+A private, local-first workspace for finding work of any kind: resume studio, ATS matching, job
+discovery, client leads for freelance and service work, application tracking and
+agent-prepared applications. It covers remote and on-site work, from office and tech roles to
+virtual assistance, healthcare, hospitality and skilled trades. Published by **Chryypt Inc**.
 
 [Website](https://rolespec.ry0x7.dev/) · [Download for Windows](https://github.com/Ry0x7/rolespec-os/releases/latest) · [Issues](https://github.com/Ry0x7/rolespec-os/issues) · [Personal-use license](LICENSE)
 
@@ -23,6 +25,7 @@ application silently** — the final submit stays with you.
 - **Find clients.** Public client posts for virtual assistants, AI automation, support, design, tutoring, local services and more, scored for fit and scam signals, with ready-made searches on the marketplaces and social posts where clients hire.
 - **Full AI mode.** The agent runs a whole preparation with no review stops. It never guesses an answer only you can give, and the final submit still stays with you.
 - **Every career path.** 48 roles in 18 fields, from office and support work to healthcare, hospitality, logistics and skilled trades.
+- **A livelier website.** Product previews settle into place as you scroll and respond to the pointer, and a new section shows Find clients, the mode switch and the career fields. Reduced motion keeps everything still.
 
 ## What's new in 2.0
 
@@ -192,9 +195,7 @@ that a listing is fraudulent.
 ## Credits
 
 RoleSpec OS is published by **Chryypt Inc** and developed and maintained by
-[Ry0x7](https://github.com/Ry0x7). [Claude Code](https://claude.com/product/claude-code) is
-acknowledged as an AI-assisted development tool; code decisions, review and maintenance remain
-the maintainer's responsibility. This credit does not imply endorsement by Anthropic.
+[Ry0x7](https://github.com/Ry0x7).
 
 ## License
 
