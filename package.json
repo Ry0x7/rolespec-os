@@ -19,6 +19,7 @@
     "desktop:check": "cargo check --manifest-path desktop/src-tauri/Cargo.toml",
     "desktop:test": "cargo test --manifest-path desktop/src-tauri/Cargo.toml",
     "showcase:build": "tsx scripts/build-showcase.ts",
+    "showcase:test": "node scripts/test-showcase.mjs",
     "postinstall": "prisma generate"
   },
   "engines": {
