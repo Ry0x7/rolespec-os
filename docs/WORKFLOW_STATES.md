@@ -106,9 +106,16 @@ Legal edges, in the order the table defines them: `MANUAL → ASSISTED`,
 ## Agent run and manual mode
 
 `WorkflowRun.state` uses the same seven states. A run is created in `MANUAL`
-state for both entry modes, then `START` moves an `AGENT_ASSISTED` run to
-`ASSISTED`; a `MANUAL` run stays `MANUAL` and is completed step by step. Both
-modes use the same `JobApplication`, the same step names and the same records.
+state for every entry mode, then `START` moves an `AGENT_ASSISTED` or
+`AUTONOMOUS` run to `ASSISTED`; a `MANUAL` run stays `MANUAL` and is completed
+step by step. All modes use the same `JobApplication`, the same step names and
+the same records.
+
+An `AUTONOMOUS` run never enters `AWAITING_REVIEW`. Where an `AGENT_ASSISTED`
+step would return `WAITING_FOR_USER`, the worker records it as `SKIPPED` for an
+optional step and `FAILED` (non-retryable, with the open question as the reason)
+for a required one. `HUMAN_REVIEW` completes under the autonomous policy, and
+`SUBMISSION_STAGING` still stops at a `STAGED` attempt.
 
 Per-step statuses are the Prisma `WorkflowStepStatus` enum:
 

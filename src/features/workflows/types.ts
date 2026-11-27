@@ -65,6 +65,11 @@ export interface WorkflowExecutionContext {
   userId: string
   jobApplicationId: string | null
   input: WorkflowRunInput
+  /**
+   * The run's mode. `AUTONOMOUS` executors decide their own checkpoint with a
+   * recorded policy instead of waiting for a person. Absent means assisted.
+   */
+  mode?: WorkflowMode
   stepName: WorkflowStepName
   /** 1-based attempt number for this step. */
   attempt: number

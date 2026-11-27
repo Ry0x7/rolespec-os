@@ -199,6 +199,57 @@ describe("workflow engine", () => {
     )
   })
 
+  it("runs an autonomous workflow end to end without parking for review", async () => {
+    const modes: unknown[] = []
+    holder.executors.HUMAN_REVIEW = async (context) => {
+      modes.push((context as { mode?: string }).mode)
+      return COMPLETED("HUMAN_REVIEW")
+    }
+    // An optional step that still asks a person is skipped, not parked.
+    holder.executors.FOLLOW_UP = async () => ({
+      status: "WAITING_FOR_USER",
+      review: {
+        kind: "MISSING_PROFILE_FACT",
+        question: "When should we follow up?",
+        reason: "No follow-up preference is stored.",
+      },
+    })
+
+    const created = await createWorkflow("user-1", { mode: "AUTONOMOUS" })
+    const started = await startWorkflow("user-1", created.id)
+    expect(started.state).toBe("ASSISTED")
+    await tickWorkflowWorker()
+
+    const finished = await getWorkflow("user-1", created.id)
+    expect(finished?.state).toBe("COMPLETED")
+    expect(finished?.openReviewTaskIds).toHaveLength(0)
+    expect(fake.tasks).toHaveLength(0)
+    expect(modes).toEqual(["AUTONOMOUS"])
+    expect(finished?.steps.find((step) => step.name === "FOLLOW_UP")?.status).toBe("SKIPPED")
+  })
+
+  it("fails an autonomous run with the question when a required step needs the user", async () => {
+    holder.executors.PROFILE = async () => ({
+      status: "WAITING_FOR_USER",
+      review: {
+        kind: "MISSING_PROFILE_FACT",
+        question: "Which role are you targeting?",
+        reason: "No target role exists.",
+        fallback: "Add a target role in Career Profile.",
+      },
+    })
+
+    const created = await createWorkflow("user-1", { mode: "AUTONOMOUS" })
+    await startWorkflow("user-1", created.id)
+    await tickWorkflowWorker()
+
+    const stopped = await getWorkflow("user-1", created.id)
+    expect(stopped?.state).toBe("FAILED")
+    expect(stopped?.lastError).toContain("Which role are you targeting?")
+    expect(fake.tasks).toHaveLength(0)
+    expect(stopped?.steps.find((step) => step.name === "RANK")?.status).toBe("PENDING")
+  })
+
   it("records a declined checkpoint as not approved", async () => {
     holder.executors.HUMAN_REVIEW = async () => ({
       status: "WAITING_FOR_USER",

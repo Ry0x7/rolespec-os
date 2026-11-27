@@ -1629,6 +1629,9 @@ enum WorkflowKind {
 enum WorkflowMode {
   MANUAL
   AGENT_ASSISTED
+  /// Runs every step without stopping for a person. Checkpoints are decided by
+  /// a fixed, recorded policy; nothing the user must answer is ever invented.
+  AUTONOMOUS
 }
 
 enum WorkflowState {

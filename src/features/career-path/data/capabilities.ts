@@ -677,4 +677,200 @@ export const CAREER_PATH_CAPABILITY_DEFINITIONS: readonly CareerCapabilityDefini
     learningStep:
       "Build a small scheduled pipeline that moves data from one source to a queryable table, with one check that fails loudly.",
   },
+  // ── Support, service, care, teaching and trade work ─────────────────────
+  // Added so the catalogue reaches careers beyond software and office roles:
+  // virtual and administrative support, automation, finance, healthcare,
+  // teaching, hospitality, retail, logistics and skilled trades.
+  {
+    key: "administrative-support",
+    label: "Administrative support",
+    aliases: [
+      "administrative support",
+      "admin support",
+      "virtual assistance",
+      "virtual assistant",
+      "executive assistance",
+      "office administration",
+      "calendar management",
+      "inbox management",
+      "email management",
+      "scheduling",
+    ],
+    learningStep:
+      "Run one week of a real person's calendar and inbox with a written daily summary, and ask them what they no longer had to think about.",
+  },
+  {
+    key: "time-management",
+    label: "Time management",
+    aliases: ["time management", "organisation", "organization skills", "multitasking", "attention to detail"],
+    learningStep:
+      "Plan one week in time blocks, record where the hours actually went, and adjust the next week's plan from the difference.",
+  },
+  {
+    key: "data-entry",
+    label: "Data entry",
+    aliases: ["data entry", "typing", "data encoding", "records management"],
+    learningStep:
+      "Clean and enter a 200-row list into a spreadsheet with validation rules, then measure your error rate against a second pass.",
+  },
+  {
+    key: "no-code-automation",
+    label: "No-code automation",
+    aliases: [
+      "zapier",
+      "make.com",
+      "integromat",
+      "n8n",
+      "workflow automation",
+      "no-code automation",
+      "business process automation",
+      "power automate",
+    ],
+    learningStep:
+      "Automate one repetitive task you do every week with Zapier, Make or n8n, and write down the time it saves and how it fails.",
+  },
+  {
+    key: "ai-tools",
+    label: "AI tools",
+    aliases: [
+      "chatgpt",
+      "prompt engineering",
+      "generative ai",
+      "llm",
+      "large language models",
+      "openai api",
+      "ai agents",
+      "claude ai",
+    ],
+    learningStep:
+      "Use an AI assistant to draft one recurring piece of work, keep a checklist of the errors you had to fix, and refine the prompt until the list is short.",
+  },
+  {
+    key: "bookkeeping",
+    label: "Bookkeeping",
+    aliases: [
+      "bookkeeping",
+      "quickbooks",
+      "xero",
+      "accounts payable",
+      "accounts receivable",
+      "bank reconciliation",
+      "invoicing",
+    ],
+    learningStep:
+      "Keep a month of books for a small real or sample business in a free accounting tool, and reconcile it against the bank statement.",
+  },
+  {
+    key: "accounting",
+    label: "Accounting",
+    aliases: ["accounting", "financial reporting", "financial statements", "general ledger"],
+    learningStep:
+      "Prepare a profit-and-loss statement and balance sheet from a sample ledger, and explain one movement in each to a non-accountant.",
+  },
+  {
+    key: "teaching",
+    label: "Teaching",
+    aliases: [
+      "teaching",
+      "tutoring",
+      "lesson planning",
+      "classroom management",
+      "curriculum development",
+      "esl",
+      "instruction",
+    ],
+    learningStep:
+      "Teach one short lesson to a real learner with a stated goal, check what they can do afterwards, and revise the lesson from that check.",
+  },
+  {
+    key: "patient-care",
+    label: "Patient care",
+    aliases: ["patient care", "vital signs", "nursing", "patient assessment", "clinical care", "bedside care"],
+    learningStep:
+      "Complete a recognised basic life support course and log supervised patient-care hours in a clinic or care home.",
+  },
+  {
+    key: "medical-administration",
+    label: "Medical administration",
+    aliases: ["medical billing", "medical coding", "emr", "electronic health records", "medical records"],
+    learningStep:
+      "Work through a free electronic-health-record training environment and book, document and bill one sample patient visit end to end.",
+  },
+  {
+    key: "retail-sales",
+    label: "Retail sales",
+    aliases: ["retail sales", "point of sale", "pos", "cash handling", "merchandising", "visual merchandising"],
+    learningStep:
+      "Shadow a shift on a shop floor, note what turned browsers into buyers, and practise one opening line with real customers.",
+  },
+  {
+    key: "hospitality",
+    label: "Hospitality",
+    aliases: ["hospitality", "front desk", "guest services", "hotel operations", "reservations"],
+    learningStep:
+      "Handle check-in, a complaint and a booking change in a role-play with a timer, then write the steps you would standardise.",
+  },
+  {
+    key: "food-service",
+    label: "Food service",
+    aliases: ["food service", "food safety", "food handling", "barista", "food preparation", "cooking"],
+    learningStep:
+      "Earn a recognised food-handler certificate and prepare one menu item to a written recipe card at service speed.",
+  },
+  {
+    key: "inventory-management",
+    label: "Inventory management",
+    aliases: [
+      "inventory management",
+      "stock control",
+      "warehouse operations",
+      "order picking",
+      "forklift operation",
+      "shipping and receiving",
+    ],
+    learningStep:
+      "Count and reconcile a real stock list against its records, and propose one change that would stop the most common mismatch.",
+  },
+  {
+    key: "driving",
+    label: "Driving and delivery",
+    aliases: ["driving", "delivery driving", "route planning", "commercial driving", "cdl"],
+    learningStep:
+      "Plan a ten-stop delivery route with time windows using a free routing tool, then drive or walk it and compare plan with reality.",
+  },
+  {
+    key: "workplace-safety",
+    label: "Workplace safety",
+    aliases: ["workplace safety", "osha", "health and safety", "safety compliance", "ppe"],
+    learningStep:
+      "Complete a recognised workplace-safety course and carry out one hazard walk-through of a real site with a written report.",
+  },
+  {
+    key: "electrical-work",
+    label: "Electrical work",
+    aliases: ["electrical wiring", "electrical installation", "electrical maintenance", "wiring"],
+    learningStep:
+      "Enrol in an accredited electrical pre-apprenticeship or course and complete supervised practical hours toward the local licence.",
+  },
+  {
+    key: "maintenance",
+    label: "Maintenance and repair",
+    aliases: ["equipment maintenance", "preventive maintenance", "facility maintenance", "repairs", "hvac maintenance"],
+    learningStep:
+      "Keep a preventive-maintenance log for a few machines or rooms for a month, and fix one recurring fault at its root cause.",
+  },
+  {
+    key: "graphic-design",
+    label: "Graphic design",
+    aliases: ["graphic design", "canva", "adobe photoshop", "photoshop", "adobe illustrator", "illustrator"],
+    learningStep:
+      "Redesign three real graphics for one small business to a short brief, and show the before and after to the owner.",
+  },
+  {
+    key: "video-editing",
+    label: "Video editing",
+    aliases: ["video editing", "premiere pro", "final cut pro", "davinci resolve", "capcut"],
+    learningStep:
+      "Cut one long recording into three short clips with captions, publish them, and compare how each performed.",
+  },
 ]

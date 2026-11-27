@@ -9,6 +9,7 @@ export function WorkflowModeSwitch({ compact = false }: { compact?: boolean }) {
     <SegmentedControl value={mode} onChange={setMode} label="Mode for new preparations" size={compact ? "sm" : "default"} options={[
       { value: "MANUAL", label: "Manual" },
       { value: "AGENT_ASSISTED", label: "Agent-assisted" },
+      { value: "AUTONOMOUS", label: "Full AI" },
     ]} />
     {!compact && <p className="mt-2 text-xs text-muted-foreground">For new preparations only. Existing runs keep their mode.</p>}
   </div>

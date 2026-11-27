@@ -433,7 +433,10 @@ export async function startWorkflow(
   return moveState(userId, runId, "ASSISTED", {
     from: ["MANUAL"],
     event: "RUN_STARTED",
-    message: "Assisted workflow started and queued for the worker.",
+    message:
+      run.mode === "AUTONOMOUS"
+        ? "Autonomous workflow started and queued for the worker. It will not stop for review."
+        : "Assisted workflow started and queued for the worker.",
     startedAt: run.startedAt ?? new Date(),
   })
 }

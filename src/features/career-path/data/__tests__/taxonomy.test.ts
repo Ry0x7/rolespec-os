@@ -74,7 +74,7 @@ describe("career path capability catalogue", () => {
 
 describe("career path occupation catalogue", () => {
   it("has a version, families and unique occupation ids", () => {
-    expect(CAREER_PATH_CATALOG.version).toBe("career-path-seed-2026.11.1")
+    expect(CAREER_PATH_CATALOG.version).toBe("career-path-seed-2026.11.2")
     expect(families.length).toBeGreaterThanOrEqual(8)
     expect(familyIds.size).toBe(families.length)
     expect(occupations.length).toBeGreaterThanOrEqual(24)

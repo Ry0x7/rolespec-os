@@ -1,5 +1,6 @@
 import React from "react"
 
+import { STAGE_HANDLERS } from "./depth"
 import { ExpandIcon } from "./icons"
 
 export interface MockGalleryItem {
@@ -10,8 +11,9 @@ export interface MockGalleryItem {
 
 /**
  * A live product mock in a device frame. Hovering lifts the frame toward the
- * reader; clicking Expand opens the same HTML at full size, so nothing is ever
- * a downscaled screenshot.
+ * reader, tips it a few degrees toward the pointer and lets a soft light follow
+ * it across the glass; clicking Expand opens the same HTML at full size, so
+ * nothing is ever a downscaled screenshot.
  */
 export function MockStage({
   item,
@@ -22,7 +24,9 @@ export function MockStage({
 }) {
   return (
     <div className="mock-stage">
-      <div className="mock-stage-bezel">{item.render()}</div>
+      <div className="mock-stage-bezel" {...STAGE_HANDLERS}>
+        {item.render()}
+      </div>
       <button
         type="button"
         className="mock-stage-expand"

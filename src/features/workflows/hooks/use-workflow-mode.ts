@@ -4,6 +4,11 @@ import { useEffect, useState } from "react"
 import type { WorkflowRunDTO } from "../types"
 
 export type PreparationMode = WorkflowRunDTO["mode"]
+
+const MODES: readonly PreparationMode[] = ["MANUAL", "AGENT_ASSISTED", "AUTONOMOUS"]
+function isMode(value: unknown): value is PreparationMode {
+  return typeof value === "string" && (MODES as readonly string[]).includes(value)
+}
 const KEY = "rolespec-workflow-mode"
 const CHANGE = "rolespec-workflow-mode-change"
 
@@ -17,8 +22,8 @@ export function useWorkflowMode() {
   const [mode, setMode] = useState<PreparationMode>("AGENT_ASSISTED")
   useEffect(() => {
     const read = (event?: Event) => {
-      if (event instanceof CustomEvent && (event.detail === "MANUAL" || event.detail === "AGENT_ASSISTED")) { setMode(event.detail); return }
-      try { setMode(localStorage.getItem(KEY) === "MANUAL" ? "MANUAL" : "AGENT_ASSISTED") } catch { /* Device storage is optional. */ }
+      if (event instanceof CustomEvent && isMode(event.detail)) { setMode(event.detail); return }
+      try { const stored = localStorage.getItem(KEY); setMode(isMode(stored) ? stored : "AGENT_ASSISTED") } catch { /* Device storage is optional. */ }
     }
     read()
     window.addEventListener("storage", read)

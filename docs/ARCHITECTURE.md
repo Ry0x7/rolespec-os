@@ -275,10 +275,11 @@ PROFILE → DISCOVER → RANK → RESEARCH → TAILOR → VALIDATE
            (DISCOVER and FOLLOW_UP are optional; every other step is required)
 ```
 
-There are two entry modes and one record set. `POST /api/workflows` creates a run
-for an existing `JobApplication` with `mode: MANUAL | AGENT_ASSISTED`. Both modes
-share the application and the eleven `WorkflowStep` rows; manual mode completes
-steps through the same advance route and never acquires a lease.
+There are three entry modes and one record set. `POST /api/workflows` creates a
+run for an existing `JobApplication` with `mode: MANUAL | AGENT_ASSISTED |
+AUTONOMOUS`. All modes share the application and the eleven `WorkflowStep` rows;
+manual mode completes steps through the same advance route and never acquires a
+lease.
 
 - **Pipeline definition.** `src/features/workflows/pipeline.ts` owns step order,
   dependencies, requiredness, timeout and attempt caps. The worker executes a
@@ -295,6 +296,15 @@ steps through the same advance route and never acquires a lease.
 - **Human checkpoint.** `HUMAN_REVIEW` always creates a `SUBMISSION_CONFIRMATION`
   task. Only an explicit `{ approved: true }` answer completes it as approved;
   a decline is recorded as `approved: false` and `SUBMISSION_STAGING` refuses.
+- **Full AI (`AUTONOMOUS`) mode.** The worker runs the same pipeline without
+  stopping for a person. `HUMAN_REVIEW` completes under a recorded policy
+  (`approvedBy: "AUTONOMOUS_POLICY"`) and stages the tailored resume only when it
+  validated cleanly, else the source resume. A missing target role falls back to
+  the saved job's title, and a tailoring run with nothing usable is `SKIPPED`.
+  Any other step that would wait for the user is `SKIPPED` when optional and
+  `FAILED` (not retried) when required, with the question kept as the reason, so
+  the agent never guesses an answer about the user. Staging still produces a
+  `STAGED` package only: nothing is submitted to an employer.
 - **Failure isolation.** A required step's failure fails the run. An optional
   step's failure is persisted and the rest continues. A retryable failure uses
   exponential backoff; an attempt cap is a `FAILED` step with the reason kept.

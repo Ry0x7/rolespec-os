@@ -1357,6 +1357,7 @@ export async function saveDiscoveredJob(
     url,
     location,
     workType,
+    jobType,
     salaryText,
     description,
     postedAt,
@@ -1446,6 +1447,7 @@ export async function saveDiscoveredJob(
       jobLink: url,
       location: location ?? null,
       workType: workType ?? null,
+      ...(jobType && { jobType }),
       jobDescription: description ?? null,
       // Providers publish salary as free text ("$60k – $80k"), which the
       // numeric column cannot hold; the note keeps it instead of losing it.

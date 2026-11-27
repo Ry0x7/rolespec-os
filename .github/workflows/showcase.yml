@@ -12,6 +12,19 @@ on:
       - "src/showcase/**"
       - "scripts/build-showcase.ts"
       - "scripts/verify-showcase.mjs"
+      - "scripts/test-showcase.mjs"
+      - "screenshots/**"
+      - "public/banner.svg"
+      - "public/icon.svg"
+      - ".github/workflows/showcase.yml"
+  # Pull requests build and test the showcase but never deploy it.
+  pull_request:
+    paths:
+      - "package.json"
+      - "src/showcase/**"
+      - "scripts/build-showcase.ts"
+      - "scripts/verify-showcase.mjs"
+      - "scripts/test-showcase.mjs"
       - "screenshots/**"
       - "public/banner.svg"
       - "public/icon.svg"
@@ -45,14 +58,23 @@ jobs:
       - name: Verify showcase output
         run: node scripts/verify-showcase.mjs
 
+      - name: Install Chromium for the demo test
+        run: npx playwright install --with-deps chromium
+
+      - name: Test the live demo in a browser
+        run: npm run showcase:test
+
       - uses: actions/configure-pages@v6
+        if: github.event_name != 'pull_request'
 
       - uses: actions/upload-pages-artifact@v5
+        if: github.event_name != 'pull_request'
         with:
           path: dist-showcase
 
   deploy:
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

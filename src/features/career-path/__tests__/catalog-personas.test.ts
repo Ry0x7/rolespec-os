@@ -282,8 +282,8 @@ describe("real catalogue personas", () => {
     expect(result.groups.ADJACENT).toEqual([])
     expect(result.groups.GROWTH).toEqual([])
     expect(result.notices.join(" ")).toMatch(/two confirmed capabilities/i)
-    expect(result.evaluatedCount).toBe(25)
-    expect(result.taxonomyVersion).toBe("career-path-seed-2026.11.1")
+    expect(result.evaluatedCount).toBe(48)
+    expect(result.taxonomyVersion).toBe("career-path-seed-2026.11.2")
   })
 
   it("counts a duplicated capability once, reports the conflict, and keeps the stronger evidence", () => {
@@ -435,5 +435,57 @@ describe("real catalogue personas", () => {
     )
     expect(unmatched.notices.join(" ")).toMatch(/No catalogue role matches/i)
     expect(unmatched.notices.join(" ")).toContain("Astronaut")
+  })
+})
+
+describe("careers beyond office and software roles", () => {
+  it("places an evidence-backed virtual assistant in Virtual Assistant now, with automation nearby", () => {
+    const rows = [
+      evidence("ev-va-admin", "Managed calendars and inboxes for three founders"),
+      evidence("ev-va-comms", "Wrote weekly client status emails"),
+      evidence("ev-va-time", "Kept a 30-task weekly schedule on time"),
+      evidence("ev-va-sheets", "Maintained client trackers in Google Sheets"),
+    ]
+    const result = buildCareerPath(
+      profile(
+        [
+          capability("Virtual assistant", "ev-va-admin"),
+          capability("Written communication", "ev-va-comms"),
+          capability("Time management", "ev-va-time"),
+          capability("Google Sheets", "ev-va-sheets"),
+        ],
+        rows,
+        { experienceLevel: "JUNIOR" }
+      ),
+      { asOf: AS_OF }
+    )
+
+    expect(titles(result, "QUALIFIED_NOW")).toContain("Virtual Assistant")
+    expect(allRecommendations(result).map((role) => role.title)).toEqual(
+      expect.arrayContaining(["Executive Assistant"])
+    )
+  })
+
+  it("never reports a regulated care role as feasible without the licence on record", () => {
+    const rows = [
+      evidence("ev-rn-care", "Provided bedside care on a 30-bed ward"),
+      evidence("ev-rn-comms", "Handed over patients every shift"),
+      evidence("ev-rn-docs", "Charted every assessment in the EMR"),
+    ]
+    const result = buildCareerPath(
+      profile(
+        [
+          capability("Patient care", "ev-rn-care"),
+          capability("Communication", "ev-rn-comms"),
+          capability("Documentation", "ev-rn-docs"),
+        ],
+        rows
+      ),
+      { asOf: AS_OF }
+    )
+
+    const nurse = findRole(result, "Registered Nurse")
+    expect(nurse).toBeDefined()
+    expect(JSON.stringify(nurse)).toContain("Credential not verified")
   })
 })

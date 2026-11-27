@@ -4,6 +4,8 @@ import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/shared/lib/prisma"
 import { logger, redactText } from "@/shared/lib/logger"
 
+import type { WorkflowMode } from "@/generated/prisma/enums"
+
 import { getExecutor } from "../executors"
 import type {
   WorkflowRunInput,
@@ -44,6 +46,34 @@ type DbStep = {
   recoveryCount: number
   timeoutMs: number
   nextAttemptAt: Date | null
+}
+
+/**
+ * The autonomous guarantee. An executor that still asks a person a question in
+ * an AUTONOMOUS run never parks the run in AWAITING_REVIEW: an optional step is
+ * skipped, and a required step fails with the question as its reason, so the
+ * run ends with a specific, actionable state instead of waiting forever. The
+ * question is never answered on the user's behalf.
+ */
+export function autonomousOutcome(
+  outcome: WorkflowStepOutcome,
+  required: boolean
+): WorkflowStepOutcome {
+  if (outcome.status !== "WAITING_FOR_USER") return outcome
+  const { question, reason, fallback } = outcome.review
+  if (!required) {
+    return {
+      status: "SKIPPED",
+      reason: `Autonomous mode skipped a question only you can answer: ${question}`,
+      output: { skipped: true, autonomous: true, question, reason },
+    }
+  }
+  return {
+    status: "FAILED",
+    error: `Autonomous mode stopped: ${question} ${reason}`.trim().slice(0, 900),
+    retryable: false,
+    fallback: fallback ?? "Answer this yourself, then start an agent-assisted run.",
+  }
 }
 
 function nowPlus(ms: number, now: Date): Date {
@@ -440,6 +470,7 @@ async function executeStep(
     userId: string
     jobApplicationId: string | null
     input: unknown
+    mode: WorkflowMode
   },
   step: DbStep
 ): Promise<"moved" | "continued"> {
@@ -508,6 +539,7 @@ async function executeStep(
         userId: run.userId,
         jobApplicationId: run.jobApplicationId,
         input: (run.input as WorkflowRunInput | null) ?? {},
+        mode: run.mode,
         stepName: step.name as WorkflowStepName,
         attempt,
         signal: controller.signal,
@@ -515,6 +547,7 @@ async function executeStep(
       })
       execution.catch(() => undefined)
       outcome = await Promise.race([execution, timedOut])
+      if (run.mode === "AUTONOMOUS") outcome = autonomousOutcome(outcome, step.required)
     }
   } catch (error) {
     outcome = {
@@ -635,7 +668,7 @@ export async function executeWorkflowRun(runId: string): Promise<void> {
 
     const run = await prisma.workflowRun.findFirst({
       where: { id: runId, leaseOwner: WORKER_ID },
-      select: { id: true, userId: true, jobApplicationId: true, input: true, state: true },
+      select: { id: true, userId: true, jobApplicationId: true, input: true, state: true, mode: true },
     })
     if (!run || run.state !== "ASSISTED") return
 
@@ -718,6 +751,7 @@ export async function executeWorkflowRun(runId: string): Promise<void> {
             userId: run.userId,
             jobApplicationId: run.jobApplicationId,
             input: run.input,
+            mode: run.mode,
           },
           step
         )

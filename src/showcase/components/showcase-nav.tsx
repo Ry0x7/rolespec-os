@@ -11,6 +11,7 @@ interface ShowcaseNavProps {
 const LINKS = [
   { href: "#workflows", label: "How it works" },
   { href: "#features", label: "Features" },
+  { href: "#beyond", label: "Clients" },
   { href: "#models", label: "AI models" },
   { href: "#quickstart", label: "Download" },
 ]
@@ -42,7 +43,7 @@ export function ShowcaseNav({ isReducedMotion, onToggleMotion, theme, onToggleTh
           <span className="text-sm font-semibold tracking-tight">RoleSpec OS</span>
         </a>
 
-        <nav aria-label="Main" className="hidden items-center gap-7 text-sm md:flex" style={{ color: "var(--text-2)" }}>
+        <nav aria-label="Main" className="hidden items-center gap-5 text-sm md:flex lg:gap-7" style={{ color: "var(--text-2)" }}>
           {LINKS.map((l) => (
             <a key={l.href} href={l.href} className="opacity-80 transition-opacity hover:opacity-100">{l.label}</a>
           ))}

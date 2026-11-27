@@ -263,3 +263,60 @@ describe("missing application", () => {
     }
   })
 })
+
+describe("autonomous mode", () => {
+  function autonomous(stepName: string) {
+    return { ...context(stepName), mode: "AUTONOMOUS" as const }
+  }
+
+  it("approves with the draft only when validation passed with no warnings", async () => {
+    mocks.workflowStepFindFirst.mockImplementation(async ({ where }: { where: { name: string } }) =>
+      where.name === "TAILOR"
+        ? { output: { resumeId: "draft-1", validationStatus: "PASS", issueCount: 0, needsReview: false } }
+        : { output: { fields: { email: "ada@example.com" }, needsUserAnswer: [{ field: "salaryExpectation" }] } }
+    )
+    const outcome = await humanReviewExecutor(autonomous("HUMAN_REVIEW"))
+    expect(outcome.status).toBe("COMPLETED")
+    if (outcome.status !== "COMPLETED") return
+    expect(outcome.output).toMatchObject({
+      approved: true,
+      approvedBy: "AUTONOMOUS_POLICY",
+      useTailoredResume: true,
+      blockedQuestionCount: 1,
+    })
+  })
+
+  it("keeps the original resume when the draft has validation warnings", async () => {
+    mocks.workflowStepFindFirst.mockImplementation(async ({ where }: { where: { name: string } }) =>
+      where.name === "TAILOR"
+        ? { output: { resumeId: "draft-1", validationStatus: "NEEDS_REVIEW", issueCount: 2, needsReview: true } }
+        : { output: { fields: {}, needsUserAnswer: [] } }
+    )
+    const outcome = await humanReviewExecutor(autonomous("HUMAN_REVIEW"))
+    expect(outcome.status).toBe("COMPLETED")
+    if (outcome.status !== "COMPLETED") return
+    expect(outcome.output.useTailoredResume).toBe(false)
+    expect(String(outcome.output.policy)).toMatch(/warnings/)
+  })
+
+  it("still waits for a person in an assisted run", async () => {
+    const outcome = await humanReviewExecutor(context("HUMAN_REVIEW"))
+    expect(outcome.status).toBe("WAITING_FOR_USER")
+  })
+
+  it("stages the application's own resume when the policy declined the draft", async () => {
+    mocks.workflowStepFindMany.mockResolvedValue([
+      { name: "TAILOR", status: "COMPLETED", output: { resumeId: "draft-1", validationStatus: "NEEDS_REVIEW" } },
+      {
+        name: "HUMAN_REVIEW",
+        status: "COMPLETED",
+        output: { approved: true, approvedBy: "AUTONOMOUS_POLICY", useTailoredResume: false },
+      },
+    ])
+    const outcome = await stagingExecutor(autonomous("SUBMISSION_STAGING"))
+    expect(outcome.status).toBe("COMPLETED")
+    expect(mocks.stageSubmissionAttempt).toHaveBeenCalledWith(expect.objectContaining({ resumeId: "resume-1" }))
+    if (outcome.status !== "COMPLETED") return
+    expect(outcome.output).toMatchObject({ submitted: false, approvedBy: "AUTONOMOUS_POLICY", stagedResumeId: "resume-1" })
+  })
+})

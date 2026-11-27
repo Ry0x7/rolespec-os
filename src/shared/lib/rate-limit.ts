@@ -45,6 +45,8 @@ export const RATE_LIMIT_BUCKETS = {
   EXTENSION_EMAIL_REPLY: "extension:email-reply",
   /** One job-discovery run (fans out to several source requests), keyed on the user id. */
   DISCOVERY_RUN: "discovery:run",
+  /** One client-lead search (fans out to a few marketplace requests), keyed on the user id. */
+  CLIENT_LEAD_RUN: "clients:run",
   /** Adding one posting by its URL (one third-party page fetch), keyed on the user id. */
   DISCOVERY_ADD_URL: "discovery:add-url",
   /** Ranking a saved-job pool; the optional rerank is the only AI cost. */

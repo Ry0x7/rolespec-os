@@ -49,11 +49,34 @@ export const CAPABILITY_NAME_SUGGESTIONS = [
   "Copywriting",
   "SEO",
   "Social Media Marketing",
-  // Healthcare & operations
+  // Virtual support, automation & freelance
+  "Calendar Management",
+  "Inbox Management",
+  "Data Entry",
+  "Zapier",
+  "Make.com",
+  "n8n",
+  "ChatGPT",
+  "Prompt Engineering",
+  "Canva",
+  "Video Editing",
+  "Bookkeeping",
+  "QuickBooks",
+  // Healthcare, education & operations
   "Patient Care",
   "Clinical Documentation",
+  "Teaching",
+  "Lesson Planning",
   "Inventory Management",
   "Quality Assurance",
+  // Service & skilled trades
+  "Point of Sale",
+  "Food Safety",
+  "Guest Services",
+  "Workplace Safety",
+  "Electrical Wiring",
+  "Equipment Maintenance",
+  "Driving",
 ] as const
 
 export const CAPABILITY_CATEGORY_SUGGESTIONS = [
@@ -76,6 +99,11 @@ export const CAPABILITY_CATEGORY_SUGGESTIONS = [
   "Finance",
   "Human Resources",
   "Healthcare",
+  "Education",
+  "Hospitality & Retail",
+  "Skilled Trades",
+  "Logistics",
+  "Automation & AI Tools",
   "Leadership",
   "Communication",
   "Languages",
@@ -121,6 +149,23 @@ export const TARGET_ROLE_SUGGESTIONS = [
   "Registered Nurse",
   "Medical Assistant",
   "Virtual Assistant",
+  "Executive Assistant",
+  "AI Automation Specialist",
+  "Customer Support Representative",
+  "Social Media Manager",
+  "Graphic Designer",
+  "Video Editor",
+  "Bookkeeper",
+  "Online Tutor",
+  "Teacher",
+  "Retail Associate",
+  "Front Desk Agent",
+  "Line Cook",
+  "Warehouse Associate",
+  "Delivery Driver",
+  "Electrician",
+  "Maintenance Technician",
+  "Freelance Consultant",
 ] as const
 
 export const ROLE_FAMILY_SUGGESTIONS = [
@@ -145,6 +190,13 @@ export const ROLE_FAMILY_SUGGESTIONS = [
   "People & Recruiting",
   "Healthcare & Nursing",
   "Writing & Content",
+  "Virtual & Administrative Support",
+  "AI & Automation",
+  "Education & Training",
+  "Hospitality, Food & Retail",
+  "Logistics & Warehousing",
+  "Skilled Trades",
+  "Freelance & Client Work",
 ] as const
 
 /**

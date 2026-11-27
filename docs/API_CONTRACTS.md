@@ -313,7 +313,7 @@ rejected retroactively (`409`); edit the profile instead. Response `200`:
 
 The workflow engine is one durable run per application attempt. Every route
 requires the owner session; mutating routes also reject a foreign `Origin` with
-`403`. A run is created in `MANUAL` state even for `AGENT_ASSISTED`, then `START`
+`403`. A run is created in `MANUAL` state even for `AGENT_ASSISTED` and `AUTONOMOUS`, then `START`
 queues it. `mode` and `state` are separate on purpose: the mode says who does the
 work, the state says what is happening now.
 
@@ -367,7 +367,7 @@ list is small and owner-scoped.
 ```json
 {
   "jobApplicationId": "cuid?",
-  "mode": "MANUAL" | "AGENT_ASSISTED",
+  "mode": "MANUAL" | "AGENT_ASSISTED" | "AUTONOMOUS",
   "kind": "APPLICATION",
   "idempotencyKey": "8-120 chars, optional",
   "input": { "resumeId": "cuid?", "targetRole": "200 chars max" }
@@ -446,7 +446,7 @@ pipeline names.
 
 | Action | Legal from | Effect | Status |
 | --- | --- | --- | --- |
-| `START` | `MANUAL` | `AGENT_ASSISTED` → `ASSISTED` and schedule a tick; `MANUAL` stays `MANUAL` and is stamped started | `202` assisted, `200` manual |
+| `START` | `MANUAL` | `AGENT_ASSISTED` or `AUTONOMOUS` → `ASSISTED` and schedule a tick; `MANUAL` stays `MANUAL` and is stamped started | `202` assisted, `200` manual |
 | `RESUME` | `PAUSED` | Re-queues only when no checkpoint is open; otherwise returns to `AWAITING_REVIEW`. A `FAILED` run uses `RETRY` | `202` |
 | `RETRY` | `FAILED` | Resets only `FAILED` steps and re-queues the run | `202` |
 | `PAUSE` | `ASSISTED`, `AWAITING_REVIEW` | Clears the lease; in-flight output is discarded | `200` |

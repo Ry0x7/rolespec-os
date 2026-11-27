@@ -2053,3 +2053,412 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
 }
+
+/* ==========================================================================
+   Depth: scroll-linked 3D and pointer light
+   --------------------------------------------------------------------------
+   The hero mock starts tipped back and settles flat as it scrolls into view;
+   feature mocks turn in from the side. Transforms live on wrappers, never on
+   the clipping frame. Pointer light and tilt only exist for a real mouse.
+   ========================================================================== */
+.scroll-showcase {
+  perspective: 1400px;
+}
+
+.scroll-showcase-plane {
+  transform-origin: 50% 0%;
+  will-change: transform;
+}
+
+.scroll-turn {
+  perspective: 1600px;
+}
+
+.mock-stage-bezel {
+  position: relative;
+  transform: perspective(1200px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+}
+
+/* A soft light that follows the pointer across the device glass. The bezel is
+   dark in both themes, so a white light reads the same in each. */
+.mock-stage-bezel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.1), transparent 45%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mock-stage:hover .mock-stage-bezel,
+  .mock-stage:focus-within .mock-stage-bezel {
+    transform: perspective(1200px) translateY(-10px) scale(1.03) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  }
+
+  .mock-stage:hover .mock-stage-bezel::after {
+    opacity: 1;
+  }
+}
+
+/* Spotlight surface: a tinted light under the pointer, a firmer edge and a
+   small lift. Used for the bento cards and the download card. */
+.spotlight-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 22px;
+  background: var(--background);
+  transition: transform 320ms var(--ease-out), border-color 260ms ease, box-shadow 320ms var(--ease-out);
+}
+
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(520px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--link) 9%, transparent), transparent 42%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .spotlight-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--border);
+    box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.28);
+  }
+
+  [data-theme="dark"] .spotlight-card:hover {
+    box-shadow: 0 28px 70px -30px rgba(0, 0, 0, 0.9);
+  }
+
+  .spotlight-card:hover::before {
+    opacity: 1;
+  }
+}
+
+/* AI model rows: a quiet hover band instead of a dead list. */
+.model-row {
+  margin-inline: -12px;
+  padding-inline: 12px;
+  border-radius: 12px;
+  transition: background 200ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .model-row:hover {
+    background: var(--surface);
+  }
+}
+
+/* Download card lift */
+@media (hover: hover) and (pointer: fine) {
+  #quickstart .card {
+    transition: transform 320ms var(--ease-out), box-shadow 320ms var(--ease-out);
+  }
+
+  #quickstart .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.24);
+  }
+}
+
+/* ==========================================================================
+   Beyond jobs: bento of clients, Full AI mode and career fields
+   ========================================================================== */
+.bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (min-width: 860px) {
+  .bento {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .bento-cell--wide {
+    grid-column: span 2;
+  }
+
+  .bento-cell--full {
+    grid-column: 1 / -1;
+  }
+}
+
+.bento-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+
+.bento-copy h3 {
+  margin-top: 6px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.bento-copy p:not(.bento-kicker) {
+  margin-top: 8px;
+  max-width: 34rem;
+  color: var(--text-2);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.bento-kicker {
+  color: var(--link);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+@media (min-width: 860px) {
+  .bento-copy--row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: end;
+    gap: 32px;
+  }
+
+  .bento-copy--row p:not(.bento-kicker) {
+    margin-top: 0;
+  }
+}
+
+.bj-mock {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 14px;
+  font-size: 12px;
+}
+
+.bj-mock-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bj-field,
+.bj-cta {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--background);
+  padding: 6px 10px;
+  font-weight: 500;
+}
+
+.bj-field--muted {
+  color: var(--text-2);
+}
+
+.bj-cta {
+  margin-left: auto;
+  border-color: transparent;
+  background: var(--link);
+  color: #fff;
+}
+
+.bj-leads {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bj-lead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  background: var(--background);
+  padding: 8px 10px;
+  transition: transform 220ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .bj-lead:hover {
+    transform: translateX(4px);
+  }
+}
+
+.bj-lead .fm-chip {
+  font-size: 10px;
+}
+
+.bj-score {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bj-score--success { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
+.bj-score--link { background: color-mix(in srgb, var(--link) 12%, transparent); color: var(--link); }
+.bj-score--warning { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); }
+
+.bj-lead-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.bj-lead-copy strong,
+.bj-lead-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bj-lead-copy strong { font-weight: 600; }
+.bj-lead-copy small { color: var(--text-3); font-size: 11px; }
+
+.bj-searches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bj-search {
+  border-radius: 999px;
+  border: 1px dashed var(--border);
+  padding: 3px 9px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.bj-modes {
+  display: flex;
+  gap: 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--background);
+  padding: 3px;
+}
+
+.bj-mode {
+  flex: 1;
+  min-height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.bj-mode:hover { color: var(--text); }
+
+.bj-mode[aria-pressed="true"] {
+  background: var(--link);
+  color: #fff;
+}
+
+.bj-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bj-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bj-step .fm-chip {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.bj-step-dot {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: background 220ms ease, border-color 220ms ease;
+}
+
+.bj-step-dot.is-done {
+  border-color: var(--success);
+  background: var(--success);
+  color: #fff;
+}
+
+.bj-step-dot svg { width: 11px; height: 11px; }
+
+.bj-note {
+  min-height: 3em;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.bj-families {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bj-family {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 200ms ease, color 200ms ease, transform 220ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .bj-family:hover {
+    transform: translateY(-2px);
+    border-color: var(--link);
+    color: var(--link);
+  }
+}
+
+.bj-families--licensed {
+  margin-top: -8px;
+}
+
+.bj-family--licensed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--background);
+}
+
+.bj-family--licensed span {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: var(--warning);
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+}
