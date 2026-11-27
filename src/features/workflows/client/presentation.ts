@@ -22,16 +22,27 @@ export function readable(value: string) {
   return value.toLowerCase().replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase())
 }
 
+/** Agent-assisted and autonomous runs are both advanced by the worker. */
+export function isAgentMode(mode: WorkflowRunDTO["mode"]) {
+  return mode === "AGENT_ASSISTED" || mode === "AUTONOMOUS"
+}
+
+export const MODE_LABELS: Record<WorkflowRunDTO["mode"], string> = {
+  MANUAL: "Manual checklist",
+  AGENT_ASSISTED: "The agent prepares; you approve",
+  AUTONOMOUS: "Full AI · no review stops",
+}
+
 export function isLiveRun(run: WorkflowRunDTO) {
-  return run.mode === "AGENT_ASSISTED" && (run.state === "ASSISTED" || run.state === "AWAITING_REVIEW")
+  return isAgentMode(run.mode) && (run.state === "ASSISTED" || run.state === "AWAITING_REVIEW")
 }
 
 export function workflowActions(run: WorkflowRunDTO): string[] {
   if (run.state === "COMPLETED" || run.state === "CANCELLED") return []
-  if (run.state === "MANUAL") return [...(run.mode === "AGENT_ASSISTED" || !run.startedAt ? ["START"] : []), "CANCEL"]
+  if (run.state === "MANUAL") return [...(isAgentMode(run.mode) || !run.startedAt ? ["START"] : []), "CANCEL"]
   if (run.state === "ASSISTED" || run.state === "AWAITING_REVIEW") return ["PAUSE", "CANCEL"]
-  if (run.state === "PAUSED" && run.mode === "AGENT_ASSISTED") return ["RESUME", "CANCEL"]
-  if (run.state === "FAILED" && run.mode === "AGENT_ASSISTED") return ["RETRY", "CANCEL"]
+  if (run.state === "PAUSED" && isAgentMode(run.mode)) return ["RESUME", "CANCEL"]
+  if (run.state === "FAILED" && isAgentMode(run.mode)) return ["RETRY", "CANCEL"]
   return ["CANCEL"]
 }
 

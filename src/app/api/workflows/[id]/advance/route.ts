@@ -62,12 +62,12 @@ export async function POST(
   try {
     if (action === "START") {
       const workflow = await startWorkflow(userId, id)
-      if (workflow.mode === "AGENT_ASSISTED") await scheduleWorkflowTick()
+      if (workflow.mode !== "MANUAL") await scheduleWorkflowTick()
       return NextResponse.json({ workflow }, { status: 202 })
     }
     if (action === "RESUME") {
       const workflow = await resumeWorkflow(userId, id)
-      if (workflow.mode === "AGENT_ASSISTED") await scheduleWorkflowTick()
+      if (workflow.mode !== "MANUAL") await scheduleWorkflowTick()
       return NextResponse.json({ workflow }, { status: 202 })
     }
     if (action === "RETRY") {

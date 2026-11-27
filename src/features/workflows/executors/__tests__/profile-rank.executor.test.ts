@@ -170,6 +170,28 @@ describe("profileExecutor", () => {
     }
   })
 
+  it("uses the saved job as the goal in an autonomous run with no target role", async () => {
+    mocks.profileFindUnique.mockResolvedValue({
+      updatedAt: NOW,
+      contactEmail: null,
+      contactPhone: null,
+      salaryMin: null,
+      salaryMax: null,
+      targetRoles: [],
+      capabilities: [],
+      evidence: [],
+    })
+    mocks.applicationFindFirst.mockResolvedValue({ id: "app-1", job: { title: "Virtual Assistant" } })
+
+    const result = await profileExecutor({ ...context("PROFILE"), mode: "AUTONOMOUS" })
+
+    expect(result.status).toBe("COMPLETED")
+    if (result.status === "COMPLETED") {
+      expect(result.output.targetRoleSource).toBe("APPLICATION_JOB")
+      expect(result.summary).toContain("Virtual Assistant")
+    }
+  })
+
   it("reports confirmed profile counts without writing the profile", async () => {
     const result = await profileExecutor(context("PROFILE"))
 

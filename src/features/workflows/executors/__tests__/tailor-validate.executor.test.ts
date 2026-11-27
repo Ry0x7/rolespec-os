@@ -385,3 +385,28 @@ describe("validateExecutor", () => {
     }
   })
 })
+
+describe("tailorExecutor in autonomous mode", () => {
+  const AUTONOMOUS: WorkflowExecutionContext = { ...CONTEXT, mode: "AUTONOMOUS" }
+
+  it.each(["NO_CONTENT", "NO_CHANGES", "VALIDATION_FAILED", "PROVIDER_CONFIGURATION"])(
+    "continues on the original resume after %s instead of waiting",
+    async (reason) => {
+      mocks.findApplication.mockResolvedValue(APPLICATION)
+      mocks.tailor.mockResolvedValue({ ok: false, reason, message: "No draft.", runId: "tailor-run-1" })
+      const outcome = await tailorExecutor(AUTONOMOUS)
+      expect(outcome.status).toBe("SKIPPED")
+      if (outcome.status === "SKIPPED") {
+        expect(outcome.output).toMatchObject({ autonomous: true, resumeChoice: "SOURCE", tailoringOutcome: reason })
+      }
+    }
+  )
+
+  it("still stops when there is no resume at all", async () => {
+    mocks.findApplication.mockResolvedValue(APPLICATION)
+    mocks.tailor.mockResolvedValue({ ok: false, reason: "NO_RESUME", message: "No resume is selected." })
+    const outcome = await tailorExecutor(AUTONOMOUS)
+    // The worker turns this into a FAILED step for autonomous runs.
+    expect(outcome.status).toBe("WAITING_FOR_USER")
+  })
+})

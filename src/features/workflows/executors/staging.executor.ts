@@ -99,11 +99,16 @@ export const stagingExecutor: WorkflowExecutor = async (context) => {
     blockedQuestions,
   }
 
+  // An autonomous approval can decline the draft (validation warnings); a
+  // person's approval keeps the earlier behaviour of staging the draft.
+  const useTailoredResume = reviewOutput.useTailoredResume !== false
+  const stagedResumeId = (useTailoredResume ? tailoredResumeId : null) ?? application.resumeId
+
   const attempt = await stageSubmissionAttempt({
     userId: context.userId,
     jobApplicationId: application.id,
     workflowRunId: context.runId,
-    resumeId: tailoredResumeId ?? application.resumeId,
+    resumeId: stagedResumeId,
     source: "WORKFLOW",
     jobTitle: application.job.title,
     companyName: application.job.companyName,
@@ -128,6 +133,8 @@ export const stagingExecutor: WorkflowExecutor = async (context) => {
       },
       evidence,
       approvedAt,
+      approvedBy: reviewOutput.approvedBy === "AUTONOMOUS_POLICY" ? "AUTONOMOUS_POLICY" : "USER",
+      stagedResumeId: stagedResumeId ?? null,
     },
   }
 }

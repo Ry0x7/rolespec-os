@@ -10,7 +10,7 @@ import { ConfirmDialog } from "@/shared/ui/confirm-dialog"
 import { SegmentedControl } from "@/shared/ui/segmented-control"
 import { ResourceState } from "@/shared/components/resource-state"
 import { useWorkflow } from "../hooks/use-workflow"
-import { manualTool, nextManualStep, objectValue, readable, runTitle, safeSourceUrl, STEP_LABELS, workflowActions } from "../client/presentation"
+import { MODE_LABELS, manualTool, nextManualStep, objectValue, readable, runTitle, safeSourceUrl, STEP_LABELS, workflowActions } from "../client/presentation"
 import type { WorkflowRunDTO } from "../types"
 import { WorkflowOutput } from "./workflow-output"
 import { WorkflowRoom } from "./workflow-room"
@@ -70,7 +70,7 @@ export function WorkflowDetail({ runId }: { runId: string }) {
     {success && <p role="status" className="text-sm text-success">{success}</p>}
     {run && <>
       <div className="space-y-3 border-b border-border pb-5">
-        <div className="flex flex-wrap items-center gap-2"><Badge variant={run.state === "FAILED" ? "error" : run.state === "AWAITING_REVIEW" ? "warning" : "neutral"}>{readable(run.state)}</Badge><span className="text-xs text-muted-foreground">{run.mode === "MANUAL" ? "Manual checklist" : "The agent prepares; you approve"}</span></div>
+        <div className="flex flex-wrap items-center gap-2"><Badge variant={run.state === "FAILED" ? "error" : run.state === "AWAITING_REVIEW" ? "warning" : "neutral"}>{readable(run.state)}</Badge><span className="text-xs text-muted-foreground">{MODE_LABELS[run.mode]}</span></div>
         <h2 className="text-lg font-semibold">{runTitle(run)}</h2>
         <p className="text-xs text-muted-foreground">Last saved update <time dateTime={run.updatedAt}>{new Date(run.updatedAt).toLocaleString()}</time> · Run ID <span className="font-mono">{run.id.slice(-8)}</span></p>
         <p className="text-sm text-muted-foreground">{steps.filter((step) => step.required && step.status === "COMPLETED").length} required steps done · {steps.filter((step) => !step.required && step.status === "SKIPPED").length} optional steps skipped. Nothing is submitted for you.</p>
@@ -87,7 +87,8 @@ export function WorkflowDetail({ runId }: { runId: string }) {
         {run.lastError && <p role="alert" className="text-sm text-error">{run.lastError}</p>}
         {run.state === "FAILED" && <p className="text-sm text-muted-foreground">Use the manual tools or correct the reported issue, then retry failed work. Completed steps are preserved.</p>}
         <p className="text-xs text-muted-foreground">The agent runs while RoleSpec is open. Reopen RoleSpec to keep checking progress.</p>
-        {run.mode === "AGENT_ASSISTED" && run.state !== "COMPLETED" && run.state !== "CANCELLED" && <div className="space-y-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+        {run.mode !== "MANUAL" && run.state !== "COMPLETED" && run.state !== "CANCELLED" && <div className="space-y-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+          {run.mode === "AUTONOMOUS" && <p>Full AI mode does not stop for review. It approves its own preparation with a fixed policy: a tailored draft is used only when evidence validation passed with no warnings, otherwise your original resume goes forward. Questions only you can answer, such as work authorization or salary, are never answered for you; if one blocks a required step, the run stops and says which.</p>}
           <p>This run keeps the mode and job it started with. It reads your profile facts and the resume selected for this application when it needs them. If that resume cannot be used, it falls back to a usable master resume; if none is available, the agent stops and asks you to choose one. Changing the selected resume before tailoring can change the source.</p>
           {run.input?.resumeId && <Link className="inline-flex min-h-11 items-center text-brand-400 underline underline-offset-4" href={`/resumes/${encodeURIComponent(run.input.resumeId)}`}>Open resume requested at creation</Link>}
         </div>}

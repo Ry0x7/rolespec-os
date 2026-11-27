@@ -31,6 +31,28 @@ export const tailorExecutor: WorkflowExecutor = async (context) => {
   })
 
   if (!outcome.ok) {
+    // Autonomous runs keep going on the user's own resume when no supportable,
+    // claim-clean draft exists (or no AI provider is set up to draft one). Nothing invalid is saved or used either way;
+    // without any resume there is nothing to send, so that still stops the run.
+    if (
+      context.mode === "AUTONOMOUS" &&
+      (outcome.reason === "NO_CONTENT" ||
+        outcome.reason === "NO_CHANGES" ||
+        outcome.reason === "VALIDATION_FAILED" ||
+        outcome.reason === "PROVIDER_CONFIGURATION")
+    ) {
+      return {
+        status: "SKIPPED",
+        reason: `${truncate(outcome.message, 300)} Autonomous mode continues with your original resume.`,
+        output: {
+          skipped: true,
+          autonomous: true,
+          tailoringOutcome: outcome.reason,
+          tailoringRunId: outcome.runId ?? null,
+          resumeChoice: "SOURCE",
+        },
+      }
+    }
     switch (outcome.reason) {
       case "NO_RESUME":
         return {

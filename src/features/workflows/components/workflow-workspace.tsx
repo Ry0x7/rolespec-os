@@ -11,7 +11,7 @@ import { Drawer } from "@/shared/ui/drawer"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { WorkflowDetail } from "./workflow-detail"
 import type { WorkflowRunDTO } from "../types"
-import { readable, runTitle, STEP_LABELS } from "../client/presentation"
+import { MODE_LABELS, readable, runTitle, STEP_LABELS } from "../client/presentation"
 
 const STATES = ["MANUAL", "ASSISTED", "AWAITING_REVIEW", "PAUSED", "FAILED", "COMPLETED", "CANCELLED"]
 
@@ -46,7 +46,7 @@ export function WorkflowWorkspace({ initialRunId }: { initialRunId?: string }) {
     <div className={`grid min-w-0 gap-4 ${hasRuns ? "xl:min-h-0 xl:flex-1 xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-5" : ""}`}>
       {hasRuns && <ul aria-label="Agent runs" className="hidden min-w-0 divide-y divide-border self-start overflow-y-auto overscroll-contain rounded-lg border border-border xl:block xl:h-full">{list.data!.items.map((run) => {
         const current = run.steps.find((step) => step.status === "RUNNING" || step.status === "WAITING_FOR_USER")
-        return <li key={run.id}><button type="button" aria-pressed={selectedId === run.id} onClick={() => select(run.id)} className={`w-full space-y-2 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selectedId === run.id ? "bg-muted" : "hover:bg-muted/50"}`}><span className="block break-words text-sm font-semibold">{runTitle(run)}</span><span className="flex flex-wrap items-center gap-2"><Badge variant={run.state === "AWAITING_REVIEW" ? "warning" : run.state === "FAILED" ? "error" : "neutral"}>{readable(run.state)}</Badge><span className="text-xs text-muted-foreground">{run.mode === "MANUAL" ? "Checklist" : "Agent prepares · you approve"}</span></span>{current && <span className="block text-xs">{STEP_LABELS[current.name] || current.name}</span>}<span className="block text-xs text-muted-foreground">Updated {new Date(run.updatedAt).toLocaleString()} · <span className="font-mono">{run.id.slice(-8)}</span></span></button></li>
+        return <li key={run.id}><button type="button" aria-pressed={selectedId === run.id} onClick={() => select(run.id)} className={`w-full space-y-2 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selectedId === run.id ? "bg-muted" : "hover:bg-muted/50"}`}><span className="block break-words text-sm font-semibold">{runTitle(run)}</span><span className="flex flex-wrap items-center gap-2"><Badge variant={run.state === "AWAITING_REVIEW" ? "warning" : run.state === "FAILED" ? "error" : "neutral"}>{readable(run.state)}</Badge><span className="text-xs text-muted-foreground">{run.mode === "MANUAL" ? "Checklist" : MODE_LABELS[run.mode]}</span></span>{current && <span className="block text-xs">{STEP_LABELS[current.name] || current.name}</span>}<span className="block text-xs text-muted-foreground">Updated {new Date(run.updatedAt).toLocaleString()} · <span className="font-mono">{run.id.slice(-8)}</span></span></button></li>
       })}</ul>}
       {isDesktop && (
         <div className={`min-w-0 ${hasRuns ? "xl:h-full xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pr-1" : ""}`}>

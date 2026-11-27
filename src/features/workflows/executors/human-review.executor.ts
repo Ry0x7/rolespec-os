@@ -13,6 +13,9 @@ function asObject(value: unknown): Record<string, unknown> {
 }
 
 /**
+ * In an AUTONOMOUS run the same step applies a fixed approval policy instead
+ * of waiting (see below), and records exactly which policy decided.
+ *
  * HUMAN_REVIEW is a real checkpoint, not a status message. It always asks for
  * explicit approval before staging, names the actual role and company, and says
  * plainly that nothing has been submitted. The suggested value carries counts
@@ -63,6 +66,32 @@ export const humanReviewExecutor: WorkflowExecutor = async (context) => {
     validationStatus,
     validationIssueCount,
     needsReview,
+  }
+
+  if (context.mode === "AUTONOMOUS") {
+    // The recorded policy that stands in for the person. A draft is used only
+    // when the deterministic validator passed it with no warnings; a draft with
+    // warnings is left unselected and the user's own resume goes forward
+    // instead. Sensitive application questions stay unanswered either way.
+    const useTailoredResume = Boolean(tailoredResumeId) && validationStatus === "PASS" && !needsReview
+    return {
+      status: "COMPLETED",
+      summary: useTailoredResume
+        ? `Autonomous policy approved ${application.job.title} at ${application.job.companyName} with the evidence-checked draft.`
+        : `Autonomous policy approved ${application.job.title} at ${application.job.companyName} with your original resume.`,
+      output: {
+        ...suggestedValue,
+        approved: true,
+        approvedBy: "AUTONOMOUS_POLICY",
+        approvedAt: context.now.toISOString(),
+        useTailoredResume,
+        policy: useTailoredResume
+          ? "The tailored draft passed evidence validation with no warnings."
+          : tailoredResumeId
+            ? "The tailored draft has validation warnings, so it was not used."
+            : "No tailored draft exists, so your original resume is used.",
+      },
+    }
   }
 
   return {

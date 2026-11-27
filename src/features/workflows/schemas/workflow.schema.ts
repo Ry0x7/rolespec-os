@@ -14,7 +14,7 @@ const stepName = z.enum([
   "FOLLOW_UP",
 ])
 
-export const workflowModeSchema = z.enum(["MANUAL", "AGENT_ASSISTED"])
+export const workflowModeSchema = z.enum(["MANUAL", "AGENT_ASSISTED", "AUTONOMOUS"])
 
 export const workflowKindSchema = z.enum([
   "APPLICATION",
