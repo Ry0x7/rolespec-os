@@ -76,7 +76,9 @@ export function ShowcaseNav({ isReducedMotion, onToggleMotion, theme, onToggleTh
             href="https://ko-fi.com/ry0x7"
             target="_blank"
             rel="noreferrer"
-            className="hidden text-sm opacity-80 transition-opacity hover:opacity-100 md:inline"
+            // From lg only: at 768px the nav row has no room left and the page
+            // scrolled sideways. The footer and mobile menu carry it below that.
+            className="hidden text-sm opacity-80 transition-opacity hover:opacity-100 lg:inline"
             style={{ color: "var(--text-2)" }}
           >
             Support
