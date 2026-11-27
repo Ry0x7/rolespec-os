@@ -96,6 +96,19 @@ function bandFor(score: number): LeadBand {
   return "LONG_SHOT"
 }
 
+/**
+ * Where the work happens, trusting the post's own title over a source flag.
+ * Freelancer.com lets a client tick "local" on a project titled "UK Remote
+ * Legal PA", which put plainly remote work into on-site searches.
+ */
+export function effectiveWorkType(lead: Pick<LeadInput, "title" | "workType">): WorkType | undefined {
+  const title = lead.title.toLowerCase()
+  if (lead.workType !== "REMOTE" && /\bremote\b|\bwork from home\b|\bwfh\b/.test(title) && !/\bon[- ]?site\b|\bhybrid\b|\bin[- ]office\b/.test(title)) {
+    return "REMOTE"
+  }
+  return lead.workType
+}
+
 function locationMatches(postLocation: string | undefined, wanted: string | undefined): boolean {
   const place = postLocation?.toLowerCase() ?? ""
   const tokens = (wanted ?? "")
@@ -143,16 +156,17 @@ export function scoreClientLead(
   }
 
   // Where the work happens.
+  const workType = effectiveWorkType(lead)
   let arrangement = 0
   if (options.arrangement === "REMOTE") {
-    if (lead.workType === "REMOTE") {
+    if (workType === "REMOTE") {
       arrangement = 15
       reasons.push("Remote")
-    } else if (lead.workType === "ONSITE" || lead.workType === "HYBRID") {
+    } else if (workType === "ONSITE" || workType === "HYBRID") {
       cautions.push("Needs someone on site, but you asked for remote work")
     }
   } else if (options.arrangement === "ONSITE") {
-    if (lead.workType === "ONSITE" || lead.workType === "HYBRID") {
+    if (workType === "ONSITE" || workType === "HYBRID") {
       if (locationMatches(lead.location, options.location)) {
         arrangement = 15
         reasons.push(`On site in ${lead.location}`)
@@ -162,10 +176,10 @@ export function scoreClientLead(
           options.location ? `On site, but not clearly near ${options.location}` : "On site; check the location"
         )
       }
-    } else if (lead.workType === "REMOTE") {
+    } else if (workType === "REMOTE") {
       cautions.push("Remote work, but you asked for on-site clients")
     }
-  } else if (lead.workType) {
+  } else if (workType) {
     arrangement = 8
   }
 

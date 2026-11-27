@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { clearOnlinejobsRunClaims } from "@/features/discovery/services/adapters/onlinejobs.adapter"
 import { CLIENT_SERVICES, customClientService, findClientService } from "../data/services"
 import { buildClientSearchLinks } from "../lib/client-search-links"
-import { detectEngagement, scoreClientLead } from "../lib/lead-score"
+import { detectEngagement, effectiveWorkType, scoreClientLead } from "../lib/lead-score"
 import { clientSourcesFor, searchClientLeads } from "../services/client-leads.service"
 
 const NOW = new Date("2026-11-27T00:00:00Z")
@@ -33,6 +33,28 @@ describe("client service catalogue", () => {
     expect(custom.queries).toEqual(["Shopify store manager"])
     expect(custom.terms).toEqual(["shopify store manager", "shopify", "store", "manager"])
     expect(customClientService("   ")).toBeNull()
+  })
+})
+
+describe("effectiveWorkType", () => {
+  it("trusts a remote title over a source's on-site flag", () => {
+    expect(effectiveWorkType({ title: "UK Remote Legal PA Support / Assistant", workType: "ONSITE" })).toBe("REMOTE")
+    expect(effectiveWorkType({ title: "Work from home bookkeeper", workType: "ONSITE" })).toBe("REMOTE")
+  })
+
+  it("leaves an on-site or hybrid title and a plain title alone", () => {
+    expect(effectiveWorkType({ title: "Remote or on-site admin in Cebu", workType: "ONSITE" })).toBe("ONSITE")
+    expect(effectiveWorkType({ title: "Hybrid remote VA", workType: "HYBRID" })).toBe("HYBRID")
+    expect(effectiveWorkType({ title: "Office assistant", workType: "ONSITE" })).toBe("ONSITE")
+    expect(effectiveWorkType({ title: "Office assistant" })).toBeUndefined()
+  })
+
+  it("keeps a remote-titled post out of on-site credit", () => {
+    const fit = scoreClientLead(
+      { provider: "freelancer", title: "UK Remote Virtual Assistant", workType: "ONSITE", location: "On-site (location in the project)" },
+      { service: va, arrangement: "ONSITE", location: "Cebu City", now: NOW }
+    )
+    expect(fit.cautions).toContain("Remote work, but you asked for on-site clients")
   })
 })
 

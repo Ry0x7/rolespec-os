@@ -73,6 +73,18 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    name: "clients",
+    route: "/clients",
+    height: 1080,
+    async prepare(page) {
+      // Live client posts: the search reads public sources, so the leads differ
+      // from run to run, but the page always shows real results.
+      await page.getByRole("button", { name: "Find clients" }).click()
+      await page.locator("#client-leads-heading").waitFor({ timeout: 30_000 })
+      await page.waitForTimeout(500)
+    },
+  },
+  {
     name: "workspace",
     route: "/workspace",
     async prepare(page) {
@@ -134,6 +146,8 @@ async function captureMode(browser: Browser, mode: "light" | "dark", suffix: str
     // The first-run tour card is useful in the app, but it covers the lower
     // third of every marketing capture.
     localStorage.setItem("rolespec-tour", "skipped")
+    // Nor should the occasional support card appear in a product shot.
+    localStorage.setItem("rolespec-support-prompt", JSON.stringify({ days: [], snoozedUntil: null, never: true }))
   }, mode)
   await page.close()
 

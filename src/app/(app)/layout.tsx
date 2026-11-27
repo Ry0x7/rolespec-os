@@ -4,6 +4,7 @@ import { TimezoneSync } from "@/shared/components/timezone-sync"
 import { requireUser } from "@/features/auth/guards"
 import { canLockWorkspace } from "@/features/auth/config"
 import { ConnectionStatus } from "@/shared/components/connection-status"
+import { SupportPrompt } from "@/shared/components/support-prompt"
 
 /**
  * Blanket duration budget for the authenticated tree. Most pages here invoke a
@@ -28,6 +29,7 @@ export default async function AppLayout({
   return (
     <>
       <TimezoneSync />
+      <SupportPrompt />
       <div className="flex min-h-screen">
         <a href="#app-main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-background focus:p-3 focus:text-foreground focus:ring-2 focus:ring-ring">Skip to content</a>
         <Sidebar />

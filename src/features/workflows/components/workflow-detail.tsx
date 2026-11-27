@@ -10,7 +10,7 @@ import { ConfirmDialog } from "@/shared/ui/confirm-dialog"
 import { SegmentedControl } from "@/shared/ui/segmented-control"
 import { ResourceState } from "@/shared/components/resource-state"
 import { useWorkflow } from "../hooks/use-workflow"
-import { MODE_LABELS, manualTool, nextManualStep, objectValue, readable, runTitle, safeSourceUrl, STEP_LABELS, workflowActions } from "../client/presentation"
+import { MODE_LABELS, manualTool, nextManualStep, objectValue, readable, runStateLabel, runTitle, safeSourceUrl, STEP_LABELS, workflowActions } from "../client/presentation"
 import type { WorkflowRunDTO } from "../types"
 import { WorkflowOutput } from "./workflow-output"
 import { WorkflowRoom } from "./workflow-room"
@@ -70,7 +70,7 @@ export function WorkflowDetail({ runId }: { runId: string }) {
     {success && <p role="status" className="text-sm text-success">{success}</p>}
     {run && <>
       <div className="space-y-3 border-b border-border pb-5">
-        <div className="flex flex-wrap items-center gap-2"><Badge variant={run.state === "FAILED" ? "error" : run.state === "AWAITING_REVIEW" ? "warning" : "neutral"}>{readable(run.state)}</Badge><span className="text-xs text-muted-foreground">{MODE_LABELS[run.mode]}</span></div>
+        <div className="flex flex-wrap items-center gap-2"><Badge variant={run.state === "FAILED" ? "error" : run.state === "AWAITING_REVIEW" ? "warning" : "neutral"}>{runStateLabel(run)}</Badge><span className="text-xs text-muted-foreground">{MODE_LABELS[run.mode]}</span></div>
         <h2 className="text-lg font-semibold">{runTitle(run)}</h2>
         <p className="text-xs text-muted-foreground">Last saved update <time dateTime={run.updatedAt}>{new Date(run.updatedAt).toLocaleString()}</time> · Run ID <span className="font-mono">{run.id.slice(-8)}</span></p>
         <p className="text-sm text-muted-foreground">{steps.filter((step) => step.required && step.status === "COMPLETED").length} required steps done · {steps.filter((step) => !step.required && step.status === "SKIPPED").length} optional steps skipped. Nothing is submitted for you.</p>

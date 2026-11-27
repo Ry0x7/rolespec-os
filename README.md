@@ -7,7 +7,7 @@ discovery, client leads for freelance and service work, application tracking and
 agent-prepared applications. It covers remote and on-site work, from office and tech roles to
 virtual assistance, healthcare, hospitality and skilled trades. Published by **Chryypt Inc**.
 
-[Website](https://rolespec.ry0x7.dev/) · [Download for Windows](https://github.com/Ry0x7/rolespec-os/releases/latest) · [Issues](https://github.com/Ry0x7/rolespec-os/issues) · [Personal-use license](LICENSE)
+[Website](https://rolespec.ry0x7.dev/) · [Download for Windows](https://github.com/Ry0x7/rolespec-os/releases/latest) · [Issues](https://github.com/Ry0x7/rolespec-os/issues) · [Personal-use license](LICENSE) · [Support on Ko-fi](https://ko-fi.com/ry0x7)
 
 ## What it is
 
@@ -68,6 +68,10 @@ Full notes: [RoleSpec OS v2.2.0](docs/releases/v2.2.0.md) · [v2.1.3](docs/relea
   <tr>
     <td width="50%"><img src="screenshots/job-ats.png" alt="ATS analysis drawer" width="100%"></td>
     <td width="50%"><img src="screenshots/workspace.png" alt="Application pipeline" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="screenshots/clients.png" alt="Find clients with live virtual assistant leads ranked by fit" width="100%"></td>
+    <td width="50%"><img src="screenshots/dashboard-dark.png" alt="Dashboard in dark mode" width="100%"></td>
   </tr>
 </table>
 
@@ -196,6 +200,15 @@ that a listing is fraudulent.
 
 RoleSpec OS is published by **Chryypt Inc** and developed and maintained by
 [Ry0x7](https://github.com/Ry0x7).
+
+## Support
+
+RoleSpec OS is free and built by one person. If it helped your search, you can support it on
+[Ko-fi](https://ko-fi.com/ry0x7). The app works the same either way; it shows a small,
+dismissible reminder only after a few days of use, and **Don't show again** turns it off for good.
+A permanent **Support RoleSpec** link sits at the bottom of the sidebar.
+
+[![Support RoleSpec OS on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20RoleSpec-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/ry0x7)
 
 ## License
 

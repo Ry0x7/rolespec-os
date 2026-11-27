@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { memo, useCallback, useMemo, useSyncExternalStore } from "react"
-import { PanelLeftClose } from "lucide-react"
+import { Heart, PanelLeftClose } from "lucide-react"
+import { SUPPORT_URL } from "@/shared/lib/support-prompt"
 import { cn } from "@/shared/lib/utils"
 import { LogoMark } from "@/features/marketing/components/logo-mark"
 import { navigationGroups, footerNavigation } from "@/config/navigation"
@@ -200,6 +201,17 @@ export const SidebarNav = memo(function SidebarNav({
         <p className="sidebar-hint hidden px-2 pb-2 text-[11px] text-muted-foreground lg:block">
           Press <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">⌘K</kbd> for quick actions · <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">?</kbd> for shortcuts
         </p>
+        <a
+          href={SUPPORT_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Support RoleSpec on Ko-fi (opens in a new tab)"
+          title="Support RoleSpec on Ko-fi"
+          className="sidebar-nav-link flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-[background-color,color,transform] duration-150 ease-out hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99] lg:min-h-9"
+        >
+          <Heart className="h-[18px] w-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="sidebar-label truncate">Support RoleSpec</span>
+        </a>
         {footerNavigation.map((item) => (
           <NavLink
             key={item.href}

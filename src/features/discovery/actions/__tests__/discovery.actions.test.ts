@@ -1020,12 +1020,16 @@ describe("saveDiscoveredJob", () => {
     )
   })
 
-  it("keeps a free-text salary in the notes, since the column is numeric", async () => {
+  it("keeps a free-text salary in the notes and parses it onto the posting", async () => {
     await saveDiscoveredJob({ ...SAVE_INPUT, salaryText: "$80k - $100k" })
 
     expect(mockPrisma.jobApplication.create.mock.calls[0][0].data.notes).toBe(
       "Salary (as posted): $80k - $100k"
     )
+    const job = mockPrisma.job.create.mock.calls[0][0].data
+    expect(job.salaryText).toBe("$80k - $100k")
+    expect(Number(job.salaryMin)).toBe(80000)
+    expect(Number(job.salaryMax)).toBe(100000)
   })
 
   it("reports a failed write instead of throwing", async () => {

@@ -22,6 +22,16 @@ export function readable(value: string) {
   return value.toLowerCase().replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase())
 }
 
+/**
+ * A run's state for its badge. An agent run that has not started yet sits in
+ * the MANUAL state, which read as "Manual" next to "Full AI" and looked like
+ * the wrong mode had been used.
+ */
+export function runStateLabel(run: Pick<WorkflowRunDTO, "mode" | "state">) {
+  if (run.state === "MANUAL" && isAgentMode(run.mode)) return "Not started"
+  return readable(run.state)
+}
+
 /** Agent-assisted and autonomous runs are both advanced by the worker. */
 export function isAgentMode(mode: WorkflowRunDTO["mode"]) {
   return mode === "AGENT_ASSISTED" || mode === "AUTONOMOUS"

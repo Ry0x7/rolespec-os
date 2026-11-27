@@ -10,7 +10,7 @@ import { apiRequest } from "@/shared/lib/api-client"
 import { useApiResource } from "@/shared/hooks/use-api-resource"
 import type { WorkflowRunDTO } from "../types"
 import { useWorkflowMode } from "../hooks/use-workflow-mode"
-import { readable } from "../client/presentation"
+import { runStateLabel } from "../client/presentation"
 import { WorkflowDetail } from "./workflow-detail"
 import { WorkflowModeSwitch } from "./workflow-mode-switch"
 
@@ -47,7 +47,6 @@ export function PreparationPanel({ jobApplicationId, resumeId, resumeTitle }: { 
 
       let run = created.workflow
       setCreatedId(run.id)
-      setExpanded(true)
       void resource.reload()
 
       // Agent-first: creating the run starts it. The backend still enforces
@@ -69,6 +68,10 @@ export function PreparationPanel({ jobApplicationId, resumeId, resumeTitle }: { 
         }
       }
 
+      // Open the details only after the start: the detail view subscribes to
+      // live progress only for a run that is already running, so mounting it
+      // on the not-yet-started run left it frozen at "Waiting to run".
+      setExpanded(true)
       setIntent(null)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not create preparation.")
@@ -81,7 +84,7 @@ export function PreparationPanel({ jobApplicationId, resumeId, resumeTitle }: { 
     <div><h2 id="preparation-heading" className="text-lg font-semibold">Apply with the agent</h2><p className="mt-1 text-sm text-muted-foreground">The agent prepares the role, resume and answers. You approve the package, submit on the employer’s site, and record the outcome here.</p></div>
     <ResourceState loading={resource.loading} error={resource.error} offline={resource.offline} retry={resource.reload} hasData={Boolean(resource.data)} />
     {error && <p role="alert" className="rounded-md border border-error/40 p-3 text-sm">{error} <Link className="underline underline-offset-4" href="/workspace?view=runs">Open runs</Link></p>}
-    {active ? <div className="flex flex-wrap items-center gap-3 text-sm">{!expanded && <><Badge>{readable(active.state)}</Badge><span>{active.mode === "MANUAL" ? "Manual checklist" : active.mode === "AUTONOMOUS" ? "Full AI preparation" : "Agent preparation"} in progress</span></>}<Button variant="outline" onClick={() => { setExpanded((value) => !value); void resource.reload() }}>{expanded ? "Hide preparation" : "Open preparation"}</Button></div> : !resource.loading && resource.data && <div className="space-y-4">
+    {active ? <div className="flex flex-wrap items-center gap-3 text-sm">{!expanded && <><Badge>{runStateLabel(active)}</Badge><span>{active.mode === "MANUAL" ? "Manual checklist" : active.mode === "AUTONOMOUS" ? "Full AI preparation" : "Agent preparation"} in progress</span></>}<Button variant="outline" onClick={() => { setExpanded((value) => !value); void resource.reload() }}>{expanded ? "Hide preparation" : "Open preparation"}</Button></div> : !resource.loading && resource.data && <div className="space-y-4">
       <WorkflowModeSwitch />
       <p className="text-sm text-muted-foreground">{mode === "MANUAL" ? "No AI is required. Existing profile, resume and tracker tools remain available. A checklist records steps you complete yourself." : mode === "AUTONOMOUS" ? "One click runs the whole preparation with no stops for review. The agent ranks the role, researches the company, drafts and validates a tailored resume, approves the package with a fixed policy and stages it. It never invents an answer only you can give, and it never submits on the employer’s site." : "One click creates and starts the agent. It checks profile readiness, ranks the role, researches the company, drafts and validates a tailored resume, and prepares the application facts. It stops at your review before staging anything."}</p>
       {resumeId && <p className="text-sm text-muted-foreground">Currently selected: <Link className="text-brand-400 underline underline-offset-4" href={`/resumes/${encodeURIComponent(resumeId)}`}>{resumeTitle || "Open selected resume"}</Link></p>}

@@ -73,6 +73,16 @@ export function ShowcaseNav({ isReducedMotion, onToggleMotion, theme, onToggleTh
           </button>
 
           <a
+            href="https://ko-fi.com/ry0x7"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden text-sm opacity-80 transition-opacity hover:opacity-100 md:inline"
+            style={{ color: "var(--text-2)" }}
+          >
+            Support
+          </a>
+
+          <a
             href="https://github.com/Ry0x7/rolespec-os/releases/latest"
             target="_blank"
             rel="noreferrer"
@@ -105,6 +115,9 @@ export function ShowcaseNav({ isReducedMotion, onToggleMotion, theme, onToggleTh
                 <a href={l.href} onClick={() => setOpen(false)} className="flex min-h-11 items-center text-base" style={{ color: "var(--text)" }}>{l.label}</a>
               </li>
             ))}
+            <li>
+              <a href="https://ko-fi.com/ry0x7" target="_blank" rel="noreferrer" onClick={() => setOpen(false)} className="flex min-h-11 items-center text-base" style={{ color: "var(--text)" }}>Support on Ko-fi</a>
+            </li>
             <li>
               <button type="button" onClick={onToggleTheme} className="flex min-h-11 w-full items-center justify-between text-base" style={{ color: "var(--text)" }}>
                 <span>Dark appearance</span>
