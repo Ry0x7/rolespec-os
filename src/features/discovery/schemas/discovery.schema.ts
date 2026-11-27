@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { WorkType } from "@/generated/prisma/enums"
+import { JobType, WorkType } from "@/generated/prisma/enums"
 import { isHttpUrl } from "@/shared/lib/url"
 
 /**
@@ -23,6 +23,11 @@ export const saveDiscoveredJobSchema = z.object({
     .refine((v) => isHttpUrl(v), "Must be a valid http(s) URL"),
   location: z.string().max(200).optional(),
   workType: z.nativeEnum(WorkType).optional(),
+  /**
+   * Only the client finder sends this, and only when the post itself said how
+   * the work is engaged (a marketplace project, "part-time", "contract").
+   */
+  jobType: z.nativeEnum(JobType).optional(),
   salaryText: z.string().max(200).optional(),
   description: z.string().max(20000).optional(),
   /** ISO string; the client only ever echoes back what the server sent it. */

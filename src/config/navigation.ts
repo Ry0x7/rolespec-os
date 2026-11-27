@@ -1,4 +1,4 @@
-import { LayoutDashboard, LayoutPanelTop, FileText, Mail, Settings, Briefcase, CalendarCheck, Telescope, UserRoundCheck, IdCard, ListChecks } from "lucide-react"
+import { LayoutDashboard, LayoutPanelTop, FileText, Mail, Settings, Briefcase, CalendarCheck, Telescope, UserRoundCheck, IdCard, ListChecks, Handshake } from "lucide-react"
 
 /** Grouped sidebar navigation, organized by user intent rather than build phase. */
 export const navigationGroups = [
@@ -24,6 +24,8 @@ export const navigationGroups = [
       // and it used to be reachable only from a button on /jobs. `getActiveHref`
       // resolves the longest matching prefix, so this and /jobs never both light up.
       { label: "Find jobs", href: "/jobs/discover", icon: Telescope },
+      // Freelance and work-from-home clients, as opposed to employers.
+      { label: "Find clients", href: "/clients", icon: Handshake },
       { label: "Saved jobs", href: "/jobs", icon: Briefcase },
     ],
   },
@@ -55,6 +57,7 @@ const PAGE_TITLES: ReadonlyArray<readonly [string, string]> = [
   ["/workspace", "Application board"],
   ["/jobs/cover-letter", "Cover letters"],
   ["/jobs/discover", "Find jobs"],
+  ["/clients", "Find clients"],
   ["/jobs", "Saved jobs"],
   ["/planner", "Daily plan"],
   ["/linkedin", "LinkedIn"],
@@ -122,6 +125,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
   { id: "new-resume", label: "New resume", hint: "Start from your career profile or a blank page", href: "/resumes", keywords: "resume create new cv tailor", shortcut: "N R" },
   { id: "tailor-resume", label: "Rewrite your resume for a job", hint: "Pick a saved job, then prepare a version for it", href: "/jobs", keywords: "tailor match ats job", shortcut: "N T" },
   { id: "add-job", label: "Save a job", hint: "Add a posting to your saved jobs", href: "/jobs/discover", keywords: "job add track discover posting", shortcut: "N J" },
+  { id: "find-clients", label: "Find clients", hint: "Freelance, virtual assistant and AI automation leads", href: "/clients", keywords: "clients freelance virtual assistant va automation gig upwork remote work from home leads" },
   { id: "plan-day", label: "Plan today", hint: "Open your daily plan", href: "/planner", keywords: "plan today tasks follow up", shortcut: "G P" },
   { id: "open-workspace", label: "Open application board", hint: "See your applications and what the agent is doing", href: "/workspace", keywords: "workspace board pipeline", shortcut: "G W" },
   { id: "cover-letter", label: "Draft a cover letter", hint: "Write one for a saved job", href: "/jobs/cover-letter", keywords: "cover letter outreach draft", shortcut: "N C" },

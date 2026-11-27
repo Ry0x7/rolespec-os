@@ -17,6 +17,8 @@ export const PROVIDER_LABELS: Record<string, string> = {
   workday: "Workday",
   kalibrr: "Kalibrr",
   onlinejobsph: "OnlineJobs.ph",
+  /** Client projects on Freelancer.com, used by the client finder. */
+  freelancer: "Freelancer.com",
   /** A posting the user pasted the URL of, read straight off the page. */
   web: "Added by URL",
   firecrawl: "Firecrawl",
