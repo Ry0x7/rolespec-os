@@ -647,6 +647,29 @@ fields, password managers or unrelated browser behavior.
 such as provenance, freshness, completeness and an official application path. Keep these separate.
 Stale or incomplete listings are not proof of fraud or dishonest hiring.
 
+### Find clients (implemented)
+
+`/clients` (`src/features/clients`) finds client posts for service work: virtual assistance, AI
+automation, support, lead generation, design, tutoring, local on-site services and free-text
+services. It reuses the discovery adapters rather than adding a parallel pipeline:
+`clientSourcesFor` asks Freelancer.com, Remotive and OnlineJobs.ph for a remote search, and only
+Freelancer.com for an on-site one. The ATS company boards are left out because they list
+employees, not clients. The Freelancer.com adapter is not registered with job discovery, so Find
+jobs is unchanged.
+
+Results go through the same normalize-and-dedupe step, then `scoreClientLead` scores each post
+from its own text: whole-word service match, client or freelance engagement, remote/on-site fit,
+freshness and the existing scam heuristics. High risk demotes a lead and shows the reason. Posts
+that never mention the service are counted, not shown. The whole search stops after
+`CLIENT_SEARCH_TIMEOUT_MS` (12 s), a failing source reports itself without failing the search,
+and the action is rate limited (`clients:run`, 10 per 10 minutes).
+
+**Save lead** goes through `saveDiscoveredJob`, passing the lead's `jobType` (freelance, part
+time and so on) when the post shows one, so a lead is an ordinary
+owner-scoped opportunity. Drafting a proposal uses the user's profile. Nothing is sent to a
+client. Ready-made search links (`client-search-links.ts`) only build URLs for the user to open;
+they never fetch those sites.
+
 ### Ranking (implemented)
 
 `postings + confirmed profile → BM25 index → seven factors → composite → optional rerank → top-K`

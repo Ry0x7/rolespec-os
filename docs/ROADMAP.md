@@ -1,6 +1,6 @@
 # Roadmap and known gaps
 
-Updated: 2026-11-14. This is a remaining-work list, not a claim that every user
+Updated: 2026-11-27. This is a remaining-work list, not a claim that every user
 journey has been verified. The product is a private, single-owner workspace;
 feedback and portfolio showcasing do not require a hosted service.
 
@@ -23,10 +23,20 @@ feedback and portfolio showcasing do not require a hosted service.
   three-layer research and optional grounded reranking.
 - Evidence-checked tailoring with source snapshots, deterministic cliché
   rejection, version-specific rollback and a single-page PDF option.
-- Durable application workflow backend with manual and agent-assisted modes,
-  review checkpoints, SSE progress, retry/cancel and restart recovery, plus the
-  first-party preparation runs at `/workspace?view=runs` and the `/review`
-  questions, profile-proposal and answer-memory screen.
+- Durable application workflow backend with Manual, Agent-assisted and Full AI
+  (`AUTONOMOUS`) modes, review checkpoints, SSE progress, retry/cancel and
+  restart recovery, plus the first-party preparation runs at
+  `/workspace?view=runs` and the `/review` questions, profile-proposal and
+  answer-memory screen. Full AI completes review under a recorded policy, never
+  answers a question only the user can answer, and still stops at a staged
+  submission.
+- Find clients (`/clients`) for freelance and service work: scored public client
+  posts from Freelancer.com, Remotive and OnlineJobs.ph, remote or on-site, plus
+  ready-made searches on marketplaces, social hiring posts and local maps. Leads
+  are saved as opportunities; nothing is sent to a client.
+- A 48-role career catalogue in 18 fields, from office, tech and virtual support
+  to healthcare, hospitality, logistics and skilled trades, with licensed roles
+  behind a credential gate.
 - A phone-first workspace: the pipeline becomes one status column at a time,
   navigation does not scroll horizontally, and the desktop rail collapses from
   the mark beside the logo.
@@ -41,8 +51,9 @@ feedback and portfolio showcasing do not require a hosted service.
 - Encrypted ATS answer memory, server-side review queue and a documented
   extension API.
 - Docker/Node self-hosting and a Windows x64 NSIS installer produced by the
-  tag workflow. v2.0.0 is the current release; a clean install of the current
-  build is still outstanding and the installer is not Authenticode-signed.
+  tag workflow, with signed in-app updates on stable and beta channels. v2.2.0
+  is the current release. In-place updates through v2.1.3 are recorded in
+  [VERIFICATION.md](VERIFICATION.md); the installer is not Authenticode-signed.
 
 ## Verified runtime evidence
 
@@ -88,9 +99,13 @@ frontend pass is in [FRONTEND_QA.md](FRONTEND_QA.md).
    on 2026-11-13 (see [VERIFICATION.md](VERIFICATION.md)). Remaining: cancel
    during an actual provider call, recovery under load, and broader
    device/provider combinations.
-7. **Discovery coverage.** Record which sources work, restrict access or are
-   unavailable; verify Philippine coverage before adding adapters. Do not turn a
-   heuristic listing signal into a factual claim.
+6. **Discovery and client-lead coverage.** Record which sources work, restrict
+   access or are unavailable, for Find jobs and Find clients alike; verify
+   Philippine coverage before adding adapters. Do not turn a heuristic listing
+   signal into a factual claim.
+7. **Full AI live run.** Walk a Full AI preparation with a real provider through
+   to the staged submission, including a required question that must stop the
+   run and an optional one that must be skipped.
 8. **Extension regression.** Verify active-tab capture, site grants and badge
    behavior on supported boards; confirm login forms, password managers and
    unrelated page behavior remain unaffected.
@@ -117,9 +132,8 @@ frontend pass is in [FRONTEND_QA.md](FRONTEND_QA.md).
   establish a verified publisher.
 - Authenticode signing is not configured. The updater's own signatures are
   separate from Windows publisher identity.
-- A clean-machine install/upgrade of the current v2.0.0 build is still
-  outstanding. Runtime, data paths and troubleshooting are in
-  [DESKTOP.md](DESKTOP.md).
+- A clean-machine install of the current v2.2.0 build has not been recorded.
+  Runtime, data paths and troubleshooting are in [DESKTOP.md](DESKTOP.md).
 - CLI and local-model AI options still require separate installation and
   configuration.
 
