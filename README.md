@@ -34,6 +34,9 @@ Full notes: [RoleSpec OS v2.1.3](docs/releases/v2.1.3.md) · [v2.1.2](docs/relea
 - **Resume studio** — master, role-family and job-tailored resumes; eight PDF templates; live preview.
 - **ATS matching** — quality and job-match scores with concrete fixes and a re-analyze loop.
 - **Agent-assisted apply** — research, tailor, validate, prepare ATS answers, then hand off for review.
+- **Full AI mode** — the same preparation run end to end with no review stops; it stages the package and never submits or answers personal questions for you.
+- **Find clients** — public client posts for virtual assistants, AI automation, support, design, tutoring, local services and more, scored for fit and scam signals, plus ready-made searches on freelance marketplaces, social hiring posts and local maps.
+- **Any career path** — a 48-role catalogue spanning office, tech, support, finance, teaching, healthcare, hospitality, logistics and skilled trades, remote or on site.
 - **Job discovery and tracking** — saved roles, applications, interviews, follow-ups and outcomes.
 - **Dashboard and daily status** — today's applications, follow-ups due and the next seven days first, with a configurable daily goal and colour-coded states.
 - **Pipeline board** — drag applications across seven statuses on desktop, or work one column at a time on a phone, with goals and response stats.

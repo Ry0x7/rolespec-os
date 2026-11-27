@@ -1,13 +1,13 @@
 # Career Path Intelligence — dataset evaluation
 
-**Status:** implemented with a local, versioned 25-role catalogue. No ESCO or
+**Status:** implemented with a local, versioned 48-role catalogue covering office, technical, support, care, teaching, service and trade work. No ESCO or
 O*NET content is bundled, imported or redistributed today. This note records
 what was evaluated, what was decided, and what would be required before adopting
 an upstream dataset.
 
 ## Decision summary
 
-The shipped catalogue (`career-path-seed-2026.11.1`) is a locally written
+The shipped catalogue (`career-path-seed-2026.11.2`) is a locally written
 crosswalk seed. Titles, summaries, capability requirements and adjacent/growth
 edges are original to this project. It does **not** copy upstream descriptions,
 labels or codes, and it contains **no salary data**. The deterministic engine
