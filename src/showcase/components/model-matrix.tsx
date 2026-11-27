@@ -47,7 +47,7 @@ export function ModelMatrix() {
             <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--text-3)" }}>{cat.title}</h3>
             <ul className="mt-4 divide-y" style={{ borderColor: "var(--border-soft)" }}>
               {cat.models.map((m) => (
-                <li key={m.name} className="border-t py-4" style={{ borderColor: "var(--border-soft)" }}>
+                <li key={m.name} className="model-row border-t py-4" style={{ borderColor: "var(--border-soft)" }}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-base font-semibold">{m.name}</span>
                     <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: "var(--success)" }}>

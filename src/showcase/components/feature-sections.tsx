@@ -2,6 +2,7 @@ import React, { useState } from "react"
 import { motion } from "framer-motion"
 
 import { FeatureMock, type FeatureMockKind } from "./feature-mocks"
+import { ScrollTurn } from "./depth"
 import { MockDialog, MockStage, type MockGalleryItem } from "./mock-stage"
 
 interface FeatureSection {
@@ -26,7 +27,7 @@ const SECTIONS: FeatureSection[] = [
   },
   {
     title: "Apply with the agent",
-    body: "One click researches the company, ranks the role, tailors and validates the resume, and prepares the application facts. It stops for your review; final submit stays with you.",
+    body: "One click researches the company, ranks the role, tailors and validates the resume, and prepares the application facts. Agent-assisted stops for your review; Full AI runs straight through to a ready package. Either way, the final submit stays with you.",
     kind: "agent",
     mockAlt: "Agent preparation showing research, ranking, tailoring, validation and a human review step",
   },
@@ -50,7 +51,7 @@ const ITEMS: MockGalleryItem[] = SECTIONS.map((section) => ({
   render: () => <FeatureMock kind={section.kind} />,
 }))
 
-export function FeatureSections() {
+export function FeatureSections({ isReducedMotion }: { isReducedMotion: boolean }) {
   const [openIndex, setOpenIndex] = useState(0)
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -77,7 +78,9 @@ export function FeatureSections() {
                 {section.body}
               </p>
             </div>
-            <MockStage item={ITEMS[index]} onExpand={() => openPreview(index)} />
+            <ScrollTurn from={index % 2 === 1 ? 14 : -14} isReducedMotion={isReducedMotion}>
+              <MockStage item={ITEMS[index]} onExpand={() => openPreview(index)} />
+            </ScrollTurn>
           </motion.div>
         ))}
       </div>

@@ -10,6 +10,8 @@ import { ModelMatrix } from "./components/model-matrix"
 import { QuickstartTabs } from "./components/quickstart-tabs"
 import { ShowcaseFooter } from "./components/showcase-footer"
 import { DashboardMock } from "./components/dashboard-mock"
+import { BeyondJobs } from "./components/beyond-jobs"
+import { ScrollShowcase } from "./components/depth"
 
 const RELEASES_URL = "https://github.com/Ry0x7/rolespec-os/releases/latest"
 
@@ -65,7 +67,7 @@ function ShowcaseApp() {
         <a href="#main-content" className="skip-link">Skip to content</a>
         <ShowcaseNav isReducedMotion={isReducedMotion} onToggleMotion={toggleMotion} theme={theme} onToggleTheme={toggleTheme} />
 
-        <main id="main-content">
+        <main id="main-content" className="overflow-x-clip">
           {/* HERO — headline, action, product. Nothing else. */}
           <section aria-labelledby="hero-heading" className="mx-auto max-w-5xl px-4 pb-12 pt-16 text-center sm:px-6 sm:pt-24">
             <motion.h1
@@ -85,8 +87,8 @@ function ShowcaseApp() {
               className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed sm:text-xl"
               style={{ color: "var(--text-2)" }}
             >
-              Tailor your resume to any role, score against ATS filters, let the
-              agent prepare the application, and track every step — on your own
+              Tailor your resume to any role, find clients for freelance work, let
+              the agent prepare the application, and track every step, on your own
               machine.
             </motion.p>
 
@@ -117,17 +119,20 @@ function ShowcaseApp() {
             </motion.p>
 
             {/* The product, as an interactive mock rather than a downscaled
-                screenshot. Text stays readable, and there is no 3D transform to
-                clip the frame's corners. */}
+                screenshot. It starts tipped back and settles flat as the reader
+                scrolls to it; the tilt sits on a wrapper, so the frame itself
+                never clips its own corners. */}
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
               className="mx-auto mt-12 max-w-4xl"
             >
-              <div className="hero-demo-frame">
-                <DashboardMock />
-              </div>
+              <ScrollShowcase isReducedMotion={isReducedMotion}>
+                <div className="hero-demo-frame">
+                  <DashboardMock />
+                </div>
+              </ScrollShowcase>
               <p className="mx-auto mt-4 max-w-xl text-sm text-pretty" style={{ color: "var(--text-3)" }}>
                 Interactive product preview — switch between Today and Pipeline, click a ranked role to see its evidence, or prepare the next application.
               </p>
@@ -135,7 +140,8 @@ function ShowcaseApp() {
           </section>
 
           <WorkflowPreview isReducedMotion={isReducedMotion} />
-          <FeatureSections />
+          <FeatureSections isReducedMotion={isReducedMotion} />
+          <BeyondJobs />
           <ModelMatrix />
           <QuickstartTabs />
         </main>
